@@ -286,10 +286,11 @@ Current question + bounded conversation context
 
 ### 9.1 Dense retrieval
 
-- A self-hosted embedding model of at most approximately 0.8B parameters produces query and chunk vectors.
+- An on-device self-hosted embedding model of at most approximately 0.8B parameters produces query and chunk vectors on the interview MacBook.
 - Qdrant search is always filtered by backend-generated `owner_id`, `paper_id`, and `document_version`.
-- The initial model candidate is BGE-M3; it is retained only if it fits memory and improves the fixed evaluation set.
-- The embedding runtime exposes an internal OpenAI-compatible HTTP contract so the application is not tied to one runtime.
+- BGE-M3 is the initial model candidate. It is retained only if native ARM64 benchmarks show acceptable memory, latency, and retrieval quality on the fixed evaluation set.
+- A native Ollama runtime is the default serving candidate. FastAPI and the worker access the single loaded model through an internal HTTP client; containers reach the host runtime through the configured host address.
+- Model identity, runtime packaging, quantization, vector dimension, and embedding version are recorded separately. Changing the embedding model creates a new index version; vectors from different models are never mixed.
 
 ### 9.2 Lexical retrieval
 
@@ -334,15 +335,33 @@ The backend exposes stable stream events:
 
 Provider-specific event shapes never reach the frontend.
 
-### 10.1 Model locations and API-call budget
+### 10.1 Model locations and request budget
 
-Ingestion uses local parsing, chunking, self-hosted embedding, and Qdrant indexing. It makes zero hosted generation calls.
+Researcy distinguishes three request types:
 
-For an independent question, the baseline performs one local query-embedding call, lexical and dense retrieval, and one hosted generation call. A short or anaphoric follow-up may add one hosted query-rewrite call before retrieval. Citation validation is local; only a failed citation validation may add one hosted repair call, and repair is attempted at most once.
+1. **Application API request:** the browser calls FastAPI. This is not a model request.
+2. **Internal embedding request:** FastAPI or the worker calls the on-device self-hosted embedding runtime. It does not leave the machine and has no per-token vendor charge.
+3. **External paid generation request:** FastAPI calls the vendor-hosted generator over HTTPS with server-side credentials.
 
-Hosted model credentials remain server-side. The browser only receives Researcy stream events. Input context and output tokens are bounded, usage and estimated cost are recorded without prompt contents, and a request is not blindly retried after streaming has begun.
+Ingestion uses local deterministic parsing and chunking, batched internal embedding requests, and local Qdrant indexing. It makes zero external paid model requests.
 
-The embedding model and hosted generator are selected independently. Changing the embedding model creates a new embedding/index version; vectors produced by different models are never mixed.
+For an independent question, the baseline performs one internal query-embedding request, lexical and dense retrieval, and one external generation request. A short or anaphoric follow-up may add one external query-rewrite request before retrieval. Citation validation is local deterministic computation; only failed validation may add one external repair request, attempted at most once.
+
+| Flow | External paid model requests |
+|---|---:|
+| Paper ingestion | 0 |
+| Independent question | 1 |
+| Follow-up requiring query rewrite | 2 |
+| Citation repair | Adds at most 1 |
+| Worst case for one turn | 3 |
+
+The normal path is one paid request per question; the worst case is not the target operating mode. Rewrite and repair rates are recorded so repeated extra calls reveal a pipeline defect rather than becoming accepted cost.
+
+The vendor-hosted generator receives only grounding instructions, bounded conversation context, and selected chunks with stable source IDs—not the complete PDF. It must support streaming, structured citation output, token usage metadata, and clear timeout/error behavior. The MVP configures one qualified generator and does not implement automatic multi-provider fallback.
+
+Hosted credentials remain server-side. Input context and output tokens are bounded, usage and estimated cost are recorded without prompt contents, and a request is not blindly retried after streaming has begun.
+
+The backend keeps separate `EmbeddingClient` and `GenerationClient` interfaces because their batching, lifecycle, failure, privacy, and cost semantics differ. It does not introduce a universal model-provider abstraction.
 
 ### 10.2 Runtime citation validation
 
@@ -577,7 +596,7 @@ The interview environment uses Docker Compose for:
 - `qdrant`
 - `minio`
 
-The embedding runtime may run natively on ARM64 when benchmark results show better memory or stability than a container. It still exposes the same internal HTTP contract.
+The embedding runtime runs natively on ARM64 on the interview MacBook, with Ollama as the default serving candidate. This avoids loading model weights in both API and worker processes and avoids Docker architecture emulation. Containerized API and worker processes use the same internal HTTP contract to reach the host runtime.
 
 A single demo entry point must:
 
@@ -585,7 +604,7 @@ A single demo entry point must:
 2. start dependencies with health checks;
 3. apply database migrations;
 4. verify Qdrant, object storage, embedding, and hosted generation access;
-5. optionally warm the local embedding model;
+5. warm the on-device self-hosted embedding model;
 6. print the application URL and readiness result.
 
 No always-on public deployment is required.
@@ -635,9 +654,9 @@ Keep explicit character-range mappings during every normalization step. Reject t
 
 Qualify two bounded parser pipelines against a fixed corpus before committing. Keep parser outputs behind the canonical document model.
 
-### 22.3 Local models exceed the 8 GB memory budget
+### 22.3 On-device embedding exceeds the 8 GB memory budget
 
-Run one worker concurrently, benchmark peak memory, keep embedding behind an HTTP boundary, and prefer a smaller model when retrieval quality is not materially worse.
+Run one worker concurrently, serve one native model instance, benchmark peak memory alongside the Compose stack, and select a smaller embedding model when BGE-M3 does not produce enough retrieval improvement to justify its memory cost. Do not silently switch to a vendor embedding API because that changes cost, privacy, and vector-space contracts.
 
 ### 22.4 Hosted generation produces invalid or unsupported citations
 
@@ -671,8 +690,8 @@ Use the north-star loop and explicit non-goals as the acceptance filter. A featu
 - **Chosen:** simplified Library and fixed Reader split.  
   **Rejected:** premature filters, list/grid switching, and draggable panels.
 
-- **Chosen:** hosted generation plus self-hosted embedding.  
-  **Rejected:** fully self-hosted generation on the 8 GB interview machine.
+- **Chosen:** on-device self-hosted embedding through a native ARM64 runtime plus one vendor-hosted generation API.  
+  **Rejected:** vendor-hosted embeddings, duplicated in-process model loads, and a fully local generator on the 8 GB interview machine.
 
 - **Chosen:** Google OAuth followed by an opaque server-side application session.  
   **Rejected:** application JWT for the browser because the MVP benefits from revocation and has no portable-token consumer.
@@ -686,3 +705,4 @@ The following sections were reviewed and approved in conversation:
 3. retrieval, generation, citation, and evaluation design;
 4. V4-derived product UX and visual direction using `ui-ux-pro-max` guidance;
 5. reliability, security, verification, and the final PostgreSQL-only job decision.
+6. on-device self-hosted embedding terminology and external model request budget.
