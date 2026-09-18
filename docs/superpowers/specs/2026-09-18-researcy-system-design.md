@@ -1,9 +1,13 @@
 # Researcy System Design
 
-**Status:** Draft for user review  
-**Date:** 2026-09-18  
+**Status:** Approved master specification  
+**Revision:** 1.0  
+**Approved:** 2026-09-18  
 **Timebox:** 4–6 weeks  
-**Primary portfolio objective:** Demonstrate a complete, trustworthy end-to-end AI product
+**Primary portfolio objective:** Demonstrate a complete, trustworthy end-to-end AI product  
+**Authority:** Normative source for product scope, system boundaries, cross-cutting contracts, and acceptance criteria. Child specifications may add local detail but may not silently override this document.
+
+Any architectural change that conflicts with this baseline requires an explicit master-spec revision and approval before its child specification or implementation plan changes.
 
 ## 1. Product thesis
 
