@@ -63,7 +63,7 @@ The sequence is dependency-ordered for one developer. Only the active milestone 
 - exact evidence resolution demonstrated on the golden paper;
 - throwaway probe code is not treated as production foundation.
 
-**Status:** Not started
+**Status:** Designed
 
 ### M1 — Identity and Personal Library
 
@@ -201,12 +201,12 @@ The sequence is dependency-ordered for one developer. Only the active milestone 
 | SEC-01 | Untrusted PDF validation and bounded parser execution | 4, 17 | M1, M2 | Not started | — |
 | JOB-01 | PostgreSQL durable jobs with claim leases and recovery | 8 | M2 | Not started | — |
 | DOC-01 | Canonical document model with reversible provenance | 6 | M2 | Not started | — |
-| PARSE-01 | Qualified scientific PDF parser | 7 | Q0, M2 | Not started | — |
-| EMB-01 | On-device self-hosted embedding within the M1 budget | 9, 10, 20 | Q0, M2 | Not started | — |
+| PARSE-01 | Qualified scientific PDF parser | 7 | Q0, M2 | Designed | Q0 spec revision 1.0 |
+| EMB-01 | On-device self-hosted embedding within the M1 budget | 9, 10, 20 | Q0, M2 | Designed | Q0 spec revision 1.0 |
 | IDX-01 | User- and paper-scoped Qdrant index | 5, 9 | M2 | Not started | — |
 | RET-01 | Lexical + dense retrieval with RRF | 9 | M3 | Not started | — |
-| GEN-01 | Vendor-hosted streaming grounded generation | 10 | Q0, M3 | Not started | — |
-| CIT-01 | Citation validation and quote-to-geometry resolution | 10 | Q0, M3, M4 | Not started | — |
+| GEN-01 | Vendor-hosted streaming grounded generation | 10 | Q0, M3 | Designed | Q0 spec revision 1.0 |
+| CIT-01 | Citation validation and quote-to-geometry resolution | 10 | Q0, M3, M4 | Designed | Q0 spec revision 1.0 |
 | UX-01 | Simplified editorial Library experience | 12, 13 | M1 | Not started | — |
 | UX-02 | Evidence-linked PDF and Discussion workspace | 12–14 | M4 | Not started | — |
 | EVAL-01 | Fixed corpus and separated quality metrics | 11 | M5 | Not started | — |
@@ -226,4 +226,4 @@ A requirement with multiple milestones has one delivery owner and earlier qualif
 
 ## 7. Current control point
 
-The master specification is approved at revision 1.0. Q0 Technical Qualification is the next child specification to design. No production implementation plan is authorized before Q0 is approved and its bounded probe plan is written.
+The master specification is approved at revision 1.0. Q0 Technical Qualification is designed and approved at revision 1.0. Its bounded implementation plan is the active control point; no production M1 work is authorized before Q0 reaches its exit gate.

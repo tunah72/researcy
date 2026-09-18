@@ -1,7 +1,8 @@
 # Researcy Q0 Technical Qualification Specification
 
-**Status:** Draft for user review  
-**Date:** 2026-09-18  
+**Status:** Approved child specification  
+**Revision:** 1.0  
+**Approved:** 2026-09-18  
 **Parent:** [`2026-09-18-researcy-system-design.md`](./2026-09-18-researcy-system-design.md), revision 1.0  
 **Delivery control:** [`2026-09-18-researcy-delivery-map.md`](./2026-09-18-researcy-delivery-map.md)  
 **Path:** Spike  
