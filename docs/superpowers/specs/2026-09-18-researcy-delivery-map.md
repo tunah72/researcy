@@ -63,7 +63,7 @@ The sequence is dependency-ordered for one developer. Only the active milestone 
 - exact evidence resolution demonstrated on the golden paper;
 - throwaway probe code is not treated as production foundation.
 
-**Status:** Designed
+**Status:** Planned
 
 ### M1 — Identity and Personal Library
 
@@ -226,4 +226,4 @@ A requirement with multiple milestones has one delivery owner and earlier qualif
 
 ## 7. Current control point
 
-The master specification is approved at revision 1.0. Q0 Technical Qualification is designed and approved at revision 1.0. Its bounded implementation plan is the active control point; no production M1 work is authorized before Q0 reaches its exit gate.
+The master specification is approved at revision 1.0. Q0 Technical Qualification is approved at revision 1.0 and planned in `docs/superpowers/plans/2026-09-18-researcy-q0-technical-qualification.md`. Execution must start in a new isolated worktree and use the separate-session execution workflow; no production M1 work is authorized before Q0 reaches its exit gate.
