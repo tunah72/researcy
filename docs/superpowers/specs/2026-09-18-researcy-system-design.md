@@ -85,10 +85,9 @@ Browser
 Next.js experience layer
   ↓
 FastAPI modular monolith
-  ├── PostgreSQL
+  ├── PostgreSQL relational data + durable jobs
   ├── Qdrant
   ├── S3-compatible object storage
-  ├── Redis queue
   ├── Hosted generation API
   └── Python worker → self-hosted embedding runtime
 ```
@@ -143,7 +142,6 @@ Each stage is idempotent by `document_version` and deterministic artifact keys.
 - ingestion jobs, stage progress, attempts, and errors;
 - pages, sections, blocks, spans, chunks, and provenance mappings;
 - conversations, messages, answers, claims, and citations;
-- queue outbox events.
 
 **Object storage is authoritative for:**
 
@@ -240,34 +238,38 @@ GROBID is not part of the MVP baseline because it adds another runtime and does 
 
 ## 8. Queue and job reliability
 
-Dramatiq uses Redis as the task broker. PostgreSQL remains the authoritative job ledger.
+PostgreSQL is both the authoritative job ledger and the durable queue. The MVP does not add Redis or a separate broker.
 
 ### 8.1 Dispatch flow
 
 ```text
 Database transaction
-  ├── create paper/document version/job
-  └── create outbox event
+  ├── create paper/document version
+  └── insert queued ingestion job
           ↓
-Outbox dispatcher
+Worker claims one due job
+  SELECT ... FOR UPDATE SKIP LOCKED
           ↓
-Redis broker
+Worker executes idempotent stages
           ↓
-Dramatiq worker(job_id)
+PostgreSQL stage/progress/result
 ```
 
-Task payloads contain only a `job_id`. PDF text, prompts, and sensitive metadata are not copied into Redis.
+The API commits the paper, document version, and job atomically. It can then return `202 Accepted`; ingestion does not depend on the HTTP connection remaining open.
 
-### 8.2 Delivery contract
+### 8.2 Claim and recovery contract
 
-- Delivery is at least once.
-- Outbox creation and job creation happen in one database transaction.
-- The dispatcher marks an event dispatched only after Redis accepts it.
-- Undispatched events are retried.
-- A reconciliation loop finds jobs stuck in `pending_dispatch` or `running` beyond their timeout.
-- Redis persistence is enabled for the demo environment but is not treated as business state.
-- Redis is not used as the job result backend.
-- Duplicate delivery is safe because every stage is idempotent.
+- One worker polls for due jobs with bounded backoff.
+- Claiming uses a short transaction and `FOR UPDATE SKIP LOCKED` so two workers cannot claim the same available row concurrently.
+- A claimed job records `locked_by`, `lease_expires_at`, `heartbeat_at`, `attempts`, and the current stage.
+- The worker commits the claim before performing expensive work; it never holds a database transaction open while parsing or embedding.
+- Heartbeats extend the lease during long stages.
+- A worker crash leaves durable stage state. After lease expiry, the job becomes claimable again.
+- Retry sets `run_after` using bounded backoff and preserves a safe error code.
+- Execution remains at least once, so every stage uses deterministic artifact keys and idempotent writes.
+- One worker is the default on the 8 GB interview machine. The schema still permits multiple workers without changing the claim contract.
+
+This design removes Redis, a transactional outbox, and cross-system queue consistency. A dedicated broker can be introduced only if measured queue throughput, scheduling, or worker distribution requirements outgrow PostgreSQL.
 
 ## 9. Retrieval
 
@@ -332,7 +334,17 @@ The backend exposes stable stream events:
 
 Provider-specific event shapes never reach the frontend.
 
-### 10.1 Runtime citation validation
+### 10.1 Model locations and API-call budget
+
+Ingestion uses local parsing, chunking, self-hosted embedding, and Qdrant indexing. It makes zero hosted generation calls.
+
+For an independent question, the baseline performs one local query-embedding call, lexical and dense retrieval, and one hosted generation call. A short or anaphoric follow-up may add one hosted query-rewrite call before retrieval. Citation validation is local; only a failed citation validation may add one hosted repair call, and repair is attempted at most once.
+
+Hosted model credentials remain server-side. The browser only receives Researcy stream events. Input context and output tokens are bounded, usage and estimated cost are recorded without prompt contents, and a request is not blindly retried after streaming has begun.
+
+The embedding model and hosted generator are selected independently. Changing the embedding model creates a new embedding/index version; vectors produced by different models are never mixed.
+
+### 10.2 Runtime citation validation
 
 For each citation:
 
@@ -347,7 +359,7 @@ For each citation:
 
 Runtime validation proves that cited text exists in the current paper and can be located. It does not claim to prove perfect semantic entailment; citation correctness is measured separately.
 
-### 10.2 Abstention
+### 10.3 Abstention
 
 When calibrated retrieval and citation checks do not establish enough evidence, the system states that it could not find sufficient support in the paper. It does not fill gaps with model knowledge.
 
@@ -507,6 +519,8 @@ GET    /api/citations/:citationId
 
 FastAPI owns Google OAuth and opaque sessions. Next.js does not create a second authentication system.
 
+The browser authentication mechanism does not use an application JWT. Google ID and access tokens are validated only as part of the OAuth callback and are not reused as Researcy session credentials. FastAPI issues its own random opaque session after login. JWT can be reconsidered only if Researcy later adds a native client, third-party public API, or independently deployed services that need portable signed access tokens.
+
 - OAuth uses Authorization Code with PKCE, `state`, and `nonce`.
 - Raw session tokens are CSPRNG values stored only in an `HttpOnly`, `SameSite=Lax`, `Path=/` cookie with `Secure` under HTTPS.
 - PostgreSQL stores only a keyed lookup hash of the session token.
@@ -533,8 +547,8 @@ Every private lookup includes both the resource identifier and the authenticated
 | Parser failure | Show failed stage and request ID | Retry version or reprocess |
 | Embedding runtime unavailable | Preserve paper and job state | Restore runtime; retry embedding |
 | Qdrant unavailable | Do not publish `ready` | Retry idempotent indexing |
-| Redis unavailable during dispatch | Preserve outbox and pending job | Dispatcher retries |
-| Duplicate queue delivery | No duplicate chunks or vectors | Idempotent stage execution |
+| Worker crashes or stops heartbeating | Preserve durable stage state | Reclaim after lease expiry and resume idempotently |
+| Concurrent or repeated claim | Only one active lease; no duplicate chunks or vectors | `SKIP LOCKED` plus idempotent stage execution |
 | Hosted LLM timeout or rate limit | Do not save a completed answer | Retry turn |
 | Stream disconnect | Mark turn interrupted | Reload state and retry |
 | Citation validation failure | Repair once | Grounded refusal |
@@ -550,7 +564,7 @@ Structured logs include:
 - token usage and estimated hosted cost;
 - safe error codes.
 
-Health endpoints separate liveness from readiness for PostgreSQL, Qdrant, object storage, Redis, and the embedding runtime. Grafana, distributed tracing, and a custom admin dashboard are outside the MVP.
+Health endpoints separate liveness from readiness for PostgreSQL, Qdrant, object storage, and the embedding runtime. Grafana, distributed tracing, and a custom admin dashboard are outside the MVP.
 
 ## 20. Deployment
 
@@ -562,7 +576,6 @@ The interview environment uses Docker Compose for:
 - `postgres`
 - `qdrant`
 - `minio`
-- `redis`
 
 The embedding runtime may run natively on ARM64 when benchmark results show better memory or stability than a container. It still exposes the same internal HTTP contract.
 
@@ -571,7 +584,7 @@ A single demo entry point must:
 1. validate configuration and secrets;
 2. start dependencies with health checks;
 3. apply database migrations;
-4. verify Qdrant, object storage, Redis, embedding, and hosted generation access;
+4. verify Qdrant, object storage, embedding, and hosted generation access;
 5. optionally warm the local embedding model;
 6. print the application URL and readiness result.
 
@@ -583,9 +596,9 @@ No always-on public deployment is required.
 
 - session cookie and CSRF behavior;
 - ownership isolation for SQL resources and Qdrant searches;
-- outbox dispatch when Redis is unavailable;
-- duplicate task delivery;
-- worker interruption and idempotent retry;
+- exclusive job claim under concurrent workers;
+- expired-lease recovery after worker interruption;
+- idempotent retry from persisted stage state;
 - PostgreSQL-to-Qdrant readiness invariant;
 - citation quote-to-span-to-box resolution.
 
@@ -630,9 +643,9 @@ Run one worker concurrently, benchmark peak memory, keep embedding behind an HTT
 
 Constrain sources with stable IDs, require verbatim evidence quotes, validate every citation, allow one repair, and otherwise abstain.
 
-### 22.5 Redis and PostgreSQL diverge
+### 22.5 Long-running jobs become stuck
 
-Use a transactional outbox, PostgreSQL job ledger, task IDs, idempotent stages, and reconciliation. Never use Redis as the source of visible job truth.
+Use short claim transactions, explicit leases, heartbeats, stage checkpoints, bounded retry backoff, and a recovery query for expired leases. Never hold a database transaction open during parsing, embedding, or indexing.
 
 ### 22.6 Scope grows toward The Moonlight feature breadth
 
@@ -646,8 +659,8 @@ Use the north-star loop and explicit non-goals as the acceptance filter. A featu
 - **Chosen:** Qdrant for vector retrieval.  
   **Rejected:** pgvector, by explicit project decision.
 
-- **Chosen:** Redis/Dramatiq queue plus PostgreSQL ledger and transactional outbox.  
-  **Rejected:** PostgreSQL-only queue and unsafe direct dual-write dispatch.
+- **Chosen:** PostgreSQL-backed durable jobs claimed with `FOR UPDATE SKIP LOCKED`, leases, and heartbeats.  
+  **Rejected:** Redis/Dramatiq plus transactional outbox because one low-concurrency worker does not justify the additional service and consistency boundary.
 
 - **Chosen:** hybrid lexical and dense retrieval with RRF.  
   **Rejected:** dense-only baseline and mandatory reranker.
@@ -661,6 +674,9 @@ Use the north-star loop and explicit non-goals as the acceptance filter. A featu
 - **Chosen:** hosted generation plus self-hosted embedding.  
   **Rejected:** fully self-hosted generation on the 8 GB interview machine.
 
+- **Chosen:** Google OAuth followed by an opaque server-side application session.  
+  **Rejected:** application JWT for the browser because the MVP benefits from revocation and has no portable-token consumer.
+
 ## 24. Design approval history
 
 The following sections were reviewed and approved in conversation:
@@ -669,4 +685,4 @@ The following sections were reviewed and approved in conversation:
 2. canonical document model and ingestion contract;
 3. retrieval, generation, citation, and evaluation design;
 4. V4-derived product UX and visual direction using `ui-ux-pro-max` guidance;
-5. reliability, security, verification, and the Redis queue revision.
+5. reliability, security, verification, and the final PostgreSQL-only job decision.
