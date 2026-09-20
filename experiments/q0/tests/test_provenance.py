@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from q0.models import BBox, EvidenceCase, ParsedBlock, SourceSpan
 from q0.parsers import (
+    _docling_text_run_groups,
     ParserValidationError,
     SourceRun,
     normalize_with_map,
@@ -144,6 +146,38 @@ def test_docling_configuration_is_locked_local_and_no_ocr():
         "enable_remote_services": False,
         "num_threads": 4,
     }
+
+
+def test_docling_cross_page_item_splits_without_losing_provenance():
+    top_left = SimpleNamespace(
+        l=10,
+        t=10,
+        r=50,
+        b=20,
+        coord_origin=SimpleNamespace(value="TOPLEFT"),
+    )
+    document = SimpleNamespace(
+        pages={
+            1: SimpleNamespace(size=SimpleNamespace(width=100, height=100)),
+            2: SimpleNamespace(size=SimpleNamespace(width=100, height=100)),
+        }
+    )
+    provenance = [
+        SimpleNamespace(page_no=1, charspan=(0, 5), bbox=top_left),
+        SimpleNamespace(page_no=2, charspan=(6, 10), bbox=top_left),
+    ]
+
+    groups = _docling_text_run_groups(
+        text="alpha beta",
+        provenance=provenance,
+        document=document,
+    )
+
+    assert [group[0] for group in groups] == [0, 1]
+    assert [
+        normalize_with_map(group[3])[0]
+        for group in groups
+    ] == ["alpha", "beta"]
 
 
 def test_parser_gate_enforces_coverage_and_reading_order_boundaries():

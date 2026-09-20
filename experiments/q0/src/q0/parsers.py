@@ -643,52 +643,61 @@ def _docling_bbox(
     raise ParserValidationError(f"unsupported Docling coordinate origin: {origin}")
 
 
-def _docling_text_runs(
+def _docling_text_run_groups(
     *,
     text: str,
     provenance: Sequence[Any],
     document: Any,
-) -> tuple[int, float, float, list[SourceRun]]:
+) -> list[tuple[int, float, float, list[SourceRun]]]:
     if not provenance:
         raise ParserValidationError("Docling text item has no provenance")
     ordered = sorted(provenance, key=lambda item: (item.charspan[0], item.charspan[1]))
-    page_numbers = {int(item.page_no) for item in ordered}
-    if len(page_numbers) != 1:
-        raise ParserValidationError("one Docling text item spans multiple pages")
-    page_no = next(iter(page_numbers))
-    page_width, page_height = _docling_page_dimensions(document, page_no)
-    page_index = page_no - 1
-    if page_index < 0:
-        raise ParserValidationError("Docling page numbers must be one-based")
-
-    runs: list[SourceRun] = []
-    cursor = 0
+    groups: list[tuple[int, float, float, list[SourceRun]]] = []
+    current_page_no: int | None = None
+    current_runs: list[SourceRun] | None = None
     previous_box: BBox | None = None
+    cursor = 0
+
     for item in ordered:
         start, end = (int(item.charspan[0]), int(item.charspan[1]))
         if start < cursor or start < 0 or end <= start or end > len(text):
             raise ParserValidationError(
                 f"invalid Docling character span {(start, end)} for text length {len(text)}"
             )
+        page_no = int(item.page_no)
+        page_width, page_height = _docling_page_dimensions(document, page_no)
+        page_index = page_no - 1
+        if page_index < 0:
+            raise ParserValidationError("Docling page numbers must be one-based")
         source_box = _docling_bbox(
             item.bbox,
             page_width=page_width,
             page_height=page_height,
         )
-        if start > cursor:
-            gap = text[cursor:start]
-            if gap.strip():
-                raise ParserValidationError(
-                    "Docling provenance leaves non-whitespace text unmapped"
-                )
-            runs.append(
+
+        gap = text[cursor:start]
+        if gap.strip():
+            raise ParserValidationError(
+                "Docling provenance leaves non-whitespace text unmapped"
+            )
+        if gap and current_runs is not None and previous_box is not None:
+            current_runs.append(
                 SourceRun(
                     text=gap,
-                    page_index=page_index,
-                    bbox=previous_box or source_box,
+                    page_index=current_page_no - 1,
+                    bbox=previous_box,
                 )
             )
-        runs.append(
+
+        if page_no != current_page_no:
+            current_page_no = page_no
+            current_runs = []
+            groups.append((page_index, page_width, page_height, current_runs))
+        if gap and previous_box is None:
+            current_runs.append(
+                SourceRun(text=gap, page_index=page_index, bbox=source_box)
+            )
+        current_runs.append(
             SourceRun(
                 text=text[start:end],
                 page_index=page_index,
@@ -697,16 +706,23 @@ def _docling_text_runs(
         )
         cursor = end
         previous_box = source_box
+
     if cursor < len(text):
         tail = text[cursor:]
         if tail.strip():
             raise ParserValidationError(
                 "Docling provenance leaves trailing non-whitespace text unmapped"
             )
-        if previous_box is None:
+        if current_runs is None or previous_box is None or current_page_no is None:
             raise ParserValidationError("Docling provenance did not map any text")
-        runs.append(SourceRun(text=tail, page_index=page_index, bbox=previous_box))
-    return page_index, page_width, page_height, runs
+        current_runs.append(
+            SourceRun(
+                text=tail,
+                page_index=current_page_no - 1,
+                bbox=previous_box,
+            )
+        )
+    return groups
 
 
 def _docling_table_cells(
@@ -816,20 +832,20 @@ def parse_docling(path: str | Path) -> list[ParsedBlock]:
             provenance = list(getattr(item, "prov", []))
             if not text.strip() or not provenance:
                 continue
-            page_index, page_width, page_height, runs = _docling_text_runs(
+            for page_index, page_width, page_height, runs in _docling_text_run_groups(
                 text=text,
                 provenance=provenance,
                 document=result.document,
-            )
-            entries.append(
-                (
-                    page_index,
-                    page_width,
-                    page_height,
-                    runs,
-                    label_value or "text",
+            ):
+                entries.append(
+                    (
+                        page_index,
+                        page_width,
+                        page_height,
+                        runs,
+                        label_value or "text",
+                    )
                 )
-            )
 
         for page_index, page_width, page_height, runs, block_type in entries:
             normalized_text, source_spans = normalize_with_map(runs)
