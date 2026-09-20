@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "researcy-q0"
+version = "0.1.0"
+description = "Temporary balanced technical-qualification probe"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "pydantic>=2,<3",
+  "httpx>=0.28,<1",
+  "pymupdf>=1.26,<2",
+  "docling>=2,<3",
+  "qdrant-client>=1.15,<2",
+  "openai>=1,<2",
+  "psutil>=7,<8",
+  "pytest>=8,<9",
+]
+
+[project.scripts]
+q0 = "q0.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/q0"]
