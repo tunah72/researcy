@@ -22,6 +22,12 @@ from q0.corpus import (
     validate_gold,
 )
 from q0.models import EnvironmentResult, ThresholdOutcome, write_json_atomic
+from q0.parsers import (
+    PARSER_CANDIDATES,
+    ParserValidationError,
+    evaluate_parser_candidates,
+    run_parser_candidate,
+)
 
 Handler = Callable[[argparse.Namespace], int]
 
@@ -77,6 +83,43 @@ def _handle_corpus_fetch(args: argparse.Namespace) -> int:
 
 def _handle_gold_validate(args: argparse.Namespace) -> int:
     print(summary_json(validate_gold(args.root)))
+    return 0
+
+
+def _handle_parser_run(args: argparse.Namespace) -> int:
+    metadata = run_parser_candidate(
+        root=args.root,
+        run_id=args.run_id,
+        candidate=args.candidate,
+    )
+    print(
+        json.dumps(
+            {
+                "candidate": metadata["candidate"],
+                "run_id": metadata["run_id"],
+                "successful_papers": metadata["successful_papers"],
+                "stream_record_count": metadata["stream_record_count"],
+                "latency_seconds": metadata["latency_seconds"],
+                "peak_memory_bytes": metadata["peak_memory_bytes"],
+            },
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+def _handle_parser_evaluate(args: argparse.Namespace) -> int:
+    result = evaluate_parser_candidates(root=args.root, run_id=args.run_id)
+    print(
+        json.dumps(
+            {
+                "run_id": result.run_id,
+                "selected_candidate": result.selected_candidate,
+                "failure_reasons": result.failure_reasons,
+            },
+            sort_keys=True,
+        )
+    )
     return 0
 
 
@@ -223,7 +266,32 @@ def build_parser() -> argparse.ArgumentParser:
     _add_root_argument(gold_validate)
     gold_validate.set_defaults(handler=_handle_gold_validate)
 
-    for name in ("parser", "embedding", "generation", "proof"):
+    parser_stage = commands.add_parser(
+        "parser", help="qualify the two locked parser candidates"
+    )
+    parser_commands = parser_stage.add_subparsers(
+        dest="parser_command", metavar="COMMAND", required=True
+    )
+    parser_run = parser_commands.add_parser(
+        "run", help="measure one locked parser candidate"
+    )
+    parser_run.add_argument(
+        "--candidate",
+        choices=PARSER_CANDIDATES,
+        required=True,
+    )
+    parser_run.add_argument("--run-id", required=True)
+    _add_root_argument(parser_run)
+    parser_run.set_defaults(handler=_handle_parser_run)
+
+    parser_evaluate = parser_commands.add_parser(
+        "evaluate", help="apply the complete parser qualification gate"
+    )
+    parser_evaluate.add_argument("--run-id", required=True)
+    _add_root_argument(parser_evaluate)
+    parser_evaluate.set_defaults(handler=_handle_parser_evaluate)
+
+    for name in ("embedding", "generation", "proof"):
         future = commands.add_parser(name, help=f"run the {name} qualification stage")
         future.set_defaults(handler=_not_implemented)
 
@@ -235,6 +303,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     handler: Handler = args.handler
     try:
         return handler(args)
-    except (CommandError, CorpusValidationError, GoldValidationError) as error:
+    except (
+        CommandError,
+        CorpusValidationError,
+        GoldValidationError,
+        ParserValidationError,
+    ) as error:
         print(f"q0: error: {error}", file=sys.stderr)
         return 2
