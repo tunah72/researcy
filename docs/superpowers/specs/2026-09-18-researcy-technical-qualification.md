@@ -1,520 +1,417 @@
 # Researcy Q0 Technical Qualification Specification
 
 **Status:** Approved child specification  
-**Revision:** 1.0  
-**Approved:** 2026-09-18  
-**Parent:** [`2026-09-18-researcy-system-design.md`](./2026-09-18-researcy-system-design.md), revision 1.0  
+**Revision:** 1.2  
+**Approved:** 2026-09-19  
+**Parent:** [`2026-09-18-researcy-system-design.md`](./2026-09-18-researcy-system-design.md), revision 1.1  
 **Delivery control:** [`2026-09-18-researcy-delivery-map.md`](./2026-09-18-researcy-delivery-map.md)  
-**Path:** Spike  
-**Hard timebox:** 2–3 working days
+**Path:** Balanced spike  
+**Hard timebox:** 1.5–2 working days
 
 ## 1. Purpose
 
-Q0 removes the highest-risk assumptions before Researcy production implementation begins:
+Q0 removes four implementation risks before production work begins:
 
-1. a scientific PDF parser can preserve enough logical structure and geometry for evidence navigation;
-2. an embedding model can run natively on the Apple M1 with 8 GB RAM and retrieve gold evidence accurately enough;
-3. OpenRouter and Gemini can satisfy the streaming structured-generation contract through manually selected adapters;
-4. one generated citation can be validated and mapped back to visible PDF coordinates.
+1. select one scientific PDF parser that preserves enough structure and geometry for evidence navigation;
+2. select one on-device embedding configuration that runs on the Apple M1 with 8 GB RAM and retrieves representative gold evidence;
+3. qualify one pinned OpenAI-compatible generation path through 9Router against the grounded-generation contract;
+4. prove one complete `question → answer → quote → PDF highlight` path.
 
-Q0 produces decisions and evidence, not a reusable application foundation. Probe code is throwaway unless a later implementation plan independently justifies rewriting the behavior as production code.
+Q0 produces bounded decisions and evidence, not a reusable evaluation framework or production foundation. Probe code is throwaway.
 
 ## 2. Master requirements covered
 
 | Requirement | Q0 responsibility |
 |---|---|
-| PARSE-01 | Select one parser strategy using measured structure and provenance quality. |
-| EMB-01 | Select one on-device embedding model/runtime configuration within the M1 budget. |
-| GEN-01 | Qualify OpenRouter and Gemini adapters; select a primary development model and manual fallback. |
-| CIT-01 | Prove one complete quote-to-page-to-bounding-box path. |
+| PARSE-01 | Select Docling or a PyMuPDF geometry-first strategy from representative evidence. |
+| EMB-01 | Select BGE-M3 or Nomic Embed Text with measured retrieval, latency, and stability on the qualification machine. |
+| GEN-01 | Qualify one exact OpenAI-compatible route through a pinned 9Router version, account, and model without fallback. |
+| CIT-01 | Demonstrate exact quote-to-page-to-bounding-box resolution on the golden paper. |
 
-Q0 qualifies these requirements. M2, M3, and M4 remain responsible for production implementation and final verification.
+Q0 is an early risk-reduction subset. M2–M5 remain responsible for production implementation and broader layout, retrieval, and product acceptance coverage.
 
-## 3. Questions Q0 must answer
+## 3. Decision questions
 
-### 3.1 Parser
+Q0 must answer only these questions:
 
-- Does Docling or a PyMuPDF geometry-first pipeline preserve scientific-paper reading order more reliably?
-- Can normalized evidence quotes map back to source pages and boxes without fabricated precision?
-- Which transformations preserve reversible text offsets?
-- What parser latency and peak memory should M2 design around?
+1. Which parser provides the more reliable reversible quote/page/geometry path on the representative corpus?
+2. Does the smaller Nomic model retrieve as well as BGE-M3, or does BGE-M3 recover at least one additional gold case or show a material scientific-retrieval advantage?
+3. Can one pinned 9Router route stream grounded structured answers with valid citations, refusal, usage, and stable model identity through an OpenAI-compatible client?
+4. Can the selected stack highlight the exact evidence sentence for the golden question?
 
-### 3.2 Embedding
+## 4. Fixed representative corpus
 
-- Can BGE-M3 run stably through native ARM64 Ollama with enough memory headroom?
-- Does BGE-M3 materially outperform the smaller Nomic Embed Text baseline on the fixed retrieval set?
-- What vector dimension, distance metric, query/document instruction convention, batch size, and truncation policy must M2 pin?
+Q0 uses exactly two born-digital PDFs with extractable text:
 
-### 3.3 Generation
-
-- Can a specifically pinned OpenRouter model stream schema-conforming grounded answers?
-- Can a specifically pinned Gemini model satisfy the same adapter contract?
-- Do free models pass the blocking citation and refusal contract?
-- If no free model passes, what exact failure requires separate approval for a low-cost paid candidate?
-
-### 3.4 Integrated evidence
-
-- Can one question about arXiv `1706.03762` produce a validated evidence quote that resolves to the correct PDF page and visible bounding boxes?
-
-## 4. Fixed qualification corpus
-
-Q0 uses five born-digital scientific PDFs with extractable text. The corpus is fixed before running comparisons.
-
-| arXiv ID | Paper | Primary stress |
+| arXiv ID | Paper | Qualification stress |
 |---|---|---|
-| `1706.03762` | Attention Is All You Need | Golden journey, equations, two-column layout |
-| `2005.11401` | Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks | Dense technical prose, tables, two-column layout |
-| `1512.03385` | Deep Residual Learning for Image Recognition | Figures, tables, captions, two-column layout |
-| `1703.06870` | Mask R-CNN | Figures, equations, captions, multi-column reading order |
-| `1806.07366` | Neural Ordinary Differential Equations | Equation-heavy paper with a different publication layout |
+| `1706.03762` | Attention Is All You Need | Golden journey, equations, two-column reading order, exact highlight geometry |
+| `2005.11401` | Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks | Dense technical prose, tables, captions, and two-column reading order |
 
-Each file is identified by SHA-256. A changed PDF is a different corpus version and cannot be mixed into the same result set.
+Each PDF is downloaded from `https://arxiv.org/pdf/<arxiv-id>`, cached outside Git, and identified by SHA-256 plus page count. A changed PDF is a different corpus version.
+
+This two-paper set is deliberately not a statistically representative parser benchmark. Broader one-column, figure-heavy, and alternative-layout coverage belongs to later evaluation work.
 
 ### 4.1 Gold annotations
 
-The durable gold set contains:
+Gold annotations are written before candidate comparison and contain:
 
 - four answerable questions per paper;
 - one unanswerable question per paper;
-- one or more verbatim evidence quotes for each answerable question;
-- expected page number for every evidence quote;
-- manually checked bounding region for the integrated-proof evidence;
-- manually checked section headings and reading-order samples.
+- at least one verbatim evidence quote and expected page for every answerable question;
+- the expected section for every answerable question;
+- at least six manually checked reading-order relations per paper;
+- manually accepted visible reference text for one fixed coverage page per paper;
+- manually checked page dimensions and bounding regions for the golden integrated-proof sentence.
 
-This yields:
+Totals:
 
-- 20 answerable retrieval cases;
-- 5 unanswerable cases;
-- at least 20 quote/page annotations;
-- at least 40 reading-order samples across the corpus.
+- 8 answerable retrieval cases;
+- 2 unanswerable generation cases;
+- at least 8 quote/page annotations;
+- at least 12 reading-order relations.
 
-Gold annotations are written before comparing candidates. Candidate output must not determine the expected answer.
+Candidate output never determines gold truth.
+
+Each reading-order relation stores `relation_id`, `paper_id`, zero-based `page_index`, `before_anchor`, and `after_anchor`. Anchors are verbatim snippets that each resolve uniquely on the annotated PDF page after allowed normalization. A candidate passes the relation only when both anchors resolve to candidate spans and the `before_anchor` block precedes the `after_anchor` block. Candidate output never defines or changes anchors.
 
 ## 5. Reproducibility envelope
 
-Every run records:
+Each run records:
 
-- timestamp and run ID;
-- Git revision;
-- macOS and architecture;
-- total physical memory;
-- Python, parser, Ollama, and Qdrant versions;
-- exact parser configuration;
-- exact embedding model tag, digest, quantization, dimension, and runtime;
-- exact generation provider, requested model ID, and response model ID;
-- generation parameters and structured-output schema version;
-- corpus manifest hash;
-- warm/cold state;
-- wall-clock latency and peak process memory where measurable.
+- run ID, UTC timestamp, exact producer Git revision, clean tracked-tree state, macOS version, architecture, and physical memory;
+- corpus manifest hash and each PDF SHA-256;
+- parser package version and exact configuration;
+- Ollama and Qdrant versions;
+- embedding tag, digest, quantization, dimension, prefixes, batch size, and truncation setting;
+- generation provider, requested model ID, response model ID, parameters, and structured-output schema version;
+- latency and peak process memory where measured;
+- pass/fail outcome and concrete failure reason for every threshold.
 
-Results missing model identity, corpus hash, or configuration identity are invalid.
+A result without corpus identity, exact model identity, or configuration identity is invalid.
 
-## 6. Track A — Parser and provenance qualification
+## 6. Track A — Parser and provenance
 
 ### 6.1 Candidates
 
 Only two candidates are evaluated:
 
-1. **Docling:** structure-aware conversion using document items and provenance records.
-2. **PyMuPDF geometry-first:** blocks/spans/characters from `TextPage`, explicit reading-order logic, and reversible normalization.
+1. **Docling:** document items and provenance records.
+2. **PyMuPDF geometry-first:** `TextPage` blocks, spans, and characters with explicit reading-order and normalization logic.
 
-Q0 does not add GROBID or a third parser.
+No third parser is introduced.
 
-### 6.2 Common candidate output
+### 6.2 Common output
 
-Each candidate adapter emits the same temporary JSONL shape:
+Both adapters emit temporary records containing:
 
-```json
-{
-  "paper_id": "1706.03762",
-  "page_index": 3,
-  "section_path": ["3.2.1 Scaled Dot-Product Attention"],
-  "block_type": "paragraph",
-  "reading_order": 42,
-  "text": "...",
-  "spans": [
-    {
-      "text_start": 0,
-      "text_end": 31,
-      "bbox": [72.1, 180.3, 265.4, 197.2],
-      "coordinate_origin": "bottom-left"
-    }
-  ]
-}
+```text
+paper_id
+page_index                  # zero-based
+section_path
+block_type
+reading_order
+normalized_text
+source_spans[]              # normalized offsets + source bbox
+page_width
+page_height
+coordinate_origin           # bottom-left
 ```
 
-Coordinates are transformed into one documented PDF coordinate convention before comparison. Candidate-native coordinates remain available in raw artifacts for diagnosis.
+Coordinates are converted to one bottom-left PDF convention. Normalized character ranges must resolve back to source spans; fuzzy reconstruction after normalization is forbidden.
 
-### 6.3 Normalization constraints
+Allowed normalization is limited to Unicode normalization, reversible whitespace collapse, reversible line joining, reversible dehyphenation, and removal of empirically recurring headers or footers. Paraphrasing, model reconstruction, and column merging without source-order evidence are forbidden.
 
-Allowed normalization:
+### 6.3 Measurements and gate
 
-- Unicode normalization;
-- line-break joining when the source mapping remains explicit;
-- whitespace collapse with retained offset mapping;
-- dehyphenation only when both source segments remain addressable;
-- removal of repeating headers and footers after recurrence is established.
+Measure:
 
-Forbidden normalization:
+- gold quote recovery and expected-page correctness;
+- non-empty geometry resolution;
+- normalized text coverage against the two manually accepted coverage pages;
+- 12 reading-order relations;
+- expected section recovery;
+- header/footer leakage;
+- parse latency and peak memory.
 
-- paraphrasing;
-- model-generated reconstruction;
-- dropping text without a recorded reason;
-- merging columns without source-order evidence;
-- transformations that cannot map normalized character ranges back to source spans.
+Text coverage uses one deterministic formula. Apply the same allowed normalization and Unicode case-folding to candidate and reference text, split on normalized whitespace, compute the longest common subsequence of the two token sequences, and divide its length by the number of reference tokens. Empty reference text is invalid. The score is ordered token recall, not edit similarity or set overlap.
 
-### 6.4 Measurements
+A parser qualifies only when:
 
-| Measurement | Method |
-|---|---|
-| Text coverage | Normalized extracted characters divided by the manually accepted text reference for sampled pages |
-| Reading order | Human pass/fail on at least 40 ordered block transitions |
-| Section accuracy | Expected headings found and assigned to the correct following content |
-| Quote recovery | Gold quote found after allowed normalization |
-| Page accuracy | Recovered quote resolves to the annotated page |
-| Geometry resolution | Quote offsets resolve to one or more non-empty boxes |
-| Header/footer leakage | Repeating page furniture present in retrieval text |
-| Latency | Wall-clock parse time per paper and corpus |
-| Peak memory | Maximum resident memory attributable to the parser process |
+- all 8 answerable gold quotes resolve to the expected page;
+- every recovered gold quote resolves to non-empty source boxes;
+- normalized text coverage is at least `0.90` on each fixed coverage page;
+- at least 10 of 12 reading-order relations are correct;
+- the golden evidence maps to boxes inside the manually annotated region and correct column;
+- normalization preserves reversible offsets;
+- neither corpus paper crashes or exceeds the machine budget.
 
-### 6.5 Blocking thresholds
+If both qualify, choose by: provenance correctness, sampled text coverage, reading order/sections, implementation simplicity, peak memory, then latency. M2 receives one parser strategy, not a permanent dual-parser abstraction.
 
-A parser candidate is disqualified when any of the following occurs:
+## 7. Track B — On-device embedding and retrieval
 
-- less than 95% of gold evidence quotes resolve to the correct page;
-- any integrated-proof quote cannot resolve to non-empty geometry;
-- more than 10% of sampled reading-order transitions are materially incorrect;
-- normalization cannot preserve reversible offsets;
-- it crashes or exceeds the machine memory budget on a corpus paper.
-
-If both candidates qualify, choose by this priority:
-
-1. quote/page/geometry correctness;
-2. reading order and section structure;
-3. implementation complexity and debuggability;
-4. peak memory;
-5. latency.
-
-Q0 selects one production parser strategy. M2 does not retain a permanent dual-parser abstraction.
-
-## 7. Track B — On-device embedding qualification
-
-### 7.1 Candidates
+### 7.1 Candidates and shared setup
 
 Both candidates run through native ARM64 Ollama:
 
 1. `bge-m3:567m`;
 2. `nomic-embed-text:137m-v1.5-fp16`.
 
-Exact tags and digests are recorded. An unavailable tag blocks that candidate rather than silently substituting another model.
+Use the selected parser output, one frozen structure-aware chunk set, separate Qdrant collections, and cosine distance unless model metadata requires another metric. Both candidates embed byte-identical chunk text. Silent truncation is forbidden. Lexical fusion and reranking are excluded.
 
-### 7.2 Shared retrieval setup
+### 7.2 Measurements and gate
 
-- Use the parser winner's output.
-- Use one fixed structure-aware chunking configuration for both candidates.
-- Index candidate vectors in separate Qdrant collections.
-- Use cosine distance unless the runtime/model documentation requires and justifies another metric.
-- Disable silent truncation.
-- Record the complete query and document instruction/prefix convention.
-- Do not add lexical fusion or a reranker to the embedding comparison.
+Measure:
 
-### 7.3 Measurements
+- resolved tag, digest, quantization, dimension, and runtime placement;
+- cold startup success;
+- finite non-zero vectors with stable dimensions;
+- indexing stability and peak memory;
+- warm p50/p95 query latency over repeated runs;
+- Recall@1, Recall@5, and MRR over the 8 answerable cases.
 
-| Measurement | Method |
-|---|---|
-| Startup | Cold model load success and time |
-| Identity | Requested tag, resolved digest, architecture, dimension, quantization |
-| Stability | No crash, OOM, or malformed vector during corpus indexing |
-| Dimension | Constant non-zero dimension for documents and queries |
-| Vector quality guard | Finite values and non-zero L2 norm |
-| Index throughput | Chunks embedded per second using recorded batch size |
-| Query latency | Warm p50 and p95 over the fixed query set |
-| Retrieval | Recall@1, Recall@5, MRR over 20 answerable cases |
-| Memory | Peak runtime memory while indexing and querying |
+A candidate qualifies only when:
 
-### 7.4 Blocking thresholds
+- it does not crash, become OOM-killed, or emit malformed vectors;
+- document and query dimensions remain identical;
+- no input is silently truncated;
+- Recall@5 is at least `0.75` (6 of 8 cases);
+- warm query p95 is below 1 second;
+- the golden paper indexes within 5 minutes.
 
-A candidate is disqualified when:
+Choose Nomic when both models recover the same number of Recall@5 cases and error analysis shows no material disadvantage. Choose BGE-M3 when it recovers at least one additional gold case or its ranking/error analysis shows a material scientific-retrieval advantage. Record the selected tag, digest, runtime, quantization, dimension, metric, prefixes, maximum input, truncation behavior, batch size, concurrency, and collection identity.
 
-- the runtime crashes, is OOM-killed, or produces malformed vectors;
-- any document/query dimension differs;
-- any input is silently truncated;
-- Recall@5 is below 0.85;
-- warm query p95 exceeds 1 second on the qualification machine;
-- the golden paper cannot be embedded within 5 minutes.
+## 8. Track C — Hosted generation
 
-### 7.5 Selection rule
+### 8.1 Application and transport boundary
 
-Choose Nomic Embed Text when it passes every blocking threshold and its Recall@5 is within five percentage points of BGE-M3. Choose BGE-M3 only when its retrieval gain exceeds that margin or its error analysis demonstrates a material scientific-retrieval advantage that the aggregate threshold hides.
-
-The selected decision pins:
-
-- model tag and digest;
-- runtime and quantization;
-- vector dimension;
-- distance metric;
-- query/document prefixes;
-- maximum input length and explicit truncation behavior;
-- batch size and concurrency;
-- Qdrant collection version identity.
-
-## 8. Track C — Hosted generation qualification
-
-### 8.1 Adapter boundary
-
-Q0 implements two throwaway adapters behind one qualification contract:
+Q0 keeps the application contract separate from the transport protocol:
 
 ```text
-OpenRouterGenerationClient
-GeminiGenerationClient
+GenerationClient
+└── OpenAICompatibleGenerationClient
+    └── POST /v1/chat/completions
+        └── pinned 9Router
+            └── one account and one exact non-combo model route
 ```
 
-Each adapter must expose:
+`GenerationClient` exposes only Researcy domain requests, typed stream events, grounded answers, usage, and normalized failures. `OpenAICompatibleGenerationClient` is its only Q0 implementation and is the only code that may depend on OpenAI request, SSE, response, or error shapes.
 
-```text
-stream_grounded_answer(request) → typed stream events
-rewrite_query(request)          → standalone query
-repair_citations(request)       → repaired structured answer
+OpenAI compatibility is a transport convention, not proof of semantic portability. Q0 qualifies only the exact base URL, 9Router version, route, account, and upstream model recorded in the result. A different endpoint or model requires a new compatibility run.
+
+The client must emit the master contract exactly:
+
+```json
+{
+  "answer": "A supported claim [1].",
+  "citations": [
+    {
+      "marker": 1,
+      "source_ref": "S1",
+      "evidence_quote": "verbatim text from the retrieved source"
+    }
+  ]
+}
 ```
 
-The production interfaces will be designed independently in M3; Q0 only proves provider feasibility.
+Markers are unique positive integers, appear in the answer, and map one-to-one to citations. `source_ref` must be one of the supplied source IDs. Grounded refusal uses an answer explaining that the supplied paper context is insufficient and an empty `citations` list; it does not add a Q0-only output field.
 
-### 8.2 Provider selection
+### 8.2 Pinned gateway configuration
 
-Provider selection is manual and environment-controlled:
+The qualification path uses:
 
-```text
-GENERATION_PROVIDER=openrouter
-```
+- one pinned 9Router version;
+- one local OpenAI-compatible base URL;
+- one provider connection and one account;
+- one exact model route that is neither a combo nor a mutable alias;
+- no account, provider, or model fallback;
+- no RTK, Caveman, prompt rewriting, or other prompt transformation;
+- no cloud sync or tunnel;
+- request-body logging disabled or redacted.
 
-or:
+The run records the pinned gateway version, configured connection and route, requested model, response model, and upstream provider/model identity when 9Router exposes it. Qualification evidence includes a sanitized configuration assertion that no alternate account, combo, alias target, or fallback model was available during the run.
 
-```text
-GENERATION_PROVIDER=gemini
-```
+9Router does not remove upstream quota dependence. The configured account must already have sufficient subscription or paid quota for the three bounded cases. Any new paid spend requires explicit approval naming the upstream, model, maximum spend, and exact run scope.
 
-There is no per-request automatic failover. A provider change requires a new process configuration and is recorded as a separate run.
+### 8.3 Evaluation cases
 
-### 8.3 OpenRouter qualification
+The pinned route receives exactly three cases:
 
-- Discover currently available free variants from the model catalog at execution time.
-- Pin one exact model ID with its `:free` variant; do not use the random `openrouter/free` router.
-- Require endpoint support for the structured-output parameters rather than allowing routing to an incompatible endpoint.
-- Record the requested model and actual response model.
-- Record rate-limit and provider error responses encountered during the run.
+1. golden answerable case `1706.03762-answer-1`;
+2. one immediate contextual follow-up: `What failure mode would occur without that scaling?`;
+3. unanswerable case `1706.03762-unanswerable`.
 
-### 8.4 Gemini qualification
+Every case supplies stable source IDs and selected text only; the gateway and upstream model never receive complete PDFs. The follow-up must preserve the scaled-dot-product-attention referent.
 
-- Pin one exact model ID available to the configured Google project.
-- Use JSON-schema structured output and streaming through the official Gemini API.
-- Record the model and project-visible free-tier limits from AI Studio at execution time.
-- Do not hard-code a presumed free quota into product behavior.
-- Record rate-limit and provider error responses encountered during the run.
+### 8.4 Measurements and gate
 
-### 8.5 Free-first policy
+Measure:
 
-For each adapter:
+- ordered stream deltas and one terminal event;
+- first-attempt schema validity;
+- source ID validity;
+- exact evidence quote validity after allowed normalization;
+- citation coverage for substantive claims;
+- grounded refusal;
+- follow-up referent preservation;
+- time to first token and total latency;
+- provider-reported input and output token usage for every completed case;
+- configured connection and route, requested and response model, plus exposed upstream identity when available;
+- typed authentication, rate-limit, timeout, interrupted-stream, malformed-output, and unavailable errors.
 
-1. qualify one exact free model first;
-2. stop when it passes the blocking contract;
-3. do not benchmark additional models without a recorded failure reason;
-4. if no free model passes, report the blocking failure and request explicit approval plus a spend ceiling before calling one low-cost paid candidate.
+The pinned path qualifies only when:
 
-Q0 cannot silently spend paid credits.
+- all 3 cases end in a typed terminal event, never an unclassified exception;
+- all 3 cases are schema-valid on the first attempt; Q0 performs no format or citation repair;
+- the golden answer and follow-up produce grounded answers rather than refusals;
+- every substantive claim in those two answers carries a valid marker, giving claim-marker coverage of `1.0`;
+- the follow-up preserves its referent and passes the same grounding checks;
+- no citation references an unknown source and every evidence quote matches that source;
+- the unanswerable case states that supplied context is insufficient and returns an empty citation list;
+- every completed case includes provider-reported input and output token usage;
+- the sanitized configuration assertion shows a single account/model candidate, and requested/response identities remain stable across the run;
+- external failures map to explicit application error categories.
 
-### 8.6 Evaluation cases
-
-Use 12 bounded generation cases derived from the fixed corpus:
-
-- 6 answerable questions;
-- 3 unanswerable questions;
-- 3 context-dependent follow-ups.
-
-Every case supplies stable source IDs and retrieved text. The provider never receives the complete PDF.
-
-### 8.7 Measurements
-
-| Measurement | Method |
-|---|---|
-| Stream contract | First delta, ordered deltas, terminal completion or typed failure |
-| Schema validity | Final answer conforms to the qualification JSON schema |
-| Source validity | Every citation references a supplied source ID |
-| Quote validity | Evidence quote matches its cited source after allowed normalization |
-| Citation coverage | Substantive answer claims carry citations |
-| Refusal | Unanswerable cases refuse without external knowledge |
-| Follow-up | Rewritten query and answer preserve the intended referent |
-| Repair | One invalid-citation fixture is repaired once or returns typed failure |
-| Latency | Time to first token and total completion time |
-| Usage | Provider-reported tokens when available; documented absence otherwise |
-| Cost | Actual reported cost or zero/free-tier classification with model identity |
-
-### 8.8 Blocking contract
-
-An adapter/model pair qualifies only when:
-
-- all 12 cases produce a valid terminal event rather than an unclassified exception;
-- at least 11 of 12 final outputs conform to the schema on the first attempt;
-- no citation references a source that was not supplied;
-- all accepted evidence quotes match their cited source after allowed normalization;
-- all three unanswerable cases produce grounded refusal;
-- the invalid-citation fixture is repaired at most once or returns a typed failure;
-- stream interruptions, rate limits, and provider errors map to explicit error categories.
-
-The selected primary development model is the qualifying free model with the best citation/refusal correctness. The other qualifying adapter/model is the manual fallback. Latency breaks a correctness tie; popularity does not.
+Q0 selects no primary/fallback pair and makes no claim that another OpenAI-compatible endpoint will behave identically.
 
 ## 9. Track D — Integrated evidence proof
 
-### 9.1 Golden question
+Golden case:
 
-Paper: arXiv `1706.03762`  
-Question: `Why does scaled dot-product attention divide by the square root of the key dimension?`
+- Paper: arXiv `1706.03762`.
+- Question: `Why does scaled dot-product attention divide by the square root of the key dimension?`
+- Expected evidence: large dot products push softmax into regions with very small gradients, and scaling counteracts that effect.
 
-Expected evidence includes the paper's explanation that large dot products push softmax into regions with very small gradients and scaling counteracts that effect.
-
-### 9.2 Proof flow
+Flow:
 
 ```text
 question
 → selected embedding model
 → Qdrant retrieval
-→ selected generation adapter/model
+→ pinned OpenAI-compatible generation route
 → structured answer and evidence quote
 → local quote validation
 → normalized offsets
 → source spans
 → page and bounding boxes
-→ rendered highlight artifact
+→ self-contained HTML highlight
 ```
 
-### 9.3 Pass conditions
+The proof passes only when:
 
-- the answer addresses the question using only supplied paper context;
-- every substantive claim has a valid source marker;
-- the evidence quote exists in the cited chunk;
-- the quote maps to the annotated PDF page;
-- resolved boxes cover the expected visible sentence without crossing into another column;
-- the artifact records parser, embedding, provider, model, corpus, and run identities;
-- a reviewer can visually compare the highlight with the original PDF.
+- the answer uses only supplied paper context;
+- every substantive claim carries a marker present in the answer;
+- markers are unique and map one-to-one to citations;
+- every `source_ref` is supplied to the model;
+- every `evidence_quote` exists in its cited chunk;
+- the selected evidence quote maps to the annotated page and overlaps the manually checked region with non-empty boxes;
+- boxes cover the expected sentence without crossing columns;
+- `integrated-proof.json` records claim-marker coverage and context-grounding review outcomes;
+- the HTML records parser, embedding, 9Router version, configured route, requested and response model, corpus, and run identities;
+- a browser inspection confirms the visible highlight and finds no unsupported substantive claim.
 
-A page-only result does not pass Q0's exact-evidence proof, although it remains a documented product fallback for later milestones.
+A page-only result does not pass.
 
-## 10. Durable outputs
+## 10. 9Router boundary
 
-Q0 retains:
+9Router is the only generation gateway qualified by Q0. It provides the OpenAI-compatible transport and upstream translation, while Researcy owns the thin `GenerationClient` domain boundary, grounded-answer validation, citation validation, and frontend event contract.
+
+Gateway routing features remain outside Q0. A combo, alias retarget, additional account, fallback, prompt transformation, or different OpenAI-compatible endpoint changes the qualified path and requires separate evidence in M3.
+
+## 11. Durable outputs
+
+Q0 retains only:
 
 ```text
 qualification/
 ├── corpus/manifest.json
 ├── gold/evidence.jsonl
 ├── gold/reading-order.jsonl
-├── schemas/grounded-answer.schema.json
 └── results/<run-id>/
     ├── environment.json
-    ├── parser-results.json
-    ├── embedding-results.json
-    ├── generation-results.json
-    └── integrated-proof.json
+    ├── parser.json
+    ├── embedding.json
+    ├── generation.json
+    ├── integrated-proof.json
+    └── evidence-highlight.html
 
 docs/superpowers/reports/
-└── <date>-researcy-technical-qualification-report.md
+└── 2026-09-18-researcy-technical-qualification-report.md
 ```
 
-The final report contains:
+Temporary Pydantic models validate result files while the probe exists. Q0 does not build a permanent schema-generation or report-verification framework. The final report contains the candidate outcomes, selected configurations, integrated proof, known limitations of the two-paper corpus, and implications for later milestones.
 
-- candidate table;
-- failures and disqualifications;
-- selected parser and rationale;
-- selected embedding configuration and rationale;
-- primary and fallback generation configurations;
-- integrated proof evidence;
-- implications for M1–M4;
-- any proposed master-spec revision.
+For a blocked run, retain only artifacts produced before the failed gate; downstream result files and HTML are omitted rather than fabricated. The blocker report and delivery map name each downstream stage `not_run`, preserve available evidence, and remain the durable completion record.
 
-Raw PDFs, model weights, secrets, and provider response bodies containing sensitive content are not committed.
+Raw PDFs, model weights, `.env` files, API keys, and unredacted provider payloads are never committed.
 
-## 11. Throwaway probe boundary
+## 12. Throwaway boundary and non-goals
 
-Probe code may exist under `experiments/q0/` while Q0 runs. It must be:
-
-- isolated from future production packages;
-- explicit about hard-coded corpus assumptions;
-- excluded from application imports;
-- removed after durable results and the final report are verified.
-
-Durable corpus annotations, schemas, machine-readable results, and the report remain. Probe implementation is not promoted into production by moving or renaming files.
-
-## 12. Non-goals
+Probe code lives only under `experiments/q0/`, is never imported by production packages, and is removed after results and the report are verified.
 
 Q0 does not implement:
 
-- Google OAuth, sessions, or user ownership;
-- Library UI or production Reader UI;
-- production FastAPI endpoints;
-- PostgreSQL durable jobs;
-- production database schema;
-- production Qdrant collections;
-- multi-paper reasoning;
-- lexical fusion or reranking;
-- prompt optimization beyond satisfying the qualification contract;
-- automatic provider failover;
-- broad model benchmarking;
-- OCR or scanned-PDF support.
+- production API, database, jobs, authentication, or UI;
+- production parser or multi-provider generation frameworks;
+- a reusable evaluation framework;
+- OCR or scanned-PDF support;
+- broad layout coverage or statistical benchmarking;
+- lexical fusion, reranking, or multi-paper reasoning;
+- automatic account/provider/model fallback;
+- citation-repair orchestration;
+- cross-endpoint portability claims;
+- prompt or token optimization.
 
 ## 13. Stop conditions
 
-Stop the spike and report the blocker when:
+Stop and write an evidence-backed blocker when:
 
-- neither parser meets the provenance threshold;
-- neither embedding candidate meets stability and retrieval thresholds;
-- neither provider adapter has an available free model that passes and paid-model approval has not been granted;
-- exact evidence geometry cannot be proven on the golden question;
-- completing the probe requires changing a master-spec decision;
-- the three-day hard timebox is exhausted.
+- neither parser passes the provenance gate;
+- neither embedding candidate passes stability and retrieval gates;
+- the pinned 9Router route cannot complete all three cases without switching account or model;
+- exact golden geometry cannot be proven;
+- the probe requires widening scope or changing another master decision;
+- the two-day hard timebox expires.
 
-A stop condition is a valid evidence-backed Q0 result, but it does not pass the exit gate. The delivery map becomes `Blocked`, and the report must identify the failed assumption and smallest decision needed next rather than widening scope.
+A stopped spike is a valid result but leaves Q0 `Blocked`. Do not weaken thresholds or add candidates.
 
 ## 14. Exit gate
 
 Q0 is `Verified` only when:
 
-1. the corpus and gold annotations are fixed and hashed;
-2. one parser strategy is selected by recorded evidence;
-3. one embedding model/runtime configuration is selected within the machine budget;
-4. OpenRouter and Gemini adapters both complete contract qualification with exact pinned model IDs;
-5. one qualifying model is pinned as the primary development generator and the other adapter has a qualifying model pinned as the manual fallback;
-6. the integrated golden proof resolves to exact visible evidence;
-7. machine-readable results and the qualification report agree;
-8. throwaway probe code is removed;
-9. the delivery map contains links to verification evidence;
-10. any required master revision is approved before M1 begins.
+1. both PDFs and all gold annotations are fixed and hashed;
+2. one parser is selected with recorded representative evidence;
+3. one embedding configuration is selected within the machine budget;
+4. one pinned OpenAI-compatible 9Router route qualifies with exact gateway, account, route, and model identities;
+5. the golden proof resolves to exact visible evidence;
+6. durable results and the concise report agree;
+7. the report states that broader corpus and endpoint coverage remains for later evaluation;
+8. `experiments/q0/` is removed and no forbidden artifact is tracked;
+9. the delivery map links the evidence and authorizes M1 planning.
 
-If every free candidate for an adapter fails and paid-model approval has not been granted, Q0 remains `Blocked`; it cannot be marked `Verified` through an exception to this gate.
-
-Passing Q0 authorizes design and planning for M1. It does not authorize reuse of probe code as production implementation.
+Passing Q0 authorizes M1 design and planning. It does not authorize promotion of probe code into production.
 
 ## 15. Verification method
 
-The Q0 implementation plan must include:
+The implementation plan must include:
 
-- deterministic corpus download and hash verification;
-- schema validation for every machine-readable artifact;
-- repeated warm query measurements rather than a single latency sample;
-- provider preflight before consuming the bounded evaluation cases;
-- visual inspection of the integrated highlight artifact;
-- cleanup verification proving `experiments/q0/` is removed;
-- a final consistency check between raw results, report decisions, master spec, and delivery map.
+- deterministic PDF download, SHA-256, and page-count verification;
+- local tests only for reversible normalization, OpenAI-compatible stream/schema parsing, and exact proof geometry;
+- repeated warm retrieval latency measurements;
+- one pinned-gateway preflight before three bounded network cases;
+- browser inspection of the integrated HTML;
+- a direct result-to-report review;
+- cleanup verification after deleting `experiments/q0/`.
 
-No permanent test is added solely to prove the throwaway harness. Durable validation belongs to result schemas, corpus hashes, and the later production milestones.
+Permanent tests are not added solely to preserve the throwaway harness.
 
 ## 16. Official capability references
 
-- PyMuPDF text extraction structures and reading-order caveats: <https://pymupdf.readthedocs.io/en/latest/app1.html>
-- Docling document provenance and bounding boxes: <https://docling-project.github.io/docling/reference/docling_document/>
-- Ollama BGE-M3 package: <https://ollama.com/library/bge-m3>
-- Ollama Nomic Embed Text package: <https://ollama.com/library/nomic-embed-text>
-- OpenRouter structured outputs: <https://openrouter.ai/docs/features/structured-outputs>
-- OpenRouter streaming: <https://openrouter.ai/docs/api/reference/streaming>
-- OpenRouter free router behavior: <https://openrouter.ai/docs/guides/routing/routers/free-router>
-- OpenRouter free model variants: <https://openrouter.ai/docs/guides/routing/model-variants/free>
-- Gemini structured outputs: <https://ai.google.dev/gemini-api/docs/structured-output>
-- Gemini rate limits: <https://ai.google.dev/gemini-api/docs/rate-limits>
+- PyMuPDF text extraction and reading-order caveats: <https://pymupdf.readthedocs.io/en/latest/app1.html>
+- Docling provenance and bounding boxes: <https://docling-project.github.io/docling/reference/docling_document/>
+- Ollama BGE-M3: <https://ollama.com/library/bge-m3>
+- Ollama Nomic Embed Text: <https://ollama.com/library/nomic-embed-text>
+- OpenAI Chat Completions API: <https://platform.openai.com/docs/api-reference/chat>
+- OpenAI Structured Outputs: <https://platform.openai.com/docs/guides/structured-outputs>
+- 9Router documentation: <https://docs.9router.com/>
+- 9Router architecture and compatibility routes: <https://github.com/decolua/9router/blob/master/docs/ARCHITECTURE.md>

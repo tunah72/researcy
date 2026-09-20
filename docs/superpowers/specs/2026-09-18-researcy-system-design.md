@@ -1,8 +1,8 @@
 # Researcy System Design
 
 **Status:** Approved master specification  
-**Revision:** 1.0  
-**Approved:** 2026-09-18  
+**Revision:** 1.1  
+**Approved:** 2026-09-19  
 **Timebox:** 4–6 weeks  
 **Primary portfolio objective:** Demonstrate a complete, trustworthy end-to-end AI product  
 **Authority:** Normative source for product scope, system boundaries, cross-cutting contracts, and acceptance criteria. Child specifications may add local detail but may not silently override this document.
@@ -225,7 +225,7 @@ The canonical model is parser-independent. A bounded spike compares:
 1. Docling as a structure- and layout-aware parser;
 2. a PyMuPDF-based geometry-first pipeline with explicit reading-order and section heuristics.
 
-The fixed corpus includes one-column papers, two-column papers, papers with equations, papers with tables and captions, and arXiv `1706.03762`.
+Q0 uses a representative two-paper subset: arXiv `1706.03762` plus one table/caption-heavy two-column paper. Broader evaluation before production acceptance adds one-column, figure-heavy, and alternative publication layouts.
 
 The decision uses:
 
@@ -710,3 +710,4 @@ The following sections were reviewed and approved in conversation:
 4. V4-derived product UX and visual direction using `ui-ux-pro-max` guidance;
 5. reliability, security, verification, and the final PostgreSQL-only job decision.
 6. on-device self-hosted embedding terminology and external model request budget.
+7. balanced Q0 qualification scope using a two-paper representative subset before broader M5 evaluation.

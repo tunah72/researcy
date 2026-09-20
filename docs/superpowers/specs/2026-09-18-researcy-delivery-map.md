@@ -1,8 +1,8 @@
 # Researcy Delivery Map
 
 **Status:** Active delivery control  
-**Date:** 2026-09-18  
-**Master specification:** [`2026-09-18-researcy-system-design.md`](./2026-09-18-researcy-system-design.md), revision 1.0
+**Date:** 2026-09-19  
+**Master specification:** [`2026-09-18-researcy-system-design.md`](./2026-09-18-researcy-system-design.md), revision 1.1
 
 ## 1. Purpose
 
@@ -49,10 +49,10 @@ The sequence is dependency-ordered for one developer. Only the active milestone 
 
 **Scope:**
 
-- Docling versus a PyMuPDF-based geometry-first parser.
+- Docling versus a PyMuPDF-based geometry-first parser on a two-paper representative corpus.
 - Chunk-to-source-span-to-bounding-box feasibility.
-- BGE-M3 through a native ARM64 Ollama runtime on the M1 with 8 GB RAM.
-- Vendor-hosted streaming generation with structured citations.
+- BGE-M3 versus Nomic Embed Text through native ARM64 Ollama on the M1 with 8 GB RAM.
+- One pinned OpenAI-compatible generation path through a fixed 9Router version, provider connection, account, and exact model route, with fallback and prompt transformation disabled.
 - One complete quote-to-PDF-highlight proof.
 
 **Exit gate:**
@@ -201,12 +201,12 @@ The sequence is dependency-ordered for one developer. Only the active milestone 
 | SEC-01 | Untrusted PDF validation and bounded parser execution | 4, 17 | M1, M2 | Not started | — |
 | JOB-01 | PostgreSQL durable jobs with claim leases and recovery | 8 | M2 | Not started | — |
 | DOC-01 | Canonical document model with reversible provenance | 6 | M2 | Not started | — |
-| PARSE-01 | Qualified scientific PDF parser | 7 | Q0, M2 | Designed | Q0 spec revision 1.0 |
-| EMB-01 | On-device self-hosted embedding within the M1 budget | 9, 10, 20 | Q0, M2 | Designed | Q0 spec revision 1.0 |
+| PARSE-01 | Qualified scientific PDF parser | 7 | Q0, M2 | Designed | Q0 spec revision 1.2 |
+| EMB-01 | On-device self-hosted embedding within the M1 budget | 9, 10, 20 | Q0, M2 | Designed | Q0 spec revision 1.2 |
 | IDX-01 | User- and paper-scoped Qdrant index | 5, 9 | M2 | Not started | — |
 | RET-01 | Lexical + dense retrieval with RRF | 9 | M3 | Not started | — |
-| GEN-01 | Vendor-hosted streaming grounded generation | 10 | Q0, M3 | Designed | Q0 spec revision 1.0 |
-| CIT-01 | Citation validation and quote-to-geometry resolution | 10 | Q0, M3, M4 | Designed | Q0 spec revision 1.0 |
+| GEN-01 | Vendor-hosted streaming grounded generation | 10 | Q0, M3 | Designed | Q0 spec revision 1.2 |
+| CIT-01 | Citation validation and quote-to-geometry resolution | 10 | Q0, M3, M4 | Designed | Q0 spec revision 1.2 |
 | UX-01 | Simplified editorial Library experience | 12, 13 | M1 | Not started | — |
 | UX-02 | Evidence-linked PDF and Discussion workspace | 12–14 | M4 | Not started | — |
 | EVAL-01 | Fixed corpus and separated quality metrics | 11 | M5 | Not started | — |
@@ -226,4 +226,4 @@ A requirement with multiple milestones has one delivery owner and earlier qualif
 
 ## 7. Current control point
 
-The master specification is approved at revision 1.0. Q0 Technical Qualification is approved at revision 1.0 and planned in `docs/superpowers/plans/2026-09-18-researcy-q0-technical-qualification.md`. Execution must start in a new isolated worktree and use the separate-session execution workflow; no production M1 work is authorized before Q0 reaches its exit gate.
+The master specification remains approved at revision 1.1, and Q0 Technical Qualification is approved at revision 1.2. Q0 is planned in `docs/superpowers/plans/2026-09-18-researcy-q0-technical-qualification.md`. Execution must start in a new isolated worktree and use the separate-session execution workflow; no production M1 work is authorized before Q0 reaches its exit gate.
