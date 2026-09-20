@@ -68,9 +68,9 @@ The sequence is dependency-ordered for one developer. Only the active milestone 
 **Evidence & Decisions:**
 - Report: [`docs/superpowers/reports/2026-09-20-researcy-q0-technical-qualification-report.md`](../reports/2026-09-20-researcy-q0-technical-qualification-report.md)
 - Run ID: `q0-20260920T124722Z-cd96df4`
-- Environment: [`qualification/results/q0-20260920T124722Z-cd96df4/environment.json`](../../qualification/results/q0-20260920T124722Z-cd96df4/environment.json)
-- Parser Decision: [`qualification/results/q0-20260920T124722Z-cd96df4/parser.json`](../../qualification/results/q0-20260920T124722Z-cd96df4/parser.json) (selected: `pymupdf`)
-- Embedding Result: [`qualification/results/q0-20260920T124722Z-cd96df4/embedding.json`](../../qualification/results/q0-20260920T124722Z-cd96df4/embedding.json) (both candidates failed Recall@5 >= 0.75; `bge-m3:567m` achieved 0.625, `nomic-embed-text` achieved 0.500)
+- Environment: [`qualification/results/q0-20260920T124722Z-cd96df4/environment.json`](../../../qualification/results/q0-20260920T124722Z-cd96df4/environment.json)
+- Parser Decision: [`qualification/results/q0-20260920T124722Z-cd96df4/parser.json`](../../../qualification/results/q0-20260920T124722Z-cd96df4/parser.json) (selected: `pymupdf`)
+- Embedding Result: [`qualification/results/q0-20260920T124722Z-cd96df4/embedding.json`](../../../qualification/results/q0-20260920T124722Z-cd96df4/embedding.json) (both candidates failed Recall@5 >= 0.75; `bge-m3:567m` achieved 0.625, `nomic-embed-text` achieved 0.500)
 - Generation & Proof: `not_run` (stopped at Track B per spec §13)
 
 ### M1 — Identity and Personal Library
