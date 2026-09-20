@@ -1,0 +1,62 @@
+{
+  "architecture": "arm64",
+  "artifact_version": "q0-balanced-1",
+  "corpus_manifest_sha256": "50e221e0a441607306ba0a6eb9adf517793660c720ca2f5facb41bf5f442b8f9",
+  "failure_reasons": [],
+  "identities": {
+    "corpus_artifact_version": "q0-balanced-1",
+    "corpus_paper_ids": [
+      "1706.03762",
+      "2005.11401"
+    ],
+    "git_revision": "cd96df403a0b3c451647879bf0b0fa7f8295bf77"
+  },
+  "initialized_at_utc": "2026-09-20T12:47:22.664236Z",
+  "measurements": {
+    "answerable_cases": 8,
+    "coordinate_origin": "bottom-left",
+    "coverage_references": 2,
+    "independent_golden_boxes": 3,
+    "papers": 2,
+    "reading_order_relations": 12,
+    "unanswerable_cases": 2,
+    "valid": true
+  },
+  "ollama_version": null,
+  "os_version": "macOS 26.6",
+  "pdf_sha256": {
+    "1706.03762": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697",
+    "2005.11401": "23e3249e9a1e75418d82efecab0ea8c4d033b89c93742f63208d47ce01f21233"
+  },
+  "physical_memory_bytes": 8589934592,
+  "producer_git_revision": "cd96df403a0b3c451647879bf0b0fa7f8295bf77",
+  "python_version": "3.12.13",
+  "qdrant_container_image_id": null,
+  "qdrant_version": null,
+  "run_id": "q0-20260920T124722Z-cd96df4",
+  "run_initialized_git_revision": "cd96df403a0b3c451647879bf0b0fa7f8295bf77",
+  "threshold_outcomes": {
+    "corpus_valid": {
+      "failure_reason": null,
+      "observed": {
+        "answerable_cases": 8,
+        "coordinate_origin": "bottom-left",
+        "coverage_references": 2,
+        "independent_golden_boxes": 3,
+        "papers": 2,
+        "reading_order_relations": 12,
+        "unanswerable_cases": 2,
+        "valid": true
+      },
+      "passed": true,
+      "requirement": "fixed corpus and independent gold validation pass"
+    },
+    "tracked_tree_clean": {
+      "failure_reason": null,
+      "observed": true,
+      "passed": true,
+      "requirement": "tracked tree is clean at run initialization"
+    }
+  },
+  "tracked_tree_clean": true
+}
