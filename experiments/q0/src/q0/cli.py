@@ -28,6 +28,14 @@ from q0.parsers import (
     evaluate_parser_candidates,
     run_parser_candidate,
 )
+from q0.retrieval import (
+    CANDIDATE_MODELS as EMBEDDING_CANDIDATES,
+    RetrievalValidationError,
+    VectorValidationError,
+    evaluate_embedding_candidates,
+    run_embedding_candidate,
+    run_embedding_preflight,
+)
 
 Handler = Callable[[argparse.Namespace], int]
 
@@ -118,6 +126,48 @@ def _handle_parser_evaluate(args: argparse.Namespace) -> int:
                 "failure_reasons": result.failure_reasons,
             },
             sort_keys=True,
+        )
+    )
+    return 0
+
+def _handle_embedding_preflight(args: argparse.Namespace) -> int:
+    metadata = run_embedding_preflight(
+        root=args.root,
+        run_id=args.run_id,
+        model=args.model,
+    )
+    print(json.dumps(metadata, indent=2))
+    return 0
+
+
+def _handle_embedding_run(args: argparse.Namespace) -> int:
+    metadata = run_embedding_candidate(
+        root=args.root,
+        run_id=args.run_id,
+        model=args.model,
+    )
+    summary = {
+        "model": metadata["model"],
+        "run_id": metadata["run_id"],
+        "total_chunks": metadata["total_chunks"],
+        "indexing_time_seconds": metadata["measurements"]["indexing_time_seconds"],
+        "peak_memory_bytes": metadata["measurements"]["peak_memory_bytes"],
+        "latency_p50_seconds": metadata["measurements"]["latency_p50_seconds"],
+        "latency_p95_seconds": metadata["measurements"]["latency_p95_seconds"],
+        "recall_at_1": metadata["measurements"]["recall_at_1"],
+        "recall_at_5": metadata["measurements"]["recall_at_5"],
+        "mrr": metadata["measurements"]["mrr"],
+    }
+    print(json.dumps(summary, indent=2))
+    return 0
+
+
+def _handle_embedding_evaluate(args: argparse.Namespace) -> int:
+    result = evaluate_embedding_candidates(root=args.root, run_id=args.run_id)
+    print(
+        result.model_dump_json(
+            indent=2,
+            exclude={"measurements": {"candidates": True}},
         )
     )
     return 0
@@ -291,7 +341,44 @@ def build_parser() -> argparse.ArgumentParser:
     _add_root_argument(parser_evaluate)
     parser_evaluate.set_defaults(handler=_handle_parser_evaluate)
 
-    for name in ("embedding", "generation", "proof"):
+    embedding_stage = commands.add_parser(
+        "embedding", help="qualify the two locked embedding candidates"
+    )
+    embedding_commands = embedding_stage.add_subparsers(
+        dest="embedding_command", metavar="COMMAND", required=True
+    )
+    embedding_preflight = embedding_commands.add_parser(
+        "preflight", help="preflight one embedding candidate"
+    )
+    embedding_preflight.add_argument(
+        "--model",
+        choices=EMBEDDING_CANDIDATES,
+        required=True,
+    )
+    embedding_preflight.add_argument("--run-id", required=True)
+    _add_root_argument(embedding_preflight)
+    embedding_preflight.set_defaults(handler=_handle_embedding_preflight)
+
+    embedding_run = embedding_commands.add_parser(
+        "run", help="measure one embedding candidate"
+    )
+    embedding_run.add_argument(
+        "--model",
+        choices=EMBEDDING_CANDIDATES,
+        required=True,
+    )
+    embedding_run.add_argument("--run-id", required=True)
+    _add_root_argument(embedding_run)
+    embedding_run.set_defaults(handler=_handle_embedding_run)
+
+    embedding_evaluate = embedding_commands.add_parser(
+        "evaluate", help="apply the complete embedding qualification gate"
+    )
+    embedding_evaluate.add_argument("--run-id", required=True)
+    _add_root_argument(embedding_evaluate)
+    embedding_evaluate.set_defaults(handler=_handle_embedding_evaluate)
+
+    for name in ("generation", "proof"):
         future = commands.add_parser(name, help=f"run the {name} qualification stage")
         future.set_defaults(handler=_not_implemented)
 
@@ -308,6 +395,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         CorpusValidationError,
         GoldValidationError,
         ParserValidationError,
+        RetrievalValidationError,
+        VectorValidationError,
     ) as error:
         print(f"q0: error: {error}", file=sys.stderr)
         return 2
