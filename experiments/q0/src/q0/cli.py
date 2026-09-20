@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import platform
 import subprocess
 import sys
@@ -103,7 +104,7 @@ def _handle_init_run(args: argparse.Namespace) -> int:
     manifest = load_manifest(root)
 
     initialized_at = datetime.now(timezone.utc)
-    run_id = f"q0-{initialized_at.strftime('%Y%m%dT%H%M%SZ')}-{revision[:12]}"
+    run_id = f"q0-{initialized_at.strftime('%Y%m%dT%H%M%SZ')}-{revision[:7]}"
     macos_version = platform.mac_ver()[0]
     os_version = f"macOS {macos_version}" if macos_version else platform.platform()
     environment = EnvironmentResult(
@@ -139,12 +140,31 @@ def _handle_init_run(args: argparse.Namespace) -> int:
     )
     output_path = root / "qualification" / "results" / run_id / "environment.json"
     write_json_atomic(output_path, environment)
+
+    private_id_path = root / "qualification" / "private" / "run-id.txt"
+    private_id_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_private = private_id_path.with_name(f".{private_id_path.name}.tmp")
+    temp_private.write_text(f"{run_id}\n", encoding="utf-8")
+    with open(temp_private, "r", encoding="utf-8") as f:
+        os.fsync(f.fileno())
+    os.replace(temp_private, private_id_path)
+    dir_fd = os.open(private_id_path.parent, os.O_RDONLY)
+    try:
+        os.fsync(dir_fd)
+    finally:
+        os.close(dir_fd)
+
     print(run_id)
     return 0
 
 
 def _handle_run_id(args: argparse.Namespace) -> int:
     root = args.root.resolve()
+    private_id_path = root / "qualification" / "private" / "run-id.txt"
+    private_run_id: str | None = None
+    if private_id_path.is_file():
+        private_run_id = private_id_path.read_text(encoding="utf-8").strip()
+
     environment_files = _environment_files(root)
     if len(environment_files) != 1:
         raise CommandError(
@@ -158,6 +178,12 @@ def _handle_run_id(args: argparse.Namespace) -> int:
         raise CommandError(
             f"invalid environment result {environment_files[0]}: {error}"
         ) from error
+
+    if private_run_id is not None and private_run_id != environment.run_id:
+        raise CommandError(
+            f"private run ID '{private_run_id}' does not match environment run ID '{environment.run_id}'"
+        )
+
     print(environment.run_id)
     return 0
 

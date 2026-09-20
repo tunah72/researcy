@@ -164,8 +164,16 @@ def fetch_corpus(root: Path) -> CorpusManifest:
                     raise CorpusValidationError(
                         f"non-PDF response from {url}: content-type {content_type or '<missing>'}"
                     )
-                pdf_bytes = response.content
-                page_count = _inspect_pdf(pdf_bytes, source=url)
+                downloaded_bytes = response.content
+                downloaded_page_count = _inspect_pdf(downloaded_bytes, source=url)
+                if previous is not None:
+                    validate_pdf_hash(previous.sha256, downloaded_bytes)
+                    if downloaded_page_count != previous.page_count:
+                        raise CorpusValidationError(
+                            f"downloaded page count {downloaded_page_count} does not match manifest {previous.page_count} for {paper_id}"
+                        )
+                pdf_bytes = downloaded_bytes
+                page_count = downloaded_page_count
                 cache_path.parent.mkdir(parents=True, exist_ok=True)
                 cache_path.write_bytes(pdf_bytes)
 
@@ -179,8 +187,11 @@ def fetch_corpus(root: Path) -> CorpusManifest:
                 )
             )
 
-    manifest = CorpusManifest(papers=entries)
-    write_json_atomic(manifest_path, manifest)
+    if not manifest_path.exists():
+        manifest = CorpusManifest(papers=entries)
+        write_json_atomic(manifest_path, manifest)
+    else:
+        manifest = load_manifest(root)
     return manifest
 
 
@@ -209,6 +220,18 @@ def validate_evidence_case(case: EvidenceCase, page_text: str) -> None:
                 )
     elif case.quotes:
         raise GoldValidationError(f"{case.case_id}: unanswerable case must have no quotes")
+
+def validate_reading_order_anchors(relation: ReadingOrderRelation, page_text: str) -> None:
+    normalized_page = normalize_text(page_text)
+    before = normalize_text(relation.before_anchor)
+    after = normalize_text(relation.after_anchor)
+    before_count = normalized_page.count(before) if before else 0
+    after_count = normalized_page.count(after) if after else 0
+    if before_count != 1 or after_count != 1:
+        raise GoldValidationError(
+            f"{relation.relation_id}: anchors must each resolve exactly once; "
+            f"before={before_count}, after={after_count}"
+        )
 
 
 def validate_gold_counts(counts: dict[str, dict[str, int]]) -> None:
@@ -407,20 +430,7 @@ def validate_gold(root: Path) -> dict[str, int | bool | str]:
                 f"{relation.relation_id}: unknown paper {relation.paper_id}"
             )
         page_text, _, _ = page_details(relation.paper_id, relation.page_index)
-        normalized_page = normalize_text(page_text)
-        before = normalize_text(relation.before_anchor)
-        after = normalize_text(relation.after_anchor)
-        before_count = normalized_page.count(before) if before else 0
-        after_count = normalized_page.count(after) if after else 0
-        if before_count != 1 or after_count != 1:
-            raise GoldValidationError(
-                f"{relation.relation_id}: anchors must each resolve exactly once; "
-                f"before={before_count}, after={after_count}"
-            )
-        if normalized_page.index(before) >= normalized_page.index(after):
-            raise GoldValidationError(
-                f"{relation.relation_id}: before anchor does not precede after anchor"
-            )
+        validate_reading_order_anchors(relation, page_text)
         relation_counts[relation.paper_id] += 1
         relation_ids_by_paper[relation.paper_id].add(relation.relation_id)
 
