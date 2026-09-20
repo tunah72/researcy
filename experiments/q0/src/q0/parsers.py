@@ -643,6 +643,14 @@ def _docling_bbox(
     raise ParserValidationError(f"unsupported Docling coordinate origin: {origin}")
 
 
+def _docling_source_text(item: Any) -> str:
+    original = getattr(item, "orig", None)
+    if isinstance(original, str) and original:
+        return original
+    sanitized = getattr(item, "text", "")
+    return sanitized if isinstance(sanitized, str) else str(sanitized)
+
+
 def _docling_text_run_groups(
     *,
     text: str,
@@ -828,7 +836,7 @@ def parse_docling(path: str | Path) -> list[ParsedBlock]:
                     )
                 )
         else:
-            text = str(getattr(item, "text", ""))
+            text = _docling_source_text(item)
             provenance = list(getattr(item, "prov", []))
             if not text.strip() or not provenance:
                 continue

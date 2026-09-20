@@ -9,6 +9,7 @@ import pytest
 from q0.models import BBox, EvidenceCase, ParsedBlock, SourceSpan
 from q0.parsers import (
     _docling_text_run_groups,
+    _docling_source_text,
     ParserValidationError,
     SourceRun,
     normalize_with_map,
@@ -178,6 +179,18 @@ def test_docling_cross_page_item_splits_without_losing_provenance():
         normalize_with_map(group[3])[0]
         for group in groups
     ] == ["alpha", "beta"]
+
+
+def test_docling_charspans_index_orig_not_sanitized_text():
+    item = SimpleNamespace(
+        orig="· In encoder-decoder attention",
+        text="In encoder-decoder attention",
+    )
+
+    source_text = _docling_source_text(item)
+
+    assert source_text == item.orig
+    assert len(source_text) == len(item.text) + 2
 
 
 def test_parser_gate_enforces_coverage_and_reading_order_boundaries():
