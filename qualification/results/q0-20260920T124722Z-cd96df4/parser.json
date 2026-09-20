@@ -1,0 +1,1870 @@
+{
+  "artifact_version": "q0-balanced-1",
+  "failure_reasons": [],
+  "identities": {
+    "candidate_identities": {
+      "docling": {
+        "candidate": "docling",
+        "options": {
+          "allow_external_plugins": false,
+          "do_ocr": false,
+          "do_table_structure": true,
+          "enable_remote_services": false,
+          "num_threads": 4
+        },
+        "version": "2.129.0"
+      },
+      "pymupdf": {
+        "adapter": "TextPage raw spans and characters with explicit geometry ordering",
+        "candidate": "pymupdf",
+        "version": "1.28.2"
+      }
+    },
+    "candidates": [
+      "pymupdf",
+      "docling"
+    ],
+    "coordinate_origin": "bottom-left",
+    "producer_git_revision": "5486028474dca62c3de6232579663a3c7d6e2ec5",
+    "run_initialized_git_revision": "cd96df403a0b3c451647879bf0b0fa7f8295bf77",
+    "tracked_tree_clean_before_measurement": true
+  },
+  "measurements": {
+    "candidates": {
+      "docling": {
+        "answerable_case_count": 8,
+        "cases": [
+          {
+            "case_id": "1706.03762-answer-1",
+            "expected_page": 3,
+            "expected_section": "3.2.1 Scaled Dot-Product Attention",
+            "geometry_resolved": false,
+            "page_correct": false,
+            "paper_id": "1706.03762",
+            "quotes": [
+              {
+                "expected_page": 3,
+                "expected_section": "3.2.1 Scaled Dot-Product Attention",
+                "geometry_resolved": false,
+                "occurrence_count": 0,
+                "page_correct": false,
+                "quote_sha256": "d164178bcfd90586d689e739789226ca9fc583c418cabd712023bd25c9c34129",
+                "resolved_boxes": [],
+                "resolved_pages": [],
+                "section_correct": false,
+                "section_path": []
+              }
+            ],
+            "section_correct": false
+          },
+          {
+            "case_id": "1706.03762-answer-2",
+            "expected_page": 4,
+            "expected_section": "3.2.2 Multi-Head Attention",
+            "geometry_resolved": true,
+            "page_correct": true,
+            "paper_id": "1706.03762",
+            "quotes": [
+              {
+                "expected_page": 4,
+                "expected_section": "3.2.2 Multi-Head Attention",
+                "geometry_resolved": true,
+                "occurrence_count": 1,
+                "page_correct": true,
+                "quote_sha256": "be50bef9d05264591898ec2a7afeabdf2249c09e51d2d19113f8aefab58546ce",
+                "resolved_boxes": [
+                  {
+                    "x0": 108.0,
+                    "x1": 503.99701133599984,
+                    "y0": 669.7647743929203,
+                    "y1": 689.2256526
+                  }
+                ],
+                "resolved_pages": [
+                  4
+                ],
+                "section_correct": true,
+                "section_path": [
+                  "Scaled Dot-Product Attention",
+                  "3.2.2 Multi-Head Attention"
+                ]
+              }
+            ],
+            "section_correct": true
+          },
+          {
+            "case_id": "1706.03762-answer-3",
+            "expected_page": 5,
+            "expected_section": "3.5 Positional Encoding",
+            "geometry_resolved": true,
+            "page_correct": true,
+            "paper_id": "1706.03762",
+            "quotes": [
+              {
+                "expected_page": 5,
+                "expected_section": "3.5 Positional Encoding",
+                "geometry_resolved": true,
+                "occurrence_count": 1,
+                "page_correct": true,
+                "quote_sha256": "67348ce70c97db670c9b8fc5c57c62c7838e965fdd863b4b9afb74d00bda671e",
+                "resolved_boxes": [
+                  {
+                    "x0": 108.0,
+                    "x1": 505.24786557900006,
+                    "y0": 493.97677439292033,
+                    "y1": 557.0736526
+                  }
+                ],
+                "resolved_pages": [
+                  5
+                ],
+                "section_correct": true,
+                "section_path": [
+                  "Scaled Dot-Product Attention",
+                  "3.5 Positional Encoding"
+                ]
+              }
+            ],
+            "section_correct": true
+          },
+          {
+            "case_id": "1706.03762-answer-4",
+            "expected_page": 2,
+            "expected_section": "3.1 Encoder and Decoder Stacks",
+            "geometry_resolved": false,
+            "page_correct": false,
+            "paper_id": "1706.03762",
+            "quotes": [
+              {
+                "expected_page": 2,
+                "expected_section": "3.1 Encoder and Decoder Stacks",
+                "geometry_resolved": false,
+                "occurrence_count": 0,
+                "page_correct": false,
+                "quote_sha256": "0554ef5319b981872dffa1f149348cd4cc1619d11d59e84b5b27b41b56f322c4",
+                "resolved_boxes": [],
+                "resolved_pages": [],
+                "section_correct": false,
+                "section_path": []
+              }
+            ],
+            "section_correct": false
+          },
+          {
+            "case_id": "2005.11401-answer-1",
+            "expected_page": 1,
+            "expected_section": "1 Introduction",
+            "geometry_resolved": true,
+            "page_correct": true,
+            "paper_id": "2005.11401",
+            "quotes": [
+              {
+                "expected_page": 1,
+                "expected_section": "1 Introduction",
+                "geometry_resolved": true,
+                "occurrence_count": 1,
+                "page_correct": true,
+                "quote_sha256": "25123e116f644ad3aeb330d6acac5a2c61aef0dd9833490a2b4b997eae245ad8",
+                "resolved_boxes": [
+                  {
+                    "x0": 107.532,
+                    "x1": 505.7467626992004,
+                    "y0": 388.62977439292035,
+                    "y1": 506.27265259999996
+                  }
+                ],
+                "resolved_pages": [
+                  1
+                ],
+                "section_correct": true,
+                "section_path": [
+                  "1 Introduction"
+                ]
+              }
+            ],
+            "section_correct": true
+          },
+          {
+            "case_id": "2005.11401-answer-2",
+            "expected_page": 2,
+            "expected_section": "2.1 Models",
+            "geometry_resolved": false,
+            "page_correct": false,
+            "paper_id": "2005.11401",
+            "quotes": [
+              {
+                "expected_page": 2,
+                "expected_section": "2.1 Models",
+                "geometry_resolved": false,
+                "occurrence_count": 0,
+                "page_correct": false,
+                "quote_sha256": "3fe9ff31fbf8cfd5eb6cbc7748a8f2ac876bb014269ab053d6d449b17387faf4",
+                "resolved_boxes": [],
+                "resolved_pages": [],
+                "section_correct": false,
+                "section_path": []
+              }
+            ],
+            "section_correct": false
+          },
+          {
+            "case_id": "2005.11401-answer-3",
+            "expected_page": 1,
+            "expected_section": "1 Introduction",
+            "geometry_resolved": true,
+            "page_correct": true,
+            "paper_id": "2005.11401",
+            "quotes": [
+              {
+                "expected_page": 1,
+                "expected_section": "1 Introduction",
+                "geometry_resolved": true,
+                "occurrence_count": 1,
+                "page_correct": true,
+                "quote_sha256": "48726e4880070b125c463cac4757666092b66f91924071bdb77e956e16616615",
+                "resolved_boxes": [
+                  {
+                    "x0": 107.532,
+                    "x1": 505.7467626992004,
+                    "y0": 388.62977439292035,
+                    "y1": 506.27265259999996
+                  }
+                ],
+                "resolved_pages": [
+                  1
+                ],
+                "section_correct": true,
+                "section_path": [
+                  "1 Introduction"
+                ]
+              }
+            ],
+            "section_correct": true
+          },
+          {
+            "case_id": "2005.11401-answer-4",
+            "expected_page": 5,
+            "expected_section": "4 Results",
+            "geometry_resolved": true,
+            "page_correct": true,
+            "paper_id": "2005.11401",
+            "quotes": [
+              {
+                "expected_page": 5,
+                "expected_section": "4 Results",
+                "geometry_resolved": true,
+                "occurrence_count": 1,
+                "page_correct": true,
+                "quote_sha256": "ae48ff3ad1cae18b74cfdf5e5f629db561eabe62769f7ee1bf1369231e203df2",
+                "resolved_boxes": [
+                  {
+                    "x0": 107.691,
+                    "x1": 303.6969458159999,
+                    "y0": 670.4037743929204,
+                    "y1": 711.6826526
+                  }
+                ],
+                "resolved_pages": [
+                  5
+                ],
+                "section_correct": true,
+                "section_path": [
+                  "4 Results",
+                  "4.1 Open-domain Question Answering"
+                ]
+              },
+              {
+                "expected_page": 5,
+                "expected_section": "4 Results",
+                "geometry_resolved": true,
+                "occurrence_count": 1,
+                "page_correct": true,
+                "quote_sha256": "a88a3c8b270301e9719be9c44aa09248beef990c2c794a6fe7976ed8a0929d20",
+                "resolved_boxes": [
+                  {
+                    "x0": 309.649,
+                    "x1": 505.7458445799998,
+                    "y0": 670.5967743929203,
+                    "y1": 711.8756526
+                  }
+                ],
+                "resolved_pages": [
+                  5
+                ],
+                "section_correct": true,
+                "section_path": [
+                  "4 Results",
+                  "4.1 Open-domain Question Answering"
+                ]
+              }
+            ],
+            "section_correct": true
+          }
+        ],
+        "coverage": [
+          {
+            "case_id": "1706.03762-answer-1",
+            "denominator": 398,
+            "numerator": 367,
+            "page_index": 3,
+            "paper_id": "1706.03762",
+            "score": 0.9221105527638191
+          },
+          {
+            "case_id": "2005.11401-answer-4",
+            "denominator": 652,
+            "numerator": 539,
+            "page_index": 5,
+            "paper_id": "2005.11401",
+            "score": 0.8266871165644172
+          }
+        ],
+        "expected_section_case_count": 8,
+        "gate": {
+          "coverage_each_fixed_page": {
+            "failure_reason": "observed [0.9221105527638191, 0.8266871165644172]",
+            "observed": [
+              0.9221105527638191,
+              0.8266871165644172
+            ],
+            "passed": false,
+            "requirement": "normalized token LCS coverage is at least 0.90 on each of 2 fixed pages"
+          },
+          "geometry": {
+            "failure_reason": "observed {'answerable': 8, 'with_geometry': 5}",
+            "observed": {
+              "answerable": 8,
+              "with_geometry": 5
+            },
+            "passed": false,
+            "requirement": "every answerable case resolves to non-empty source boxes"
+          },
+          "golden_region": {
+            "failure_reason": "observed {'case_id': '1706.03762-answer-1', 'expected_page': 3, 'resolved': False, 'resolved_box_count': 0, 'expected_region_count': 3, 'regions_overlapped': 0, 'inside_annotated_region': False, 'correct_column': False, 'passed': False}",
+            "observed": {
+              "case_id": "1706.03762-answer-1",
+              "correct_column": false,
+              "expected_page": 3,
+              "expected_region_count": 3,
+              "inside_annotated_region": false,
+              "passed": false,
+              "regions_overlapped": 0,
+              "resolved": false,
+              "resolved_box_count": 0
+            },
+            "passed": false,
+            "requirement": "golden evidence overlaps every annotated region in the correct column"
+          },
+          "page_correctness": {
+            "failure_reason": "observed {'answerable': 8, 'page_correct': 5}",
+            "observed": {
+              "answerable": 8,
+              "page_correct": 5
+            },
+            "passed": false,
+            "requirement": "all 8 answerable cases resolve to the expected page"
+          },
+          "qualified": {
+            "failure_reason": "observed {'successful_parsing': True, 'page_correctness': False, 'geometry': False, 'coverage_each_fixed_page': False, 'reading_order': False, 'golden_region': False, 'reversible_offsets': True}",
+            "observed": {
+              "coverage_each_fixed_page": false,
+              "geometry": false,
+              "golden_region": false,
+              "page_correctness": false,
+              "reading_order": false,
+              "reversible_offsets": true,
+              "successful_parsing": true
+            },
+            "passed": false,
+            "requirement": "candidate passes every parser provenance threshold"
+          },
+          "reading_order": {
+            "failure_reason": "observed {'correct': 7, 'total': 12, 'relations': [{'relation_id': '1706.03762-ro-01-intro-to-background', 'paper_id': '1706.03762', 'page_index': 1, 'before_occurrences': 1, 'after_occurrences': 1, 'before_start': 1541, 'after_start': 1925, 'correct': True}, {'relation_id': '1706.03762-ro-02-background-to-model', 'paper_id': '1706.03762', 'page_index': 1, 'before_occurrences': 1, 'after_occurrences': 1, 'before_start': 3376, 'after_start': 3750, 'correct': True}, {'relation_id': '1706.03762-ro-03-figure-to-attention', 'paper_id': '1706.03762', 'page_index': 3, 'before_occurrences': 1, 'after_occurrences': 1, 'before_start': 29, 'after_start': 299, 'correct': True}, {'relation_id': '1706.03762-ro-04-scaled-to-multihead', 'paper_id': '1706.03762', 'page_index': 3, 'before_occurrences': 0, 'after_occurrences': 1, 'before_start': None, 'after_start': 1851, 'correct': False}, {'relation_id': '1706.03762-ro-05-column-transition-authors', 'paper_id': '1706.03762', 'page_index': 0, 'before_occurrences': 0, 'after_occurrences': 0, 'before_start': None, 'after_start': None, 'correct': False}, {'relation_id': '1706.03762-ro-06-table-to-positional', 'paper_id': '1706.03762', 'page_index': 5, 'before_occurrences': 1, 'after_occurrences': 1, 'before_start': 210, 'after_start': 556, 'correct': True}, {'relation_id': '2005.11401-ro-01-figure-caption-to-body', 'paper_id': '2005.11401', 'page_index': 1, 'before_occurrences': 0, 'after_occurrences': 1, 'before_start': None, 'after_start': 0, 'correct': False}, {'relation_id': '2005.11401-ro-02-methods-to-models', 'paper_id': '2005.11401', 'page_index': 2, 'before_occurrences': 1, 'after_occurrences': 1, 'before_start': 249, 'after_start': 714, 'correct': True}, {'relation_id': '2005.11401-ro-03-sequence-to-token', 'paper_id': '2005.11401', 'page_index': 2, 'before_occurrences': 0, 'after_occurrences': 1, 'before_start': None, 'after_start': 1336, 'correct': False}, {'relation_id': '2005.11401-ro-04-retriever-to-generator', 'paper_id': '2005.11401', 'page_index': 2, 'before_occurrences': 1, 'after_occurrences': 1, 'before_start': 2117, 'after_start': 3021, 'correct': True}, {'relation_id': '2005.11401-ro-05-column-transition-tables', 'paper_id': '2005.11401', 'page_index': 5, 'before_occurrences': 0, 'after_occurrences': 1, 'before_start': None, 'after_start': 871, 'correct': False}, {'relation_id': '2005.11401-ro-06-table-caption-to-body', 'paper_id': '2005.11401', 'page_index': 5, 'before_occurrences': 1, 'after_occurrences': 1, 'before_start': 871, 'after_start': 1053, 'correct': True}]}",
+            "observed": {
+              "correct": 7,
+              "relations": [
+                {
+                  "after_occurrences": 1,
+                  "after_start": 1925,
+                  "before_occurrences": 1,
+                  "before_start": 1541,
+                  "correct": true,
+                  "page_index": 1,
+                  "paper_id": "1706.03762",
+                  "relation_id": "1706.03762-ro-01-intro-to-background"
+                },
+                {
+                  "after_occurrences": 1,
+                  "after_start": 3750,
+                  "before_occurrences": 1,
+                  "before_start": 3376,
+                  "correct": true,
+                  "page_index": 1,
+                  "paper_id": "1706.03762",
+                  "relation_id": "1706.03762-ro-02-background-to-model"
+                },
+                {
+                  "after_occurrences": 1,
+                  "after_start": 299,
+                  "before_occurrences": 1,
+                  "before_start": 29,
+                  "correct": true,
+                  "page_index": 3,
+                  "paper_id": "1706.03762",
+                  "relation_id": "1706.03762-ro-03-figure-to-attention"
+                },
+                {
+                  "after_occurrences": 1,
+                  "after_start": 1851,
+                  "before_occurrences": 0,
+                  "before_start": null,
+                  "correct": false,
+                  "page_index": 3,
+                  "paper_id": "1706.03762",
+                  "relation_id": "1706.03762-ro-04-scaled-to-multihead"
+                },
+                {
+                  "after_occurrences": 0,
+                  "after_start": null,
+                  "before_occurrences": 0,
+                  "before_start": null,
+                  "correct": false,
+                  "page_index": 0,
+                  "paper_id": "1706.03762",
+                  "relation_id": "1706.03762-ro-05-column-transition-authors"
+                },
+                {
+                  "after_occurrences": 1,
+                  "after_start": 556,
+                  "before_occurrences": 1,
+                  "before_start": 210,
+                  "correct": true,
+                  "page_index": 5,
+                  "paper_id": "1706.03762",
+                  "relation_id": "1706.03762-ro-06-table-to-positional"
+                },
+                {
+                  "after_occurrences": 1,
+                  "after_start": 0,
+                  "before_occurrences": 0,
+                  "before_start": null,
+                  "correct": false,
+                  "page_index": 1,
+                  "paper_id": "2005.11401",
+                  "relation_id": "2005.11401-ro-01-figure-caption-to-body"
+                },
+                {
+                  "after_occurrences": 1,
+                  "after_start": 714,
+                  "before_occurrences": 1,
+                  "before_start": 249,
+                  "correct": true,
+                  "page_index": 2,
+                  "paper_id": "2005.11401",
+                  "relation_id": "2005.11401-ro-02-methods-to-models"
+                },
+                {
+                  "after_occurrences": 1,
+                  "after_start": 1336,
+                  "before_occurrences": 0,
+                  "before_start": null,
+                  "correct": false,
+                  "page_index": 2,
+                  "paper_id": "2005.11401",
+                  "relation_id": "2005.11401-ro-03-sequence-to-token"
+                },
+                {
+                  "after_occurrences": 1,
+                  "after_start": 3021,
+                  "before_occurrences": 1,
+                  "before_start": 2117,
+                  "correct": true,
+                  "page_index": 2,
+                  "paper_id": "2005.11401",
+                  "relation_id": "2005.11401-ro-04-retriever-to-generator"
+                },
+                {
+                  "after_occurrences": 1,
+                  "after_start": 871,
+                  "before_occurrences": 0,
+                  "before_start": null,
+                  "correct": false,
+                  "page_index": 5,
+                  "paper_id": "2005.11401",
+                  "relation_id": "2005.11401-ro-05-column-transition-tables"
+                },
+                {
+                  "after_occurrences": 1,
+                  "after_start": 1053,
+                  "before_occurrences": 1,
+                  "before_start": 871,
+                  "correct": true,
+                  "page_index": 5,
+                  "paper_id": "2005.11401",
+                  "relation_id": "2005.11401-ro-06-table-caption-to-body"
+                }
+              ],
+              "total": 12
+            },
+            "passed": false,
+            "requirement": "at least 10 of 12 frozen reading-order relations are correct"
+          },
+          "reversible_offsets": {
+            "failure_reason": null,
+            "observed": true,
+            "passed": true,
+            "requirement": "every normalized character has reversible source provenance"
+          },
+          "successful_parsing": {
+            "failure_reason": null,
+            "observed": 2,
+            "passed": true,
+            "requirement": "both fixed corpus PDFs parse successfully"
+          }
+        },
+        "geometry_case_count": 5,
+        "golden_region": {
+          "case_id": "1706.03762-answer-1",
+          "correct_column": false,
+          "expected_page": 3,
+          "expected_region_count": 3,
+          "inside_annotated_region": false,
+          "passed": false,
+          "regions_overlapped": 0,
+          "resolved": false,
+          "resolved_box_count": 0
+        },
+        "header_footer_leakage": {
+          "blocks": [],
+          "count": 0
+        },
+        "latency_seconds": 35.74638791599136,
+        "page_correct_case_count": 5,
+        "paper_results": [
+          {
+            "block_count": 382,
+            "failure_message": null,
+            "failure_type": null,
+            "latency_seconds": 20.864669582995703,
+            "normalized_character_count": 37913,
+            "paper_id": "1706.03762",
+            "status": "success"
+          },
+          {
+            "block_count": 419,
+            "failure_message": null,
+            "failure_type": null,
+            "latency_seconds": 14.878413790997001,
+            "normalized_character_count": 68050,
+            "paper_id": "2005.11401",
+            "status": "success"
+          }
+        ],
+        "peak_memory_bytes": 981893120,
+        "peak_memory_delta_bytes": 671268864,
+        "reading_order": {
+          "correct": 7,
+          "relations": [
+            {
+              "after_occurrences": 1,
+              "after_start": 1925,
+              "before_occurrences": 1,
+              "before_start": 1541,
+              "correct": true,
+              "page_index": 1,
+              "paper_id": "1706.03762",
+              "relation_id": "1706.03762-ro-01-intro-to-background"
+            },
+            {
+              "after_occurrences": 1,
+              "after_start": 3750,
+              "before_occurrences": 1,
+              "before_start": 3376,
+              "correct": true,
+              "page_index": 1,
+              "paper_id": "1706.03762",
+              "relation_id": "1706.03762-ro-02-background-to-model"
+            },
+            {
+              "after_occurrences": 1,
+              "after_start": 299,
+              "before_occurrences": 1,
+              "before_start": 29,
+              "correct": true,
+              "page_index": 3,
+              "paper_id": "1706.03762",
+              "relation_id": "1706.03762-ro-03-figure-to-attention"
+            },
+            {
+              "after_occurrences": 1,
+              "after_start": 1851,
+              "before_occurrences": 0,
+              "before_start": null,
+              "correct": false,
+              "page_index": 3,
+              "paper_id": "1706.03762",
+              "relation_id": "1706.03762-ro-04-scaled-to-multihead"
+            },
+            {
+              "after_occurrences": 0,
+              "after_start": null,
+              "before_occurrences": 0,
+              "before_start": null,
+              "correct": false,
+              "page_index": 0,
+              "paper_id": "1706.03762",
+              "relation_id": "1706.03762-ro-05-column-transition-authors"
+            },
+            {
+              "after_occurrences": 1,
+              "after_start": 556,
+              "before_occurrences": 1,
+              "before_start": 210,
+              "correct": true,
+              "page_index": 5,
+              "paper_id": "1706.03762",
+              "relation_id": "1706.03762-ro-06-table-to-positional"
+            },
+            {
+              "after_occurrences": 1,
+              "after_start": 0,
+              "before_occurrences": 0,
+              "before_start": null,
+              "correct": false,
+              "page_index": 1,
+              "paper_id": "2005.11401",
+              "relation_id": "2005.11401-ro-01-figure-caption-to-body"
+            },
+            {
+              "after_occurrences": 1,
+              "after_start": 714,
+              "before_occurrences": 1,
+              "before_start": 249,
+              "correct": true,
+              "page_index": 2,
+              "paper_id": "2005.11401",
+              "relation_id": "2005.11401-ro-02-methods-to-models"
+            },
+            {
+              "after_occurrences": 1,
+              "after_start": 1336,
+              "before_occurrences": 0,
+              "before_start": null,
+              "correct": false,
+              "page_index": 2,
+              "paper_id": "2005.11401",
+              "relation_id": "2005.11401-ro-03-sequence-to-token"
+            },
+            {
+              "after_occurrences": 1,
+              "after_start": 3021,
+              "before_occurrences": 1,
+              "before_start": 2117,
+              "correct": true,
+              "page_index": 2,
+              "paper_id": "2005.11401",
+              "relation_id": "2005.11401-ro-04-retriever-to-generator"
+            },
+            {
+              "after_occurrences": 1,
+              "after_start": 871,
+              "before_occurrences": 0,
+              "before_start": null,
+              "correct": false,
+              "page_index": 5,
+              "paper_id": "2005.11401",
+              "relation_id": "2005.11401-ro-05-column-transition-tables"
+            },
+            {
+              "after_occurrences": 1,
+              "after_start": 1053,
+              "before_occurrences": 1,
+              "before_start": 871,
+              "correct": true,
+              "page_index": 5,
+              "paper_id": "2005.11401",
+              "relation_id": "2005.11401-ro-06-table-caption-to-body"
+            }
+          ],
+          "total": 12
+        },
+        "reversible_offsets": true,
+        "section_correct_case_count": 5,
+        "stream_record_count": 801,
+        "stream_relative_path": "qualification/private/q0-20260920T124722Z-cd96df4/parsed-blocks-docling.jsonl",
+        "stream_sha256": "58aabf06ef90fa3c96ca3cc58379290b286b0618f3a8f4a1086fa31b31825772",
+        "stream_validated_as_parsed_block": true,
+        "successful_papers": 2
+      },
+      "pymupdf": {
+        "answerable_case_count": 8,
+        "cases": [
+          {
+            "case_id": "1706.03762-answer-1",
+            "expected_page": 3,
+            "expected_section": "3.2.1 Scaled Dot-Product Attention",
+            "geometry_resolved": true,
+            "page_correct": true,
+            "paper_id": "1706.03762",
+            "quotes": [
+              {
+                "expected_page": 3,
+                "expected_section": "3.2.1 Scaled Dot-Product Attention",
+                "geometry_resolved": true,
+                "occurrence_count": 1,
+                "page_correct": true,
+                "quote_sha256": "d164178bcfd90586d689e739789226ca9fc583c418cabd712023bd25c9c34129",
+                "resolved_boxes": [
+                  {
+                    "x0": 366.2391052246094,
+                    "x1": 504.0,
+                    "y0": 198.408935546875,
+                    "y1": 208.39642333984375
+                  },
+                  {
+                    "x0": 108.0,
+                    "x1": 113.19051361083984,
+                    "y0": 187.7364501953125,
+                    "y1": 197.69903564453125
+                  },
+                  {
+                    "x0": 113.18499755859375,
+                    "x1": 117.41809844970703,
+                    "y0": 186.8944091796875,
+                    "y1": 193.86822509765625
+                  },
+                  {
+                    "x0": 118.08699798583984,
+                    "x1": 503.9983825683594,
+                    "y0": 187.5228271484375,
+                    "y1": 197.4154052734375
+                  },
+                  {
+                    "x0": 108.0,
+                    "x1": 210.78416442871094,
+                    "y0": 176.59698486328125,
+                    "y1": 186.5595703125
+                  },
+                  {
+                    "x0": 213.2740020751953,
+                    "x1": 216.76089477539062,
+                    "y0": 180.93408203125,
+                    "y1": 187.90789794921875
+                  },
+                  {
+                    "x0": 217.25900268554688,
+                    "x1": 219.74964904785156,
+                    "y0": 176.59698486328125,
+                    "y1": 186.5595703125
+                  },
+                  {
+                    "x0": 222.8380584716797,
+                    "x1": 437.04388427734375,
+                    "y0": 176.59698486328125,
+                    "y1": 186.5595703125
+                  },
+                  {
+                    "x0": 446.2669982910156,
+                    "x1": 450.2420654296875,
+                    "y0": 181.4024658203125,
+                    "y1": 188.37628173828125
+                  },
+                  {
+                    "x0": 440.72900390625,
+                    "x1": 447.27740478515625,
+                    "y0": 178.78582763671875,
+                    "y1": 185.7596435546875
+                  },
+                  {
+                    "x0": 447.27398681640625,
+                    "x1": 451.42340087890625,
+                    "y0": 173.2734375,
+                    "y1": 180.24725341796875
+                  },
+                  {
+                    "x0": 451.4209899902344,
+                    "x1": 455.1968078613281,
+                    "y0": 172.6517333984375,
+                    "y1": 177.633056640625
+                  },
+                  {
+                    "x0": 456.97198486328125,
+                    "x1": 459.462646484375,
+                    "y0": 176.59698486328125,
+                    "y1": 186.5595703125
+                  }
+                ],
+                "resolved_pages": [
+                  3
+                ],
+                "section_correct": true,
+                "section_path": [
+                  "3 Model Architecture",
+                  "3.2 Attention",
+                  "3.2.1 Scaled Dot-Product Attention"
+                ]
+              }
+            ],
+            "section_correct": true
+          },
+          {
+            "case_id": "1706.03762-answer-2",
+            "expected_page": 4,
+            "expected_section": "3.2.2 Multi-Head Attention",
+            "geometry_resolved": true,
+            "page_correct": true,
+            "paper_id": "1706.03762",
+            "quotes": [
+              {
+                "expected_page": 4,
+                "expected_section": "3.2.2 Multi-Head Attention",
+                "geometry_resolved": true,
+                "occurrence_count": 1,
+                "page_correct": true,
+                "quote_sha256": "be50bef9d05264591898ec2a7afeabdf2249c09e51d2d19113f8aefab58546ce",
+                "resolved_boxes": [
+                  {
+                    "x0": 108.0,
+                    "x1": 503.996826171875,
+                    "y0": 680.3281097412109,
+                    "y1": 690.3106155395508
+                  },
+                  {
+                    "x0": 108.0,
+                    "x1": 235.03314208984375,
+                    "y0": 669.4239196777344,
+                    "y1": 679.3865203857422
+                  },
+                  {
+                    "x0": 238.12155151367188,
+                    "x1": 445.1941223144531,
+                    "y0": 669.4239196777344,
+                    "y1": 679.3865203857422
+                  }
+                ],
+                "resolved_pages": [
+                  4
+                ],
+                "section_correct": true,
+                "section_path": [
+                  "3 Model Architecture",
+                  "3.2 Attention",
+                  "3.2.2 Multi-Head Attention"
+                ]
+              }
+            ],
+            "section_correct": true
+          },
+          {
+            "case_id": "1706.03762-answer-3",
+            "expected_page": 5,
+            "expected_section": "3.5 Positional Encoding",
+            "geometry_resolved": true,
+            "page_correct": true,
+            "paper_id": "1706.03762",
+            "quotes": [
+              {
+                "expected_page": 5,
+                "expected_section": "3.5 Positional Encoding",
+                "geometry_resolved": true,
+                "occurrence_count": 1,
+                "page_correct": true,
+                "quote_sha256": "67348ce70c97db670c9b8fc5c57c62c7838e965fdd863b4b9afb74d00bda671e",
+                "resolved_boxes": [
+                  {
+                    "x0": 108.0,
+                    "x1": 504.0016784667969,
+                    "y0": 548.2051391601562,
+                    "y1": 558.0676116943359
+                  },
+                  {
+                    "x0": 108.0,
+                    "x1": 503.9983825683594,
+                    "y0": 537.2840118408203,
+                    "y1": 547.1966705322266
+                  },
+                  {
+                    "x0": 108.0,
+                    "x1": 202.0784454345703,
+                    "y0": 526.3389892578125,
+                    "y1": 536.4007263183594
+                  }
+                ],
+                "resolved_pages": [
+                  5
+                ],
+                "section_correct": true,
+                "section_path": [
+                  "3 Model Architecture",
+                  "3.5 Positional Encoding"
+                ]
+              }
+            ],
+            "section_correct": true
+          },
+          {
+            "case_id": "1706.03762-answer-4",
+            "expected_page": 2,
+            "expected_section": "3.1 Encoder and Decoder Stacks",
+            "geometry_resolved": true,
+            "page_correct": true,
+            "paper_id": "1706.03762",
+            "quotes": [
+              {
+                "expected_page": 2,
+                "expected_section": "3.1 Encoder and Decoder Stacks",
+                "geometry_resolved": true,
+                "occurrence_count": 1,
+                "page_correct": true,
+                "quote_sha256": "0554ef5319b981872dffa1f149348cd4cc1619d11d59e84b5b27b41b56f322c4",
+                "resolved_boxes": [
+                  {
+                    "x0": 368.8040466308594,
+                    "x1": 503.9974060058594,
+                    "y0": 157.64996337890625,
+                    "y1": 167.71173095703125
+                  },
+                  {
+                    "x0": 108.0,
+                    "x1": 145.81224060058594,
+                    "y0": 146.740966796875,
+                    "y1": 156.802734375
+                  },
+                  {
+                    "x0": 148.91160583496094,
+                    "x1": 156.81753540039062,
+                    "y0": 146.740966796875,
+                    "y1": 156.802734375
+                  },
+                  {
+                    "x0": 159.92706298828125,
+                    "x1": 172.3448486328125,
+                    "y0": 146.740966796875,
+                    "y1": 156.802734375
+                  },
+                  {
+                    "x0": 175.4442138671875,
+                    "x1": 207.60647583007812,
+                    "y0": 146.740966796875,
+                    "y1": 156.802734375
+                  },
+                  {
+                    "x0": 210.71600341796875,
+                    "x1": 231.59860229492188,
+                    "y0": 146.740966796875,
+                    "y1": 156.802734375
+                  },
+                  {
+                    "x0": 234.69796752929688,
+                    "x1": 242.60389709472656,
+                    "y0": 146.740966796875,
+                    "y1": 156.802734375
+                  },
+                  {
+                    "x0": 245.7134246826172,
+                    "x1": 275.7925109863281,
+                    "y0": 146.740966796875,
+                    "y1": 156.802734375
+                  },
+                  {
+                    "x0": 278.8918762207031,
+                    "x1": 315.59649658203125,
+                    "y0": 146.740966796875,
+                    "y1": 156.802734375
+                  },
+                  {
+                    "x0": 318.69586181640625,
+                    "x1": 338.4505310058594,
+                    "y0": 146.740966796875,
+                    "y1": 156.802734375
+                  },
+                  {
+                    "x0": 341.56005859375,
+                    "x1": 379.3824768066406,
+                    "y0": 146.740966796875,
+                    "y1": 156.802734375
+                  },
+                  {
+                    "x0": 382.4818420410156,
+                    "x1": 390.38775634765625,
+                    "y0": 146.740966796875,
+                    "y1": 156.802734375
+                  },
+                  {
+                    "x0": 393.4972839355469,
+                    "x1": 438.6566162109375,
+                    "y0": 146.740966796875,
+                    "y1": 156.802734375
+                  },
+                  {
+                    "x0": 441.7559814453125,
+                    "x1": 481.0010681152344,
+                    "y0": 146.740966796875,
+                    "y1": 156.802734375
+                  },
+                  {
+                    "x0": 485.9295654296875,
+                    "x1": 503.9973449707031,
+                    "y0": 146.740966796875,
+                    "y1": 156.802734375
+                  },
+                  {
+                    "x0": 108.0,
+                    "x1": 503.9971618652344,
+                    "y0": 135.85833740234375,
+                    "y1": 145.81097412109375
+                  },
+                  {
+                    "x0": 108.0,
+                    "x1": 456.649658203125,
+                    "y0": 124.94696044921875,
+                    "y1": 135.14007568359375
+                  }
+                ],
+                "resolved_pages": [
+                  2
+                ],
+                "section_correct": true,
+                "section_path": [
+                  "3 Model Architecture",
+                  "3.1 Encoder and Decoder Stacks"
+                ]
+              }
+            ],
+            "section_correct": true
+          },
+          {
+            "case_id": "2005.11401-answer-1",
+            "expected_page": 1,
+            "expected_section": "1 Introduction",
+            "geometry_resolved": true,
+            "page_correct": true,
+            "paper_id": "2005.11401",
+            "quotes": [
+              {
+                "expected_page": 1,
+                "expected_section": "1 Introduction",
+                "geometry_resolved": true,
+                "occurrence_count": 1,
+                "page_correct": true,
+                "quote_sha256": "25123e116f644ad3aeb330d6acac5a2c61aef0dd9833490a2b4b997eae245ad8",
+                "resolved_boxes": [
+                  {
+                    "x0": 107.53199768066406,
+                    "x1": 503.9978332519531,
+                    "y0": 475.5451354980469,
+                    "y1": 485.5772399902344
+                  },
+                  {
+                    "x0": 108.0,
+                    "x1": 503.997314453125,
+                    "y0": 464.62896728515625,
+                    "y1": 474.6907043457031
+                  },
+                  {
+                    "x0": 108.0,
+                    "x1": 144.01361083984375,
+                    "y0": 453.719970703125,
+                    "y1": 463.7817077636719
+                  }
+                ],
+                "resolved_pages": [
+                  1
+                ],
+                "section_correct": true,
+                "section_path": [
+                  "1 Introduction"
+                ]
+              }
+            ],
+            "section_correct": true
+          },
+          {
+            "case_id": "2005.11401-answer-2",
+            "expected_page": 2,
+            "expected_section": "2.1 Models",
+            "geometry_resolved": true,
+            "page_correct": true,
+            "paper_id": "2005.11401",
+            "quotes": [
+              {
+                "expected_page": 2,
+                "expected_section": "2.1 Models",
+                "geometry_resolved": true,
+                "occurrence_count": 1,
+                "page_correct": true,
+                "quote_sha256": "3fe9ff31fbf8cfd5eb6cbc7748a8f2ac876bb014269ab053d6d449b17387faf4",
+                "resolved_boxes": [
+                  {
+                    "x0": 107.53199768066406,
+                    "x1": 503.99688720703125,
+                    "y0": 669.3999710083008,
+                    "y1": 679.4617004394531
+                  },
+                  {
+                    "x0": 108.0,
+                    "x1": 232.56019592285156,
+                    "y0": 658.5354766845703,
+                    "y1": 668.4130249023438
+                  },
+                  {
+                    "x0": 235.6450653076172,
+                    "x1": 503.9958190917969,
+                    "y0": 658.5354766845703,
+                    "y1": 668.5879898071289
+                  },
+                  {
+                    "x0": 108.0,
+                    "x1": 219.37904357910156,
+                    "y0": 647.5965423583984,
+                    "y1": 657.5939483642578
+                  },
+                  {
+                    "x0": 222.46900939941406,
+                    "x1": 503.9953308105469,
+                    "y0": 647.5965423583984,
+                    "y1": 657.7710266113281
+                  },
+                  {
+                    "x0": 108.0,
+                    "x1": 205.5377197265625,
+                    "y0": 636.6983642578125,
+                    "y1": 646.6510009765625
+                  }
+                ],
+                "resolved_pages": [
+                  2
+                ],
+                "section_correct": false,
+                "section_path": [
+                  "2 Methods"
+                ]
+              }
+            ],
+            "section_correct": false
+          },
+          {
+            "case_id": "2005.11401-answer-3",
+            "expected_page": 1,
+            "expected_section": "1 Introduction",
+            "geometry_resolved": true,
+            "page_correct": true,
+            "paper_id": "2005.11401",
+            "quotes": [
+              {
+                "expected_page": 1,
+                "expected_section": "1 Introduction",
+                "geometry_resolved": true,
+                "occurrence_count": 1,
+                "page_correct": true,
+                "quote_sha256": "48726e4880070b125c463cac4757666092b66f91924071bdb77e956e16616615",
+                "resolved_boxes": [
+                  {
+                    "x0": 488.1957092285156,
+                    "x1": 503.9974060058594,
+                    "y0": 453.719970703125,
+                    "y1": 463.7817077636719
+                  },
+                  {
+                    "x0": 108.0,
+                    "x1": 503.99591064453125,
+                    "y0": 442.8349304199219,
+                    "y1": 452.79754638671875
+                  },
+                  {
+                    "x0": 108.0,
+                    "x1": 504.0024719238281,
+                    "y0": 431.9249267578125,
+                    "y1": 441.8875427246094
+                  },
+                  {
+                    "x0": 108.0,
+                    "x1": 236.0534210205078,
+                    "y0": 421.00152587890625,
+                    "y1": 431.02374267578125
+                  }
+                ],
+                "resolved_pages": [
+                  1
+                ],
+                "section_correct": true,
+                "section_path": [
+                  "1 Introduction"
+                ]
+              }
+            ],
+            "section_correct": true
+          },
+          {
+            "case_id": "2005.11401-answer-4",
+            "expected_page": 5,
+            "expected_section": "4 Results",
+            "geometry_resolved": true,
+            "page_correct": true,
+            "paper_id": "2005.11401",
+            "quotes": [
+              {
+                "expected_page": 5,
+                "expected_section": "4 Results",
+                "geometry_resolved": true,
+                "occurrence_count": 1,
+                "page_correct": true,
+                "quote_sha256": "ae48ff3ad1cae18b74cfdf5e5f629db561eabe62769f7ee1bf1369231e203df2",
+                "resolved_boxes": [
+                  {
+                    "x0": 107.69100189208984,
+                    "x1": 262.3717346191406,
+                    "y0": 702.8141403198242,
+                    "y1": 712.6766128540039
+                  }
+                ],
+                "resolved_pages": [
+                  5
+                ],
+                "section_correct": true,
+                "section_path": [
+                  "4 Results",
+                  "4.1 Open-domain Question Answering"
+                ]
+              },
+              {
+                "expected_page": 5,
+                "expected_section": "4 Results",
+                "geometry_resolved": true,
+                "occurrence_count": 1,
+                "page_correct": true,
+                "quote_sha256": "a88a3c8b270301e9719be9c44aa09248beef990c2c794a6fe7976ed8a0929d20",
+                "resolved_boxes": [
+                  {
+                    "x0": 309.64898681640625,
+                    "x1": 505.745849609375,
+                    "y0": 703.0071334838867,
+                    "y1": 712.8696060180664
+                  }
+                ],
+                "resolved_pages": [
+                  5
+                ],
+                "section_correct": true,
+                "section_path": [
+                  "4 Results",
+                  "4.1 Open-domain Question Answering"
+                ]
+              }
+            ],
+            "section_correct": true
+          }
+        ],
+        "coverage": [
+          {
+            "case_id": "1706.03762-answer-1",
+            "denominator": 398,
+            "numerator": 397,
+            "page_index": 3,
+            "paper_id": "1706.03762",
+            "score": 0.9974874371859297
+          },
+          {
+            "case_id": "2005.11401-answer-4",
+            "denominator": 652,
+            "numerator": 649,
+            "page_index": 5,
+            "paper_id": "2005.11401",
+            "score": 0.995398773006135
+          }
+        ],
+        "expected_section_case_count": 8,
+        "gate": {
+          "coverage_each_fixed_page": {
+            "failure_reason": null,
+            "observed": [
+              0.9974874371859297,
+              0.995398773006135
+            ],
+            "passed": true,
+            "requirement": "normalized token LCS coverage is at least 0.90 on each of 2 fixed pages"
+          },
+          "geometry": {
+            "failure_reason": null,
+            "observed": {
+              "answerable": 8,
+              "with_geometry": 8
+            },
+            "passed": true,
+            "requirement": "every answerable case resolves to non-empty source boxes"
+          },
+          "golden_region": {
+            "failure_reason": null,
+            "observed": {
+              "case_id": "1706.03762-answer-1",
+              "correct_column": true,
+              "expected_page": 3,
+              "expected_region_count": 3,
+              "inside_annotated_region": true,
+              "passed": true,
+              "regions_overlapped": 3,
+              "resolved": true,
+              "resolved_box_count": 13,
+              "resolved_boxes": [
+                {
+                  "x0": 366.2391052246094,
+                  "x1": 504.0,
+                  "y0": 198.408935546875,
+                  "y1": 208.39642333984375
+                },
+                {
+                  "x0": 108.0,
+                  "x1": 113.19051361083984,
+                  "y0": 187.7364501953125,
+                  "y1": 197.69903564453125
+                },
+                {
+                  "x0": 113.18499755859375,
+                  "x1": 117.41809844970703,
+                  "y0": 186.8944091796875,
+                  "y1": 193.86822509765625
+                },
+                {
+                  "x0": 118.08699798583984,
+                  "x1": 503.9983825683594,
+                  "y0": 187.5228271484375,
+                  "y1": 197.4154052734375
+                },
+                {
+                  "x0": 108.0,
+                  "x1": 210.78416442871094,
+                  "y0": 176.59698486328125,
+                  "y1": 186.5595703125
+                },
+                {
+                  "x0": 213.2740020751953,
+                  "x1": 216.76089477539062,
+                  "y0": 180.93408203125,
+                  "y1": 187.90789794921875
+                },
+                {
+                  "x0": 217.25900268554688,
+                  "x1": 219.74964904785156,
+                  "y0": 176.59698486328125,
+                  "y1": 186.5595703125
+                },
+                {
+                  "x0": 222.8380584716797,
+                  "x1": 437.04388427734375,
+                  "y0": 176.59698486328125,
+                  "y1": 186.5595703125
+                },
+                {
+                  "x0": 446.2669982910156,
+                  "x1": 450.2420654296875,
+                  "y0": 181.4024658203125,
+                  "y1": 188.37628173828125
+                },
+                {
+                  "x0": 440.72900390625,
+                  "x1": 447.27740478515625,
+                  "y0": 178.78582763671875,
+                  "y1": 185.7596435546875
+                },
+                {
+                  "x0": 447.27398681640625,
+                  "x1": 451.42340087890625,
+                  "y0": 173.2734375,
+                  "y1": 180.24725341796875
+                },
+                {
+                  "x0": 451.4209899902344,
+                  "x1": 455.1968078613281,
+                  "y0": 172.6517333984375,
+                  "y1": 177.633056640625
+                },
+                {
+                  "x0": 456.97198486328125,
+                  "x1": 459.462646484375,
+                  "y0": 176.59698486328125,
+                  "y1": 186.5595703125
+                }
+              ]
+            },
+            "passed": true,
+            "requirement": "golden evidence overlaps every annotated region in the correct column"
+          },
+          "page_correctness": {
+            "failure_reason": null,
+            "observed": {
+              "answerable": 8,
+              "page_correct": 8
+            },
+            "passed": true,
+            "requirement": "all 8 answerable cases resolve to the expected page"
+          },
+          "qualified": {
+            "failure_reason": null,
+            "observed": {
+              "coverage_each_fixed_page": true,
+              "geometry": true,
+              "golden_region": true,
+              "page_correctness": true,
+              "reading_order": true,
+              "reversible_offsets": true,
+              "successful_parsing": true
+            },
+            "passed": true,
+            "requirement": "candidate passes every parser provenance threshold"
+          },
+          "reading_order": {
+            "failure_reason": null,
+            "observed": {
+              "correct": 12,
+              "relations": [
+                {
+                  "after_occurrences": 1,
+                  "after_start": 1920,
+                  "before_occurrences": 1,
+                  "before_start": 1536,
+                  "correct": true,
+                  "page_index": 1,
+                  "paper_id": "1706.03762",
+                  "relation_id": "1706.03762-ro-01-intro-to-background"
+                },
+                {
+                  "after_occurrences": 1,
+                  "after_start": 3747,
+                  "before_occurrences": 1,
+                  "before_start": 3372,
+                  "correct": true,
+                  "page_index": 1,
+                  "paper_id": "1706.03762",
+                  "relation_id": "1706.03762-ro-02-background-to-model"
+                },
+                {
+                  "after_occurrences": 1,
+                  "after_start": 320,
+                  "before_occurrences": 1,
+                  "before_start": 50,
+                  "correct": true,
+                  "page_index": 3,
+                  "paper_id": "1706.03762",
+                  "relation_id": "1706.03762-ro-03-figure-to-attention"
+                },
+                {
+                  "after_occurrences": 1,
+                  "after_start": 1852,
+                  "before_occurrences": 1,
+                  "before_start": 1788,
+                  "correct": true,
+                  "page_index": 3,
+                  "paper_id": "1706.03762",
+                  "relation_id": "1706.03762-ro-04-scaled-to-multihead"
+                },
+                {
+                  "after_occurrences": 1,
+                  "after_start": 424,
+                  "before_occurrences": 1,
+                  "before_start": 314,
+                  "correct": true,
+                  "page_index": 0,
+                  "paper_id": "1706.03762",
+                  "relation_id": "1706.03762-ro-05-column-transition-authors"
+                },
+                {
+                  "after_occurrences": 1,
+                  "after_start": 522,
+                  "before_occurrences": 1,
+                  "before_start": 469,
+                  "correct": true,
+                  "page_index": 5,
+                  "paper_id": "1706.03762",
+                  "relation_id": "1706.03762-ro-06-table-to-positional"
+                },
+                {
+                  "after_occurrences": 1,
+                  "after_start": 1015,
+                  "before_occurrences": 1,
+                  "before_start": 628,
+                  "correct": true,
+                  "page_index": 1,
+                  "paper_id": "2005.11401",
+                  "relation_id": "2005.11401-ro-01-figure-caption-to-body"
+                },
+                {
+                  "after_occurrences": 1,
+                  "after_start": 703,
+                  "before_occurrences": 1,
+                  "before_start": 242,
+                  "correct": true,
+                  "page_index": 2,
+                  "paper_id": "2005.11401",
+                  "relation_id": "2005.11401-ro-02-methods-to-models"
+                },
+                {
+                  "after_occurrences": 1,
+                  "after_start": 1269,
+                  "before_occurrences": 1,
+                  "before_start": 714,
+                  "correct": true,
+                  "page_index": 2,
+                  "paper_id": "2005.11401",
+                  "relation_id": "2005.11401-ro-03-sequence-to-token"
+                },
+                {
+                  "after_occurrences": 1,
+                  "after_start": 2864,
+                  "before_occurrences": 1,
+                  "before_start": 2019,
+                  "correct": true,
+                  "page_index": 2,
+                  "paper_id": "2005.11401",
+                  "relation_id": "2005.11401-ro-04-retriever-to-generator"
+                },
+                {
+                  "after_occurrences": 1,
+                  "after_start": 423,
+                  "before_occurrences": 1,
+                  "before_start": 389,
+                  "correct": true,
+                  "page_index": 5,
+                  "paper_id": "2005.11401",
+                  "relation_id": "2005.11401-ro-05-column-transition-tables"
+                },
+                {
+                  "after_occurrences": 1,
+                  "after_start": 1049,
+                  "before_occurrences": 1,
+                  "before_start": 423,
+                  "correct": true,
+                  "page_index": 5,
+                  "paper_id": "2005.11401",
+                  "relation_id": "2005.11401-ro-06-table-caption-to-body"
+                }
+              ],
+              "total": 12
+            },
+            "passed": true,
+            "requirement": "at least 10 of 12 frozen reading-order relations are correct"
+          },
+          "reversible_offsets": {
+            "failure_reason": null,
+            "observed": true,
+            "passed": true,
+            "requirement": "every normalized character has reversible source provenance"
+          },
+          "successful_parsing": {
+            "failure_reason": null,
+            "observed": 2,
+            "passed": true,
+            "requirement": "both fixed corpus PDFs parse successfully"
+          }
+        },
+        "geometry_case_count": 8,
+        "golden_region": {
+          "case_id": "1706.03762-answer-1",
+          "correct_column": true,
+          "expected_page": 3,
+          "expected_region_count": 3,
+          "inside_annotated_region": true,
+          "passed": true,
+          "regions_overlapped": 3,
+          "resolved": true,
+          "resolved_box_count": 13,
+          "resolved_boxes": [
+            {
+              "x0": 366.2391052246094,
+              "x1": 504.0,
+              "y0": 198.408935546875,
+              "y1": 208.39642333984375
+            },
+            {
+              "x0": 108.0,
+              "x1": 113.19051361083984,
+              "y0": 187.7364501953125,
+              "y1": 197.69903564453125
+            },
+            {
+              "x0": 113.18499755859375,
+              "x1": 117.41809844970703,
+              "y0": 186.8944091796875,
+              "y1": 193.86822509765625
+            },
+            {
+              "x0": 118.08699798583984,
+              "x1": 503.9983825683594,
+              "y0": 187.5228271484375,
+              "y1": 197.4154052734375
+            },
+            {
+              "x0": 108.0,
+              "x1": 210.78416442871094,
+              "y0": 176.59698486328125,
+              "y1": 186.5595703125
+            },
+            {
+              "x0": 213.2740020751953,
+              "x1": 216.76089477539062,
+              "y0": 180.93408203125,
+              "y1": 187.90789794921875
+            },
+            {
+              "x0": 217.25900268554688,
+              "x1": 219.74964904785156,
+              "y0": 176.59698486328125,
+              "y1": 186.5595703125
+            },
+            {
+              "x0": 222.8380584716797,
+              "x1": 437.04388427734375,
+              "y0": 176.59698486328125,
+              "y1": 186.5595703125
+            },
+            {
+              "x0": 446.2669982910156,
+              "x1": 450.2420654296875,
+              "y0": 181.4024658203125,
+              "y1": 188.37628173828125
+            },
+            {
+              "x0": 440.72900390625,
+              "x1": 447.27740478515625,
+              "y0": 178.78582763671875,
+              "y1": 185.7596435546875
+            },
+            {
+              "x0": 447.27398681640625,
+              "x1": 451.42340087890625,
+              "y0": 173.2734375,
+              "y1": 180.24725341796875
+            },
+            {
+              "x0": 451.4209899902344,
+              "x1": 455.1968078613281,
+              "y0": 172.6517333984375,
+              "y1": 177.633056640625
+            },
+            {
+              "x0": 456.97198486328125,
+              "x1": 459.462646484375,
+              "y0": 176.59698486328125,
+              "y1": 186.5595703125
+            }
+          ]
+        },
+        "header_footer_leakage": {
+          "blocks": [],
+          "count": 0
+        },
+        "latency_seconds": 2.5857388750009704,
+        "page_correct_case_count": 8,
+        "paper_results": [
+          {
+            "block_count": 526,
+            "failure_message": null,
+            "failure_type": null,
+            "latency_seconds": 1.0337330409965944,
+            "normalized_character_count": 38925,
+            "paper_id": "1706.03762",
+            "status": "success"
+          },
+          {
+            "block_count": 388,
+            "failure_message": null,
+            "failure_type": null,
+            "latency_seconds": 1.546053000012762,
+            "normalized_character_count": 68708,
+            "paper_id": "2005.11401",
+            "status": "success"
+          }
+        ],
+        "peak_memory_bytes": 271319040,
+        "peak_memory_delta_bytes": 226164736,
+        "reading_order": {
+          "correct": 12,
+          "relations": [
+            {
+              "after_occurrences": 1,
+              "after_start": 1920,
+              "before_occurrences": 1,
+              "before_start": 1536,
+              "correct": true,
+              "page_index": 1,
+              "paper_id": "1706.03762",
+              "relation_id": "1706.03762-ro-01-intro-to-background"
+            },
+            {
+              "after_occurrences": 1,
+              "after_start": 3747,
+              "before_occurrences": 1,
+              "before_start": 3372,
+              "correct": true,
+              "page_index": 1,
+              "paper_id": "1706.03762",
+              "relation_id": "1706.03762-ro-02-background-to-model"
+            },
+            {
+              "after_occurrences": 1,
+              "after_start": 320,
+              "before_occurrences": 1,
+              "before_start": 50,
+              "correct": true,
+              "page_index": 3,
+              "paper_id": "1706.03762",
+              "relation_id": "1706.03762-ro-03-figure-to-attention"
+            },
+            {
+              "after_occurrences": 1,
+              "after_start": 1852,
+              "before_occurrences": 1,
+              "before_start": 1788,
+              "correct": true,
+              "page_index": 3,
+              "paper_id": "1706.03762",
+              "relation_id": "1706.03762-ro-04-scaled-to-multihead"
+            },
+            {
+              "after_occurrences": 1,
+              "after_start": 424,
+              "before_occurrences": 1,
+              "before_start": 314,
+              "correct": true,
+              "page_index": 0,
+              "paper_id": "1706.03762",
+              "relation_id": "1706.03762-ro-05-column-transition-authors"
+            },
+            {
+              "after_occurrences": 1,
+              "after_start": 522,
+              "before_occurrences": 1,
+              "before_start": 469,
+              "correct": true,
+              "page_index": 5,
+              "paper_id": "1706.03762",
+              "relation_id": "1706.03762-ro-06-table-to-positional"
+            },
+            {
+              "after_occurrences": 1,
+              "after_start": 1015,
+              "before_occurrences": 1,
+              "before_start": 628,
+              "correct": true,
+              "page_index": 1,
+              "paper_id": "2005.11401",
+              "relation_id": "2005.11401-ro-01-figure-caption-to-body"
+            },
+            {
+              "after_occurrences": 1,
+              "after_start": 703,
+              "before_occurrences": 1,
+              "before_start": 242,
+              "correct": true,
+              "page_index": 2,
+              "paper_id": "2005.11401",
+              "relation_id": "2005.11401-ro-02-methods-to-models"
+            },
+            {
+              "after_occurrences": 1,
+              "after_start": 1269,
+              "before_occurrences": 1,
+              "before_start": 714,
+              "correct": true,
+              "page_index": 2,
+              "paper_id": "2005.11401",
+              "relation_id": "2005.11401-ro-03-sequence-to-token"
+            },
+            {
+              "after_occurrences": 1,
+              "after_start": 2864,
+              "before_occurrences": 1,
+              "before_start": 2019,
+              "correct": true,
+              "page_index": 2,
+              "paper_id": "2005.11401",
+              "relation_id": "2005.11401-ro-04-retriever-to-generator"
+            },
+            {
+              "after_occurrences": 1,
+              "after_start": 423,
+              "before_occurrences": 1,
+              "before_start": 389,
+              "correct": true,
+              "page_index": 5,
+              "paper_id": "2005.11401",
+              "relation_id": "2005.11401-ro-05-column-transition-tables"
+            },
+            {
+              "after_occurrences": 1,
+              "after_start": 1049,
+              "before_occurrences": 1,
+              "before_start": 423,
+              "correct": true,
+              "page_index": 5,
+              "paper_id": "2005.11401",
+              "relation_id": "2005.11401-ro-06-table-caption-to-body"
+            }
+          ],
+          "total": 12
+        },
+        "reversible_offsets": true,
+        "section_correct_case_count": 7,
+        "stream_record_count": 914,
+        "stream_relative_path": "qualification/private/q0-20260920T124722Z-cd96df4/parsed-blocks-pymupdf.jsonl",
+        "stream_sha256": "11288709a377835c106cb99000c3deeafb3300f55b66520c609f08da2c55fa0e",
+        "stream_validated_as_parsed_block": true,
+        "successful_papers": 2
+      }
+    },
+    "selection": {
+      "qualified_candidates": [
+        "pymupdf"
+      ],
+      "ranking": [
+        "pymupdf"
+      ],
+      "selected_candidate": "pymupdf",
+      "tie_break_order": [
+        "provenance correctness",
+        "fixed-page text coverage",
+        "reading order and sections",
+        "implementation simplicity",
+        "peak memory",
+        "latency"
+      ]
+    }
+  },
+  "run_id": "q0-20260920T124722Z-cd96df4",
+  "selected_candidate": "pymupdf",
+  "threshold_outcomes": {
+    "docling_qualified": {
+      "failure_reason": "observed {'successful_parsing': True, 'page_correctness': False, 'geometry': False, 'coverage_each_fixed_page': False, 'reading_order': False, 'golden_region': False, 'reversible_offsets': True}",
+      "observed": {
+        "coverage_each_fixed_page": false,
+        "geometry": false,
+        "golden_region": false,
+        "page_correctness": false,
+        "reading_order": false,
+        "reversible_offsets": true,
+        "successful_parsing": true
+      },
+      "passed": false,
+      "requirement": "candidate passes every parser gate in specification section 6.3"
+    },
+    "parser_selected": {
+      "failure_reason": null,
+      "observed": "pymupdf",
+      "passed": true,
+      "requirement": "select only a parser candidate passing every section 6.3 threshold"
+    },
+    "pymupdf_qualified": {
+      "failure_reason": null,
+      "observed": {
+        "coverage_each_fixed_page": true,
+        "geometry": true,
+        "golden_region": true,
+        "page_correctness": true,
+        "reading_order": true,
+        "reversible_offsets": true,
+        "successful_parsing": true
+      },
+      "passed": true,
+      "requirement": "candidate passes every parser gate in specification section 6.3"
+    }
+  }
+}
