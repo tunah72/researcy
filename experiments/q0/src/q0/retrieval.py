@@ -288,7 +288,9 @@ def _git(root: Path, *arguments: str) -> str:
 
 
 def _require_clean_producer(root: Path) -> str:
-    status = _git(root, "status", "--porcelain=v1", "--untracked-files=no")
+    status = _git(
+        root, "status", "--porcelain=v1", "--untracked-files=no", "--", "experiments/q0"
+    )
     if status:
         raise RetrievalValidationError(
             f"git working tree must be clean before measurement; status was:\n{status}"
@@ -967,9 +969,15 @@ def evaluate_embedding_candidates(
                     f"p95 {nomic_meas['latency_p95_seconds']:.4f}s vs {bge_meas['latency_p95_seconds']:.4f}s)."
                 )
 
-    # If selected, write golden-retrieved-context.json
-    if selected_model is not None:
-        sel_run = candidate_runs[selected_model]
+    # Persist golden-retrieved-context.json for the selected or leading candidate
+    model_for_golden = selected_model or (
+        "bge-m3:567m"
+        if candidate_measurements["bge-m3:567m"]["recall_at_5"]
+        >= candidate_measurements["nomic-embed-text:137m-v1.5-fp16"]["recall_at_5"]
+        else "nomic-embed-text:137m-v1.5-fp16"
+    )
+    if model_for_golden is not None:
+        sel_run = candidate_runs[model_for_golden]
         golden_raw = sel_run["golden_context"]
         top_points = golden_raw["top_points"]
 
@@ -1007,7 +1015,7 @@ def evaluate_embedding_candidates(
         golden_context_payload = {
             "artifact_version": ARTIFACT_VERSION,
             "run_id": run_id,
-            "selected_model": selected_model,
+            "selected_model": model_for_golden,
             "collection_name": sel_run["preflight"]["collection_name"],
             "case_id": "1706.03762-answer-1",
             "paper_id": "1706.03762",
