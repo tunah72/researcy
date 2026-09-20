@@ -1,0 +1,544 @@
+{
+  "artifact_version": "q0-balanced-1",
+  "failure_reasons": [
+    "bge-m3:567m: Recall@5 0.625 is below 0.75 threshold",
+    "nomic-embed-text:137m-v1.5-fp16: Recall@5 0.500 is below 0.75 threshold",
+    "neither embedding candidate passed every specification section 7.2 threshold"
+  ],
+  "identities": {
+    "candidate_identities": {
+      "bge-m3:567m": {
+        "architecture": "bert",
+        "batch_size": 8,
+        "collection_name": "q0-q0-20260920T124722Z-cd96df4-bge-m3-567m",
+        "concurrency": 1,
+        "context_length": 8192,
+        "digest": "7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab",
+        "dimension": 1024,
+        "distance_metric": "cosine",
+        "document_prefix": "",
+        "model": "bge-m3:567m",
+        "preflight_passed": true,
+        "quantization": "F16",
+        "query_prefix": "",
+        "runtime_placement": "native ARM64 Ollama 0.18.2",
+        "truncate": false
+      },
+      "nomic-embed-text:137m-v1.5-fp16": {
+        "architecture": "nomic-bert",
+        "batch_size": 8,
+        "collection_name": "q0-q0-20260920T124722Z-cd96df4-nomic-embed-text-137m-v1.5-fp16",
+        "concurrency": 1,
+        "context_length": 2048,
+        "digest": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f",
+        "dimension": 768,
+        "distance_metric": "cosine",
+        "document_prefix": "search_document: ",
+        "model": "nomic-embed-text:137m-v1.5-fp16",
+        "preflight_passed": true,
+        "quantization": "F16",
+        "query_prefix": "search_query: ",
+        "runtime_placement": "native ARM64 Ollama 0.18.2",
+        "truncate": false
+      }
+    },
+    "candidates": [
+      "bge-m3:567m",
+      "nomic-embed-text:137m-v1.5-fp16"
+    ],
+    "chunk_set_sha256": "0aa4bbf11729158948230963930520c2cb52b04e5a292f03ba97c64d7c572cde",
+    "producer_git_revision": "62251fe28aefb4931a852fae7e84261c4c6cfebf",
+    "run_initialized_git_revision": "cd96df403a0b3c451647879bf0b0fa7f8295bf77",
+    "total_chunks": 93,
+    "tracked_tree_clean_before_measurement": true
+  },
+  "measurements": {
+    "candidates": {
+      "bge-m3:567m": {
+        "cases": [
+          {
+            "case_id": "1706.03762-answer-1",
+            "first_relevant_rank": 1,
+            "hit_at_1": true,
+            "hit_at_5": true,
+            "paper_id": "1706.03762",
+            "question": "Why does scaled dot-product attention divide by the square root of the key dimension?",
+            "reciprocal_rank": 1.0,
+            "top_5_chunk_ids": [
+              "1706.03762-chunk-0007",
+              "1706.03762-chunk-0008",
+              "1706.03762-chunk-0006",
+              "1706.03762-chunk-0027",
+              "1706.03762-chunk-0015"
+            ],
+            "top_5_scores": [
+              0.6887241,
+              0.65704185,
+              0.6157502,
+              0.58864915,
+              0.53458536
+            ]
+          },
+          {
+            "case_id": "1706.03762-answer-2",
+            "first_relevant_rank": 1,
+            "hit_at_1": true,
+            "hit_at_5": true,
+            "paper_id": "1706.03762",
+            "question": "Why does multi-head attention use several attention heads instead of one?",
+            "reciprocal_rank": 1.0,
+            "top_5_chunk_ids": [
+              "1706.03762-chunk-0008",
+              "1706.03762-chunk-0009",
+              "1706.03762-chunk-0006",
+              "1706.03762-chunk-0003",
+              "1706.03762-chunk-0015"
+            ],
+            "top_5_scores": [
+              0.68191165,
+              0.6492356,
+              0.61511,
+              0.58625156,
+              0.5802252
+            ]
+          },
+          {
+            "case_id": "1706.03762-answer-3",
+            "first_relevant_rank": 1,
+            "hit_at_1": true,
+            "hit_at_5": true,
+            "paper_id": "1706.03762",
+            "question": "How does the model represent token order without recurrence or convolution?",
+            "reciprocal_rank": 1.0,
+            "top_5_chunk_ids": [
+              "1706.03762-chunk-0012",
+              "1706.03762-chunk-0003",
+              "1706.03762-chunk-0002",
+              "1706.03762-chunk-0000",
+              "1706.03762-chunk-0030"
+            ],
+            "top_5_scores": [
+              0.5702996,
+              0.5577752,
+              0.554288,
+              0.54557943,
+              0.54045355
+            ]
+          },
+          {
+            "case_id": "1706.03762-answer-4",
+            "first_relevant_rank": 3,
+            "hit_at_1": false,
+            "hit_at_5": true,
+            "paper_id": "1706.03762",
+            "question": "How does decoder self-attention prevent access to later output positions?",
+            "reciprocal_rank": 0.3333333333333333,
+            "top_5_chunk_ids": [
+              "1706.03762-chunk-0009",
+              "1706.03762-chunk-0003",
+              "1706.03762-chunk-0005",
+              "1706.03762-chunk-0013",
+              "1706.03762-chunk-0030"
+            ],
+            "top_5_scores": [
+              0.65279174,
+              0.6124724,
+              0.5816984,
+              0.5772608,
+              0.5384024
+            ]
+          },
+          {
+            "case_id": "2005.11401-answer-1",
+            "first_relevant_rank": 1,
+            "hit_at_1": true,
+            "hit_at_5": true,
+            "paper_id": "2005.11401",
+            "question": "How does RAG combine parametric and non-parametric memory?",
+            "reciprocal_rank": 1.0,
+            "top_5_chunk_ids": [
+              "2005.11401-chunk-0003",
+              "2005.11401-chunk-0001",
+              "2005.11401-chunk-0032",
+              "2005.11401-chunk-0004",
+              "2005.11401-chunk-0022"
+            ],
+            "top_5_scores": [
+              0.7041917,
+              0.67553765,
+              0.67384815,
+              0.65276575,
+              0.60616595
+            ]
+          },
+          {
+            "case_id": "2005.11401-answer-2",
+            "first_relevant_rank": 6,
+            "hit_at_1": false,
+            "hit_at_5": false,
+            "paper_id": "2005.11401",
+            "question": "What is the difference between RAG-Sequence and RAG-Token generation?",
+            "reciprocal_rank": 0.16666666666666666,
+            "top_5_chunk_ids": [
+              "2005.11401-chunk-0011",
+              "2005.11401-chunk-0021",
+              "2005.11401-chunk-0007",
+              "2005.11401-chunk-0025",
+              "2005.11401-chunk-0006"
+            ],
+            "top_5_scores": [
+              0.63027704,
+              0.6231991,
+              0.615151,
+              0.5983776,
+              0.5865271
+            ]
+          },
+          {
+            "case_id": "2005.11401-answer-3",
+            "first_relevant_rank": 6,
+            "hit_at_1": false,
+            "hit_at_5": false,
+            "paper_id": "2005.11401",
+            "question": "How are retrieved documents used when generating an output sequence?",
+            "reciprocal_rank": 0.16666666666666666,
+            "top_5_chunk_ids": [
+              "2005.11401-chunk-0006",
+              "2005.11401-chunk-0030",
+              "2005.11401-chunk-0005",
+              "2005.11401-chunk-0008",
+              "2005.11401-chunk-0031"
+            ],
+            "top_5_scores": [
+              0.655707,
+              0.6352377,
+              0.6200015,
+              0.61744577,
+              0.60801315
+            ]
+          },
+          {
+            "case_id": "2005.11401-answer-4",
+            "first_relevant_rank": 6,
+            "hit_at_1": false,
+            "hit_at_5": false,
+            "paper_id": "2005.11401",
+            "question": "On which kinds of knowledge-intensive tasks is RAG evaluated?",
+            "reciprocal_rank": 0.16666666666666666,
+            "top_5_chunk_ids": [
+              "2005.11401-chunk-0004",
+              "2005.11401-chunk-0001",
+              "2005.11401-chunk-0025",
+              "2005.11401-chunk-0012",
+              "2005.11401-chunk-0014"
+            ],
+            "top_5_scores": [
+              0.61591846,
+              0.60797167,
+              0.5893071,
+              0.5851059,
+              0.57222027
+            ]
+          }
+        ],
+        "indexing_time_seconds": 33.649027458013734,
+        "latency_p50_seconds": 0.17149743798654526,
+        "latency_p95_seconds": 0.3570207080148974,
+        "mrr": 0.6041666666666666,
+        "peak_memory_bytes": 324960256,
+        "recall_at_1": 0.5,
+        "recall_at_5": 0.625,
+        "warm_latencies_seconds": [
+          0.28530787501949817,
+          0.24887216702336445,
+          0.489108000008855,
+          0.2682210000057239,
+          0.2110603750043083,
+          0.3670358330127783,
+          0.16046000001369976,
+          0.15504283300833777,
+          0.3002683330269065,
+          0.17162891698535532,
+          0.15396175000933,
+          0.17182962500373833,
+          0.2500989580003079,
+          0.16501299999072216,
+          0.146964375016978,
+          0.15443954200600274,
+          0.16509787499671802,
+          0.24761620900244452,
+          0.15089845799957402,
+          0.14377900000545196,
+          0.1444889160047751,
+          0.24861574999522418,
+          0.16293908399529755,
+          0.1713659589877352
+        ],
+        "warm_sample_count": 24
+      },
+      "nomic-embed-text:137m-v1.5-fp16": {
+        "cases": [
+          {
+            "case_id": "1706.03762-answer-1",
+            "first_relevant_rank": 1,
+            "hit_at_1": true,
+            "hit_at_5": true,
+            "paper_id": "1706.03762",
+            "question": "Why does scaled dot-product attention divide by the square root of the key dimension?",
+            "reciprocal_rank": 1.0,
+            "top_5_chunk_ids": [
+              "1706.03762-chunk-0007",
+              "1706.03762-chunk-0008",
+              "1706.03762-chunk-0001",
+              "1706.03762-chunk-0006",
+              "1706.03762-chunk-0027"
+            ],
+            "top_5_scores": [
+              0.78644,
+              0.75299656,
+              0.7091172,
+              0.70291364,
+              0.6807553
+            ]
+          },
+          {
+            "case_id": "1706.03762-answer-2",
+            "first_relevant_rank": 3,
+            "hit_at_1": false,
+            "hit_at_5": true,
+            "paper_id": "1706.03762",
+            "question": "Why does multi-head attention use several attention heads instead of one?",
+            "reciprocal_rank": 0.3333333333333333,
+            "top_5_chunk_ids": [
+              "1706.03762-chunk-0009",
+              "1706.03762-chunk-0035",
+              "1706.03762-chunk-0008",
+              "1706.03762-chunk-0030",
+              "1706.03762-chunk-0001"
+            ],
+            "top_5_scores": [
+              0.7622794,
+              0.70988774,
+              0.7006041,
+              0.68530405,
+              0.67655545
+            ]
+          },
+          {
+            "case_id": "1706.03762-answer-3",
+            "first_relevant_rank": 1,
+            "hit_at_1": true,
+            "hit_at_5": true,
+            "paper_id": "1706.03762",
+            "question": "How does the model represent token order without recurrence or convolution?",
+            "reciprocal_rank": 1.0,
+            "top_5_chunk_ids": [
+              "1706.03762-chunk-0012",
+              "1706.03762-chunk-0000",
+              "2005.11401-chunk-0006",
+              "1706.03762-chunk-0011",
+              "2005.11401-chunk-0007"
+            ],
+            "top_5_scores": [
+              0.71412003,
+              0.690968,
+              0.6874925,
+              0.68703973,
+              0.68703604
+            ]
+          },
+          {
+            "case_id": "1706.03762-answer-4",
+            "first_relevant_rank": 7,
+            "hit_at_1": false,
+            "hit_at_5": false,
+            "paper_id": "1706.03762",
+            "question": "How does decoder self-attention prevent access to later output positions?",
+            "reciprocal_rank": 0.14285714285714285,
+            "top_5_chunk_ids": [
+              "1706.03762-chunk-0009",
+              "1706.03762-chunk-0013",
+              "1706.03762-chunk-0003",
+              "1706.03762-chunk-0030",
+              "1706.03762-chunk-0001"
+            ],
+            "top_5_scores": [
+              0.80180377,
+              0.72566897,
+              0.7214698,
+              0.7136174,
+              0.70480084
+            ]
+          },
+          {
+            "case_id": "2005.11401-answer-1",
+            "first_relevant_rank": 4,
+            "hit_at_1": false,
+            "hit_at_5": true,
+            "paper_id": "2005.11401",
+            "question": "How does RAG combine parametric and non-parametric memory?",
+            "reciprocal_rank": 0.25,
+            "top_5_chunk_ids": [
+              "2005.11401-chunk-0032",
+              "2005.11401-chunk-0004",
+              "2005.11401-chunk-0022",
+              "2005.11401-chunk-0003",
+              "2005.11401-chunk-0054"
+            ],
+            "top_5_scores": [
+              0.7689607,
+              0.75639725,
+              0.7540914,
+              0.7337889,
+              0.7022433
+            ]
+          },
+          {
+            "case_id": "2005.11401-answer-2",
+            "first_relevant_rank": null,
+            "hit_at_1": false,
+            "hit_at_5": false,
+            "paper_id": "2005.11401",
+            "question": "What is the difference between RAG-Sequence and RAG-Token generation?",
+            "reciprocal_rank": 0.0,
+            "top_5_chunk_ids": [
+              "2005.11401-chunk-0021",
+              "2005.11401-chunk-0022",
+              "2005.11401-chunk-0026",
+              "2005.11401-chunk-0015",
+              "2005.11401-chunk-0034"
+            ],
+            "top_5_scores": [
+              0.7467188,
+              0.68582845,
+              0.68041605,
+              0.6803622,
+              0.6778008
+            ]
+          },
+          {
+            "case_id": "2005.11401-answer-3",
+            "first_relevant_rank": null,
+            "hit_at_1": false,
+            "hit_at_5": false,
+            "paper_id": "2005.11401",
+            "question": "How are retrieved documents used when generating an output sequence?",
+            "reciprocal_rank": 0.0,
+            "top_5_chunk_ids": [
+              "2005.11401-chunk-0006",
+              "2005.11401-chunk-0005",
+              "2005.11401-chunk-0055",
+              "2005.11401-chunk-0053",
+              "2005.11401-chunk-0007"
+            ],
+            "top_5_scores": [
+              0.79399455,
+              0.77894825,
+              0.75741464,
+              0.7342949,
+              0.72705865
+            ]
+          },
+          {
+            "case_id": "2005.11401-answer-4",
+            "first_relevant_rank": null,
+            "hit_at_1": false,
+            "hit_at_5": false,
+            "paper_id": "2005.11401",
+            "question": "On which kinds of knowledge-intensive tasks is RAG evaluated?",
+            "reciprocal_rank": 0.0,
+            "top_5_chunk_ids": [
+              "2005.11401-chunk-0015",
+              "2005.11401-chunk-0029",
+              "2005.11401-chunk-0004",
+              "2005.11401-chunk-0014",
+              "2005.11401-chunk-0048"
+            ],
+            "top_5_scores": [
+              0.6981757,
+              0.6924845,
+              0.6923375,
+              0.69221914,
+              0.68757725
+            ]
+          }
+        ],
+        "indexing_time_seconds": 8.404469625005731,
+        "latency_p50_seconds": 0.03868262500327546,
+        "latency_p95_seconds": 0.052855834954243605,
+        "mrr": 0.34077380952380953,
+        "peak_memory_bytes": 337674240,
+        "recall_at_1": 0.25,
+        "recall_at_5": 0.5,
+        "warm_latencies_seconds": [
+          0.046356917009688914,
+          0.049322209000820294,
+          0.04732691700337455,
+          0.053479416004847735,
+          0.06807425001170486,
+          0.0381065419933293,
+          0.04261024997686036,
+          0.03691491700010374,
+          0.04411804099800065,
+          0.04411612500553019,
+          0.04190212499815971,
+          0.03516845798003487,
+          0.04077683298964985,
+          0.04081008298089728,
+          0.0348748329852242,
+          0.03478154199547134,
+          0.03603916699648835,
+          0.03925870801322162,
+          0.03315950001706369,
+          0.034003584005404264,
+          0.03305075000389479,
+          0.03321587498066947,
+          0.033553582994500175,
+          0.03515258399420418
+        ],
+        "warm_sample_count": 24
+      }
+    },
+    "selection": {
+      "qualified_candidates": [],
+      "selected_model": null,
+      "selection_rationale": "Neither embedding candidate passed the complete section 7.2 gate."
+    }
+  },
+  "run_id": "q0-20260920T124722Z-cd96df4",
+  "selected_model": null,
+  "threshold_outcomes": {
+    "bge-m3-567m_qualified": {
+      "failure_reason": "Recall@5 0.625 is below 0.75 threshold",
+      "observed": {
+        "dimension_stable": true,
+        "indexing_time_max": true,
+        "no_crash_or_oom": true,
+        "no_silent_truncation": true,
+        "p95_latency_max": true,
+        "recall_at_5_min": false
+      },
+      "passed": false,
+      "requirement": "candidate passes every embedding gate in specification section 7.2"
+    },
+    "embedding_selected": {
+      "failure_reason": "neither BGE-M3 nor Nomic Embed Text passed the complete embedding gate",
+      "observed": null,
+      "passed": false,
+      "requirement": "select exactly one embedding candidate passing every section 7.2 threshold"
+    },
+    "nomic-embed-text-137m-v1.5-fp16_qualified": {
+      "failure_reason": "Recall@5 0.500 is below 0.75 threshold",
+      "observed": {
+        "dimension_stable": true,
+        "indexing_time_max": true,
+        "no_crash_or_oom": true,
+        "no_silent_truncation": true,
+        "p95_latency_max": true,
+        "recall_at_5_min": false
+      },
+      "passed": false,
+      "requirement": "candidate passes every embedding gate in specification section 7.2"
+    }
+  }
+}
