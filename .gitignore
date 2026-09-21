@@ -2,6 +2,9 @@
 experiments/q0/.venv/
 experiments/q0/.pytest_cache/
 experiments/q0/**/__pycache__/
+experiments/q0-1/.venv/
+experiments/q0-1/.pytest_cache/
+experiments/q0-1/**/__pycache__/
 qualification/.cache/
 qualification/private/
 *.pdf
