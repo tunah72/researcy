@@ -31,9 +31,20 @@
         "bge-m3:567m"
       ],
       "runtime_placement": "native ARM64 Ollama 0.18.2",
+      "server_process": {
+        "command_line": [
+          "/opt/homebrew/opt/ollama/bin/ollama",
+          "serve"
+        ],
+        "executable_architecture": "arm64",
+        "executable_file_identity": "Mach-O 64-bit executable arm64",
+        "executable_path": "/opt/homebrew/Cellar/ollama/0.18.2/bin/ollama",
+        "pid": 803,
+        "process_name": "ollama"
+      },
       "version": "0.18.2"
     },
-    "producer_git_revision": "0fa989c2c44786af7810bbfedc12bd11ee733fc5",
+    "producer_git_revision": "aacf57e23bc4beb8e0b80e01d665b468e0ec750c",
     "qdrant": {
       "collection_name": "q0-1-q0-1-20260921T030640Z-36f32ae-bge-m3-567m",
       "collection_new_before_measurement": true,
@@ -1618,7 +1629,7 @@
       "case_in_top_5": true,
       "provenance_complete": true,
       "relative_path": "qualification/private/q0-1-20260921T030640Z-36f32ae/golden-retrieved-context.json",
-      "sha256": "b3d295bf4b7851f6452ce4fa848edee557b897b21a153add8e1ebaa3baea7e04",
+      "sha256": "f7b392c5fcfadc6db7a83db8505acc62d5e9c2dda0f51261a80c133e95392013",
       "source_ids": [
         "1706.03762-chunk-0007",
         "1706.03762-chunk-0008",
@@ -1628,141 +1639,141 @@
       ]
     },
     "indexing": {
-      "dense_seconds": 20.289521458995296,
-      "lexical_seconds": 0.008440374978818,
-      "total_seconds": 20.297961833974114
+      "dense_seconds": 28.44616649998352,
+      "lexical_seconds": 0.016066625015810132,
+      "total_seconds": 28.46223312499933
     },
     "latency": {
-      "p50_seconds": 0.12369920800847467,
-      "p95_seconds": 0.16936440450517692,
+      "p50_seconds": 0.146057458492578,
+      "p95_seconds": 0.21154120882565622,
       "percentile_method": "statistics.quantiles inclusive",
       "sample_count": 24,
       "samples": [
         {
           "case_id": "1706.03762-answer-1",
           "repetition": 1,
-          "seconds": 0.12120091600809246
+          "seconds": 0.2040824579889886
         },
         {
           "case_id": "1706.03762-answer-1",
           "repetition": 2,
-          "seconds": 0.11942825000733137
+          "seconds": 0.1836596249777358
         },
         {
           "case_id": "1706.03762-answer-1",
           "repetition": 3,
-          "seconds": 0.12633545801509172
+          "seconds": 0.1252926250163
         },
         {
           "case_id": "1706.03762-answer-2",
           "repetition": 1,
-          "seconds": 0.12768304199562408
+          "seconds": 0.14550166699336842
         },
         {
           "case_id": "1706.03762-answer-2",
           "repetition": 2,
-          "seconds": 0.11567899998044595
+          "seconds": 0.12076300001353957
         },
         {
           "case_id": "1706.03762-answer-2",
           "repetition": 3,
-          "seconds": 0.11786483399919234
+          "seconds": 0.21285745897330344
         },
         {
           "case_id": "1706.03762-answer-3",
           "repetition": 1,
-          "seconds": 0.11955224999110214
+          "seconds": 0.20088550000218675
         },
         {
           "case_id": "1706.03762-answer-3",
           "repetition": 2,
-          "seconds": 0.16985779200331308
+          "seconds": 0.1532363330188673
         },
         {
           "case_id": "1706.03762-answer-3",
           "repetition": 3,
-          "seconds": 0.14823966601397842
+          "seconds": 0.15141083297203295
         },
         {
           "case_id": "1706.03762-answer-4",
           "repetition": 1,
-          "seconds": 0.13546999997925013
+          "seconds": 0.23076437501003966
         },
         {
           "case_id": "1706.03762-answer-4",
           "repetition": 2,
-          "seconds": 0.11738208300084807
+          "seconds": 0.1311702920065727
         },
         {
           "case_id": "1706.03762-answer-4",
           "repetition": 3,
-          "seconds": 0.1196905419928953
+          "seconds": 0.13643170800060034
         },
         {
           "case_id": "2005.11401-answer-1",
           "repetition": 1,
-          "seconds": 0.11277649999829009
+          "seconds": 0.16664674997446127
         },
         {
           "case_id": "2005.11401-answer-1",
           "repetition": 2,
-          "seconds": 0.10916566601372324
+          "seconds": 0.13568541599670425
         },
         {
           "case_id": "2005.11401-answer-1",
           "repetition": 3,
-          "seconds": 0.14804608398117125
+          "seconds": 0.17702591698616743
         },
         {
           "case_id": "2005.11401-answer-2",
           "repetition": 1,
-          "seconds": 0.1122928750119172
+          "seconds": 0.15561762498691678
         },
         {
           "case_id": "2005.11401-answer-2",
           "repetition": 2,
-          "seconds": 0.15928404201986268
+          "seconds": 0.11846483399858698
         },
         {
           "case_id": "2005.11401-answer-2",
           "repetition": 3,
-          "seconds": 0.17063920898362994
+          "seconds": 0.14142795800580643
         },
         {
           "case_id": "2005.11401-answer-3",
           "repetition": 1,
-          "seconds": 0.1190948750008829
+          "seconds": 0.20332095798221417
         },
         {
           "case_id": "2005.11401-answer-3",
           "repetition": 2,
-          "seconds": 0.12074408301850781
+          "seconds": 0.12962300001527183
         },
         {
           "case_id": "2005.11401-answer-3",
           "repetition": 3,
-          "seconds": 0.13258375000441447
+          "seconds": 0.11897583300014958
         },
         {
           "case_id": "2005.11401-answer-4",
           "repetition": 1,
-          "seconds": 0.1343484169919975
+          "seconds": 0.11379783399752341
         },
         {
           "case_id": "2005.11401-answer-4",
           "repetition": 2,
-          "seconds": 0.16656854201573879
+          "seconds": 0.1466132499917876
         },
         {
           "case_id": "2005.11401-answer-4",
           "repetition": 3,
-          "seconds": 0.12619750000885688
+          "seconds": 0.11628183300490491
         }
       ],
       "scope": "query embedding + Qdrant dense top-10 + in-process BM25 top-10 + RRF"
     },
     "peak_memory": {
-      "bytes": 258146304,
+      "bytes": 176308224,
       "scope": "probe process RSS sampled at each index/query batch boundary"
     },
     "rankings_stable": true,
@@ -1848,13 +1859,13 @@
     },
     "total_indexing_time": {
       "failure_reason": null,
-      "observed": 20.297961833974114,
+      "observed": 28.46223312499933,
       "passed": true,
       "requirement": "total dense plus lexical indexing completes within five minutes"
     },
     "warm_p95_latency": {
       "failure_reason": null,
-      "observed": 0.16936440450517692,
+      "observed": 0.21154120882565622,
       "passed": true,
       "requirement": "fused end-to-end warm p95 latency is below one second"
     },
