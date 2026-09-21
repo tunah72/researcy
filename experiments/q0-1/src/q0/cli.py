@@ -69,6 +69,14 @@ def _handle_hybrid_evaluate(args: argparse.Namespace) -> int:
     from q0.hybrid import evaluate_hybrid_measurement
 
     summary = evaluate_hybrid_measurement(root=args.root, run_id=args.run_id)
+    if summary.get("passed") is not True:
+        failure_reasons = summary.get("failure_reasons")
+        detail = (
+            "; ".join(str(reason) for reason in failure_reasons)
+            if isinstance(failure_reasons, list) and failure_reasons
+            else "unspecified gate failure"
+        )
+        raise CommandError(f"hybrid gate failed: {detail}")
     print(json.dumps(summary, sort_keys=True))
     return 0
 

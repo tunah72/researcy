@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import pytest
+import q0.hybrid as hybrid
+from q0.cli import main as cli_main
 
 from q0.hybrid import (
     Bm25Index,
@@ -160,3 +162,75 @@ def test_hybrid_gate_rejects_changed_chunk_hash():
     decision = evaluate_hybrid_gate(passing_gate_evidence(chunk_sha256="f" * 64))
     assert not decision.passed
     assert not decision.threshold_outcomes["chunk_identity"].passed
+
+
+def test_hybrid_evaluate_cli_returns_nonzero_when_gate_fails(
+    monkeypatch, capsys, tmp_path
+):
+    def fail_gate(*, root, run_id):
+        return {
+            "run_id": run_id,
+            "passed": False,
+            "failure_reasons": ["fused Recall@5 is below 0.75"],
+        }
+
+    monkeypatch.setattr("q0.hybrid.evaluate_hybrid_measurement", fail_gate)
+
+    exit_code = cli_main(
+        [
+            "hybrid",
+            "evaluate",
+            "--run-id",
+            "q0-1-20260921T030640Z-36f32ae",
+            "--root",
+            str(tmp_path),
+        ]
+    )
+
+    assert exit_code == 2
+    assert "hybrid gate failed: fused Recall@5 is below 0.75" in capsys.readouterr().err
+
+
+def test_native_arm64_ollama_listener_is_accepted():
+    identity = hybrid.inspect_native_ollama_server(
+        listener_probe=lambda: "p803\ncollama\nf3\nn127.0.0.1:11434\n",
+        process_probe=lambda pid: (
+            "ollama",
+            "/opt/homebrew/Cellar/ollama/0.18.2/bin/ollama",
+            ("/opt/homebrew/opt/ollama/bin/ollama", "serve"),
+        ),
+        architecture_probe=lambda executable: "Mach-O 64-bit executable arm64",
+    )
+
+    assert identity.pid == 803
+    assert identity.executable_path == "/opt/homebrew/Cellar/ollama/0.18.2/bin/ollama"
+    assert identity.executable_architecture == "arm64"
+
+
+def test_docker_listener_is_rejected_even_when_host_is_arm64():
+    with pytest.raises(HybridValidationError, match="native Ollama"):
+        hybrid.inspect_native_ollama_server(
+            listener_probe=lambda: "p41\nccom.docker.backend\nf9\nn127.0.0.1:11434\n",
+            process_probe=lambda pid: (
+                "com.docker.backend",
+                "/Applications/Docker.app/Contents/MacOS/com.docker.backend",
+                (
+                    "/Applications/Docker.app/Contents/MacOS/com.docker.backend",
+                    "serve",
+                ),
+            ),
+            architecture_probe=lambda executable: "Mach-O 64-bit executable arm64",
+        )
+
+
+def test_x86_64_ollama_listener_is_rejected_as_non_native():
+    with pytest.raises(HybridValidationError, match="arm64"):
+        hybrid.inspect_native_ollama_server(
+            listener_probe=lambda: "p803\ncollama\nf3\nn127.0.0.1:11434\n",
+            process_probe=lambda pid: (
+                "ollama",
+                "/usr/local/bin/ollama",
+                ("/usr/local/bin/ollama", "serve"),
+            ),
+            architecture_probe=lambda executable: "Mach-O 64-bit executable x86_64",
+        )

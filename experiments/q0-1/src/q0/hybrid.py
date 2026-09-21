@@ -3,14 +3,13 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-import platform
 import re
 import statistics
 import subprocess
 import time
 import unicodedata
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -88,6 +87,16 @@ class HybridCaseResult(BaseModel):
     fused_top_10: list[RankedHit]
     first_relevant_rank: int | None
 
+
+
+@dataclass(frozen=True, slots=True)
+class OllamaServerProcess:
+    pid: int
+    process_name: str
+    executable_path: str
+    command_line: tuple[str, ...]
+    executable_architecture: str
+    executable_file_identity: str
 
 @dataclass(frozen=True, slots=True)
 class QuestionSpec:
@@ -702,6 +711,123 @@ def _qdrant_image_identity(root: Path) -> dict[str, str]:
     return {"container_id": container, "image_id": image_id}
 
 
+def _probe_ollama_listener() -> str:
+    try:
+        return subprocess.run(
+            [
+                "/usr/sbin/lsof",
+                "-nP",
+                "-Fpcn",
+                "-iTCP@127.0.0.1:11434",
+                "-sTCP:LISTEN",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError) as error:
+        detail = (
+            error.stderr.strip()
+            if isinstance(error, subprocess.CalledProcessError) and error.stderr
+            else str(error)
+        )
+        raise HybridValidationError(
+            f"cannot identify the process listening on 127.0.0.1:11434: {detail}"
+        ) from error
+
+
+def _probe_process_identity(pid: int) -> tuple[str, str, tuple[str, ...]]:
+    try:
+        process = psutil.Process(pid)
+        return process.name(), process.exe(), tuple(process.cmdline())
+    except (psutil.Error, OSError) as error:
+        raise HybridValidationError(
+            f"cannot inspect Ollama listener process {pid}: {error}"
+        ) from error
+
+
+def _probe_executable_architecture(executable_path: str) -> str:
+    try:
+        return subprocess.run(
+            ["/usr/bin/file", "-b", executable_path],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    except (OSError, subprocess.CalledProcessError) as error:
+        detail = (
+            error.stderr.strip()
+            if isinstance(error, subprocess.CalledProcessError) and error.stderr
+            else str(error)
+        )
+        raise HybridValidationError(
+            f"cannot inspect Ollama executable architecture: {detail}"
+        ) from error
+
+
+def inspect_native_ollama_server(
+    *,
+    listener_probe: Callable[[], str] | None = None,
+    process_probe: Callable[[int], tuple[str, str, tuple[str, ...]]] | None = None,
+    architecture_probe: Callable[[str], str] | None = None,
+) -> OllamaServerProcess:
+    listener_output = (listener_probe or _probe_ollama_listener)()
+    listener_addresses = {
+        line[1:] for line in listener_output.splitlines() if line.startswith("n")
+    }
+    if "127.0.0.1:11434" not in listener_addresses:
+        raise HybridValidationError(
+            "no process is listening on the exact Ollama endpoint 127.0.0.1:11434"
+        )
+    raw_pids = {
+        line[1:] for line in listener_output.splitlines() if line.startswith("p")
+    }
+    if len(raw_pids) != 1 or not next(iter(raw_pids), "").isdigit():
+        raise HybridValidationError(
+            "expected exactly one identifiable process listening on 127.0.0.1:11434"
+        )
+    pid = int(next(iter(raw_pids)))
+    process_name, executable_path, command_line = (
+        process_probe or _probe_process_identity
+    )(pid)
+    if not executable_path or not command_line:
+        raise HybridValidationError(
+            "Ollama listener process omitted its executable or command line"
+        )
+
+    identity_text = "\0".join(
+        (process_name, executable_path, *command_line)
+    ).casefold()
+    is_native_ollama = (
+        process_name.casefold() == "ollama"
+        and Path(executable_path).name.casefold() == "ollama"
+        and Path(command_line[0]).name.casefold() == "ollama"
+        and "serve" in command_line[1:]
+        and "docker" not in identity_text
+    )
+    if not is_native_ollama:
+        raise HybridValidationError(
+            "process listening on 127.0.0.1:11434 is not native Ollama"
+        )
+
+    file_identity = (architecture_probe or _probe_executable_architecture)(
+        executable_path
+    ).strip()
+    if file_identity != "Mach-O 64-bit executable arm64":
+        raise HybridValidationError(
+            "Ollama listener executable must be a native arm64 Mach-O, "
+            f"observed {file_identity!r}"
+        )
+    return OllamaServerProcess(
+        pid=pid,
+        process_name=process_name,
+        executable_path=executable_path,
+        command_line=command_line,
+        executable_architecture="arm64",
+        executable_file_identity=file_identity,
+    )
+
+
 def _collection_name(run_id: str) -> str:
     return f"q0-1-{run_id}-bge-m3-567m"
 
@@ -727,10 +853,7 @@ def _preflight_identity(
     *,
     collection_name: str,
 ) -> dict[str, Any]:
-    if platform.system() != "Darwin" or platform.machine() != "arm64":
-        raise HybridValidationError(
-            "BGE must run through native Ollama on Darwin arm64"
-        )
+    ollama_server = inspect_native_ollama_server()
     version_payload = _request_json(
         client, "GET", f"{OLLAMA_BASE_URL}/api/version"
     )
@@ -820,6 +943,7 @@ def _preflight_identity(
             "version": ollama_version,
             "runtime_placement": f"native ARM64 Ollama {ollama_version}",
             "loaded_models": sorted(running_tags),
+            "server_process": asdict(ollama_server),
         },
         "model": {
             "tag": MODEL_TAG,
@@ -1308,6 +1432,13 @@ def run_hybrid_measurement(*, root: Path, run_id: str) -> dict[str, Any]:
         current_identity = _preflight_runtime_without_vector_probe(client)
         if current_identity["ollama_version"] != preflight["ollama"]["version"]:
             raise HybridValidationError("Ollama identity drifted after preflight")
+        if (
+            current_identity["server_process"]
+            != preflight["ollama"]["server_process"]
+        ):
+            raise HybridValidationError(
+                "Ollama serving process drifted after preflight"
+            )
         if current_identity["qdrant_version"] != preflight["qdrant"]["version"]:
             raise HybridValidationError("Qdrant identity drifted after preflight")
         _create_collection(client, collection_name, MODEL_DIMENSION)
@@ -1556,7 +1687,8 @@ def run_hybrid_measurement(*, root: Path, run_id: str) -> dict[str, Any]:
 
 def _preflight_runtime_without_vector_probe(
     client: httpx.Client,
-) -> dict[str, str]:
+) -> dict[str, Any]:
+    ollama_server = inspect_native_ollama_server()
     ollama = _request_json(client, "GET", f"{OLLAMA_BASE_URL}/api/version")
     tags = _ollama_tags(client)
     model = tags.get(MODEL_TAG)
@@ -1570,6 +1702,7 @@ def _preflight_runtime_without_vector_probe(
         "model_digest": model["digest"],
         "qdrant_version": qdrant["version"],
         "qdrant_commit": qdrant["commit"],
+        "server_process": asdict(ollama_server),
     }
 
 
