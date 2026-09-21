@@ -1,0 +1,81 @@
+{
+  "artifact_version": "q0.1-hybrid-1",
+  "failure_reasons": [
+    "preflight failed with typed category identity_mismatch: response model does not match requested model",
+    "golden, follow-up, and unanswerable cases were not run after the preflight failure"
+  ],
+  "identities": {
+    "connection_id": "ag/gemini-3.8-flash-low",
+    "connection_identity_kind": "user_supplied_non_uuid_route_label",
+    "gateway_version": "0.5.81",
+    "model_owner": "ag",
+    "producer_git_revision": "f3a781157f75a21345f267f4b34b377c1c4c7207",
+    "requested_model": "ag/gemini-3.8-flash-low",
+    "response_model": null,
+    "route": "ag/gemini-3.8-flash-low"
+  },
+  "measurements": {
+    "configuration_assertion_sha256": "c454cfa97e1675904cfa346deee246be12d32d1e66a8c8ef8372d97f73988bb9",
+    "downstream_cases": {
+      "follow-up": "not_run",
+      "golden": "not_run",
+      "unanswerable": "not_run"
+    },
+    "live_request_count": 1,
+    "preflight": {
+      "error": {
+        "category": "identity_mismatch",
+        "message": "response model does not match requested model",
+        "retryable": false,
+        "status_code": null
+      },
+      "terminal_type": "answer.failed",
+      "timing": {
+        "total_latency_seconds": 2.917539833,
+        "ttft_seconds": null
+      }
+    },
+    "request_ledger": {
+      "attempted_slots": [
+        "preflight"
+      ],
+      "relative_path": "qualification/private/q0-1-20260921T030640Z-36f32ae/generation-request-ledger.json",
+      "sha256": "75e453f6f78df98eea6b65ffaddda04468a796936d163264fbb2be289e28f02b"
+    }
+  },
+  "provider": "antigravity",
+  "requested_model_id": "ag/gemini-3.8-flash-low",
+  "response_model_id": null,
+  "run_id": "q0-1-20260921T030640Z-36f32ae",
+  "threshold_outcomes": {
+    "model_catalog_identity": {
+      "failure_reason": null,
+      "observed": {
+        "id": "ag/gemini-3.8-flash-low",
+        "owned_by": "ag"
+      },
+      "passed": true,
+      "requirement": "authenticated /v1/models contains exactly one ag/gemini-3.8-flash-low owned by ag"
+    },
+    "no_retry_after_failure": {
+      "failure_reason": null,
+      "observed": {
+        "attempted_slots": [
+          "preflight"
+        ],
+        "live_request_count": 1
+      },
+      "passed": true,
+      "requirement": "a failed preflight is attempted once and no later generation case is sent"
+    },
+    "preflight_identity_stability": {
+      "failure_reason": "preflight response model did not match the requested model",
+      "observed": {
+        "category": "identity_mismatch",
+        "message": "response model does not match requested model"
+      },
+      "passed": false,
+      "requirement": "configured, requested, and response model identities remain identical"
+    }
+  }
+}
