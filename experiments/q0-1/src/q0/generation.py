@@ -37,10 +37,11 @@ from q0.models import (
 )
 
 PINNED_BASE_URL = "http://127.0.0.1:20128/v1"
-PINNED_MODEL = "gc/gemini-2.5-flash"
+PINNED_MODEL = "ag/gemini-3.8-flash-low"
+PINNED_MODEL_OWNER = "ag"
 PINNED_GATEWAY_VERSION = "0.5.81"
-PINNED_CONNECTION_ID = "2386766d-a7c1-4839-953c-deaeaa10e719"
-PINNED_UPSTREAM_IDENTITY = "gemini-cli/gemini-2.5-flash"
+PINNED_CONNECTION_ID = "ag/gemini-3.8-flash-low"
+PINNED_UPSTREAM_IDENTITY = "ag/gemini-3.8-flash-low"
 PRIVATE_ARTIFACT_VERSION = "q0.1-generation-private-1"
 _GENERATION_ENVIRONMENT_NAMES = (
     "GENERATION_BASE_URL",
@@ -448,6 +449,7 @@ def load_frozen_generation_inputs(
     request_parameters = {
         "max_retries": MAX_RETRIES,
         "max_tokens": MAX_TOKENS,
+        "model": PINNED_MODEL,
         "stream": True,
         "stream_options": STREAM_OPTIONS,
         "temperature": TEMPERATURE,
@@ -1716,12 +1718,22 @@ async def _gateway_checks(
     ):
         raise GenerationConfigurationError("9Router currentVersion is not pinned")
     models = models_payload.get("data") if isinstance(models_payload, dict) else None
-    if not isinstance(models, list) or not any(
-        isinstance(model, dict) and model.get("id") == PINNED_MODEL
-        for model in models
-    ):
+    if not isinstance(models, list):
         raise GenerationConfigurationError(
-            "pinned literal generation route is absent from /v1/models"
+            "9Router models endpoint did not return a model list"
+        )
+    matching_models = [
+        model
+        for model in models
+        if isinstance(model, dict) and model.get("id") == PINNED_MODEL
+    ]
+    if len(matching_models) != 1:
+        raise GenerationConfigurationError(
+            "pinned literal generation route is not unique in /v1/models"
+        )
+    if matching_models[0].get("owned_by") != PINNED_MODEL_OWNER:
+        raise GenerationConfigurationError(
+            "pinned literal generation route owner is not pinned"
         )
 
 
@@ -2452,7 +2464,7 @@ def run_generation_measurement(
             passed=assertion.route == PINNED_MODEL
             and assertion.route_kind == "direct"
             and not assertion.fallback_candidates,
-            requirement="literal gc/gemini-2.5-flash route is direct with no alias, combo, or fallback",
+            requirement=f"literal {PINNED_MODEL} route is direct with no alias, combo, or fallback",
             observed={
                 "route": assertion.route,
                 "route_kind": assertion.route_kind,
@@ -2575,7 +2587,7 @@ def run_generation_measurement(
 
     result = GenerationResult(
         run_id=run_id,
-        provider="gemini-cli",
+        provider="antigravity",
         requested_model_id=PINNED_MODEL,
         response_model_id=PINNED_MODEL if all_identities_stable else None,
         identities={
@@ -2583,6 +2595,7 @@ def run_generation_measurement(
             "run_initialized_git_revision": environment.run_initialized_git_revision,
             "gateway_version": PINNED_GATEWAY_VERSION,
             "connection_id": PINNED_CONNECTION_ID,
+            "model_owner": PINNED_MODEL_OWNER,
             "active_connection_ids": list(assertion.active_connection_ids),
             "selected_account_count": assertion.selected_account_count,
             "route": assertion.route,
@@ -2680,6 +2693,7 @@ def run_generation_measurement(
                 "generation": {
                     "gateway_version": PINNED_GATEWAY_VERSION,
                     "connection_id": PINNED_CONNECTION_ID,
+                    "model_owner": PINNED_MODEL_OWNER,
                     "route": PINNED_MODEL,
                     "requested_model": PINNED_MODEL,
                     "response_model": PINNED_MODEL,

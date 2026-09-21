@@ -17,10 +17,13 @@ import pytest
 
 RUN_ID = "q0-1-20260921T030640Z-36f32ae"
 PINNED_BASE_URL = "http://127.0.0.1:20128/v1"
-PINNED_MODEL = "gc/gemini-2.5-flash"
+PINNED_MODEL = "ag/gemini-3.8-flash-low"
 PINNED_VERSION = "0.5.81"
-PINNED_CONNECTION_ID = "2386766d-a7c1-4839-953c-deaeaa10e719"
-UPSTREAM_IDENTITY = "gemini-cli/gemini-2.5-flash"
+PINNED_CONNECTION_ID = "ag/gemini-3.8-flash-low"
+MODEL_OWNER = "ag"
+UPSTREAM_IDENTITY = "ag/gemini-3.8-flash-low"
+RETIRED_MODEL = "gc/gemini-2.5-flash"
+RETIRED_CONNECTION_ID = "2386766d-a7c1-4839-953c-deaeaa10e719"
 GOLDEN_QUESTION = (
     "Why does scaled dot-product attention divide by the square root of the key "
     "dimension?"
@@ -315,12 +318,19 @@ def test_frozen_inputs_match_the_passing_hybrid_context_and_exact_case_sequence(
     assert frozen.request_parameters == {
         "max_retries": 0,
         "max_tokens": 800,
+        "model": PINNED_MODEL,
         "stream": True,
         "stream_options": {"include_usage": True},
         "temperature": 0,
         "timeout_seconds": 60,
         "top_p": 1,
     }
+    assert hashlib.sha256(canonical_json(frozen.request_parameters)).hexdigest() == (
+        "d5f350c28696bbc8c04c1630384d96f979ae690cc1baf7373ac6e58e136885be"
+    )
+    assert frozen.frozen_input_sha256 == (
+        "79a4593f1d2bf07fdb37558f9124358d8958bf41073ce78011648caf74fed22c"
+    )
 
 
 def test_request_uses_exact_model_schema_stream_usage_and_selected_context(
@@ -563,6 +573,38 @@ def test_environment_configuration_fails_closed_on_missing_or_nonlocal_identitie
         )
 
 
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        {
+            "GENERATION_MODEL": RETIRED_MODEL,
+            "Q0_9ROUTER_CONNECTION_ID": RETIRED_CONNECTION_ID,
+        },
+        {"GENERATION_MODEL": RETIRED_MODEL},
+        {"Q0_9ROUTER_CONNECTION_ID": RETIRED_CONNECTION_ID},
+    ],
+)
+def test_retired_generation_identity_is_rejected_before_transport(
+    successful_server, mutation
+):
+    g = generation_module()
+    values = {
+        "GENERATION_BASE_URL": PINNED_BASE_URL,
+        "GENERATION_MODEL": PINNED_MODEL,
+        "Q0_9ROUTER_VERSION": PINNED_VERSION,
+        "Q0_9ROUTER_CONNECTION_ID": PINNED_CONNECTION_ID,
+        "GENERATION_API_KEY": "fixture-secret",
+    }
+    values.update(mutation)
+
+    with pytest.raises(g.GenerationConfigurationError):
+        g.OpenAICompatibleGenerationClient.from_environment(
+            values,
+            transport=successful_server.transport,
+        )
+
+    assert successful_server.requests == []
+
 def test_environment_configuration_requires_every_pinned_value():
     g = generation_module()
     with pytest.raises(g.GenerationConfigurationError, match="GENERATION_MODEL"):
@@ -592,7 +634,7 @@ def test_requested_model_mismatch_fails_before_transport(successful_server):
     g = generation_module()
     events = collect(
         configured_client(g, successful_server),
-        golden_request(g, model="gc/gemini-2.5-pro"),
+        golden_request(g, model=RETIRED_MODEL),
     )
 
     event = terminal(events)
@@ -604,7 +646,7 @@ def test_requested_model_mismatch_fails_before_transport(successful_server):
 @pytest.mark.parametrize(
     ("model", "upstream", "expected"),
     [
-        ("gc/gemini-2.5-pro", UPSTREAM_IDENTITY, "response model"),
+        (RETIRED_MODEL, UPSTREAM_IDENTITY, "response model"),
         (PINNED_MODEL, "other-provider/other-model", "upstream identity"),
     ],
 )
@@ -727,6 +769,7 @@ def test_sdk_types_do_not_cross_the_generation_boundary(successful_server):
 @dataclass
 class LiveGatewayFixture:
     chat_bodies: deque[bytes]
+    model_owned_by: str = MODEL_OWNER
     requests: list[httpx.Request] = field(default_factory=list)
 
     def handle(self, request: httpx.Request) -> httpx.Response:
@@ -747,7 +790,7 @@ class LiveGatewayFixture:
                             "id": PINNED_MODEL,
                             "object": "model",
                             "created": 1,
-                            "owned_by": "gc",
+                            "owned_by": self.model_owned_by,
                         }
                     ],
                 },
@@ -919,6 +962,28 @@ def test_live_preflight_verifies_gateway_and_persists_only_sanitized_state(
     assert GOLDEN_QUESTION not in serialized
 
 
+def test_live_preflight_rejects_wrong_model_owner_before_chat_request(
+    monkeypatch, tmp_path
+):
+    g = generation_module()
+    root = copy_frozen_generation_root(tmp_path)
+    golden, _, _ = live_payloads(root)
+    gateway = LiveGatewayFixture(
+        deque([completion_sse(golden)]),
+        model_owned_by="gc",
+    )
+    monkeypatch.setattr(g, "_require_clean_producer", lambda root: "a" * 40)
+
+    with pytest.raises(g.GenerationConfigurationError, match="owner"):
+        g.run_generation_preflight(
+            root=root,
+            run_id=RUN_ID,
+            environ=pinned_environment(),
+            transport=gateway.transport,
+        )
+
+    assert gateway.chat_requests == []
+
 def test_live_preflight_rejects_unsafe_configuration_before_any_request(
     monkeypatch, tmp_path
 ):
@@ -1003,6 +1068,8 @@ def test_live_run_sends_exactly_three_cases_and_writes_sanitized_gate_result(
     serialized = result_path.read_text("utf-8")
     result = json.loads(serialized)
     assert result["failure_reasons"] == []
+    assert result["provider"] == "antigravity"
+    assert result["identities"]["model_owner"] == MODEL_OWNER
     assert all(
         outcome["passed"] for outcome in result["threshold_outcomes"].values()
     )
@@ -1062,6 +1129,7 @@ def test_live_run_sends_exactly_three_cases_and_writes_sanitized_gate_result(
     )
     assert environment["producer_git_revision"] == revision
     assert environment["identities"]["generation"]["route"] == PINNED_MODEL
+    assert environment["identities"]["generation"]["model_owner"] == MODEL_OWNER
 
 
 def test_generation_run_cli_returns_nonzero_when_gate_fails(
