@@ -98,6 +98,19 @@ class OllamaServerProcess:
     executable_architecture: str
     executable_file_identity: str
 
+
+def ollama_server_process_identity(
+    process: OllamaServerProcess,
+) -> dict[str, Any]:
+    return {
+        "pid": process.pid,
+        "process_name": process.process_name,
+        "executable_path": process.executable_path,
+        "command_line": list(process.command_line),
+        "executable_architecture": process.executable_architecture,
+        "executable_file_identity": process.executable_file_identity,
+    }
+
 @dataclass(frozen=True, slots=True)
 class QuestionSpec:
     case_id: str
@@ -943,7 +956,7 @@ def _preflight_identity(
             "version": ollama_version,
             "runtime_placement": f"native ARM64 Ollama {ollama_version}",
             "loaded_models": sorted(running_tags),
-            "server_process": asdict(ollama_server),
+            "server_process": ollama_server_process_identity(ollama_server),
         },
         "model": {
             "tag": MODEL_TAG,
@@ -1702,7 +1715,7 @@ def _preflight_runtime_without_vector_probe(
         "model_digest": model["digest"],
         "qdrant_version": qdrant["version"],
         "qdrant_commit": qdrant["commit"],
-        "server_process": asdict(ollama_server),
+        "server_process": ollama_server_process_identity(ollama_server),
     }
 
 

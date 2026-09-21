@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 import q0.hybrid as hybrid
 from q0.cli import main as cli_main
@@ -234,3 +236,19 @@ def test_x86_64_ollama_listener_is_rejected_as_non_native():
             ),
             architecture_probe=lambda executable: "Mach-O 64-bit executable x86_64",
         )
+
+
+def test_ollama_server_process_identity_is_json_stable():
+    identity = hybrid.inspect_native_ollama_server(
+        listener_probe=lambda: "p803\ncollama\nf3\nn127.0.0.1:11434\n",
+        process_probe=lambda pid: (
+            "ollama",
+            "/opt/homebrew/Cellar/ollama/0.18.2/bin/ollama",
+            ("/opt/homebrew/opt/ollama/bin/ollama", "serve"),
+        ),
+        architecture_probe=lambda executable: "Mach-O 64-bit executable arm64",
+    )
+
+    payload = hybrid.ollama_server_process_identity(identity)
+
+    assert json.loads(json.dumps(payload)) == payload
