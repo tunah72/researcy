@@ -77,17 +77,17 @@ class ReadingOrderRelation(BaseModel):
 
 
 class Citation(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", strict=True)
 
-    marker: int
-    source_ref: str
-    evidence_quote: str
+    marker: int = Field(gt=0)
+    source_ref: str = Field(min_length=1)
+    evidence_quote: str = Field(min_length=1)
 
 
 class GroundedAnswer(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", strict=True)
 
-    answer: str
+    answer: str = Field(min_length=1)
     citations: list[Citation]
 
 
