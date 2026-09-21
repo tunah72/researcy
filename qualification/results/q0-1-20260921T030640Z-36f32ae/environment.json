@@ -9,12 +9,18 @@
       "1706.03762",
       "2005.11401"
     ],
+    "hybrid_retrieval": {
+      "collection_name": "q0-1-q0-1-20260921T030640Z-36f32ae-bge-m3-567m",
+      "configuration": "bge-m3:567m + BM25(k1=1.5,b=0.75) + RRF(k=60)",
+      "model": "bge-m3:567m",
+      "model_digest": "7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab"
+    },
     "parser": {
       "candidate": "pymupdf",
       "coordinate_origin": "bottom-left",
       "version": "1.28.2"
     },
-    "producer_git_revision": "36f32aea3f7946c58a4db61628d875a73a17cf47"
+    "producer_git_revision": "0fa989c2c44786af7810bbfedc12bd11ee733fc5"
   },
   "inherited_artifact_sha256": {
     "qualification/corpus/manifest.json": "50e221e0a441607306ba0a6eb9adf517793660c720ca2f5facb41bf5f442b8f9",
@@ -74,15 +80,25 @@
         }
       ],
       "status": "prepared"
+    },
+    "hybrid_retrieval": {
+      "chunk_set_sha256": "0aa4bbf11729158948230963930520c2cb52b04e5a292f03ba97c64d7c572cde",
+      "collection_name": "q0-1-q0-1-20260921T030640Z-36f32ae-bge-m3-567m",
+      "fused_recall_at_5": 0.75,
+      "p95_seconds": 0.16936440450517692,
+      "result_relative_path": "qualification/results/q0-1-20260921T030640Z-36f32ae/hybrid-retrieval.json",
+      "selected_configuration": "bge-m3:567m + BM25(k1=1.5,b=0.75) + RRF(k=60)",
+      "status": "qualified",
+      "warm_sample_count": 24
     }
   },
-  "ollama_version": null,
+  "ollama_version": "0.18.2",
   "os_version": "macOS 26.6",
   "physical_memory_bytes": 8589934592,
-  "producer_git_revision": "36f32aea3f7946c58a4db61628d875a73a17cf47",
+  "producer_git_revision": "0fa989c2c44786af7810bbfedc12bd11ee733fc5",
   "python_version": "3.12.13",
-  "qdrant_container_image_id": null,
-  "qdrant_version": null,
+  "qdrant_container_image_id": "sha256:057ee3a8da769fe7310dd3537b4dc7583bf87a95ce8ac43c0af5a46bc580d1fc",
+  "qdrant_version": "1.19.0",
   "regenerated_chunk_set_sha256": "0aa4bbf11729158948230963930520c2cb52b04e5a292f03ba97c64d7c572cde",
   "run_id": "q0-1-20260921T030640Z-36f32ae",
   "run_initialized_git_revision": "36f32aea3f7946c58a4db61628d875a73a17cf47",
@@ -98,6 +114,81 @@
       "observed": 2,
       "passed": true,
       "requirement": "two cached PDFs match manifest hashes and page counts"
+    },
+    "hybrid_bge_vector_stability": {
+      "failure_reason": null,
+      "observed": true,
+      "passed": true,
+      "requirement": "BGE vectors are finite, non-zero, stable, dimension-consistent, and untruncated"
+    },
+    "hybrid_chunk_identity": {
+      "failure_reason": null,
+      "observed": "0aa4bbf11729158948230963930520c2cb52b04e5a292f03ba97c64d7c572cde",
+      "passed": true,
+      "requirement": "regenerated 93-chunk SHA-256 matches the inherited identity"
+    },
+    "hybrid_fused_recall_at_5": {
+      "failure_reason": null,
+      "observed": 0.75,
+      "passed": true,
+      "requirement": "fused Recall@5 is at least 0.75 (6/8)"
+    },
+    "hybrid_golden_case": {
+      "failure_reason": null,
+      "observed": true,
+      "passed": true,
+      "requirement": "1706.03762-answer-1 is present in the fused top-5"
+    },
+    "hybrid_golden_provenance": {
+      "failure_reason": null,
+      "observed": true,
+      "passed": true,
+      "requirement": "every frozen golden top-5 source has complete source-span provenance"
+    },
+    "hybrid_no_dense_recall_regression": {
+      "failure_reason": null,
+      "observed": {
+        "dense_recall_at_5": 0.625,
+        "fused_recall_at_5": 0.75
+      },
+      "passed": true,
+      "requirement": "fused Recall@5 is not below same-run dense Recall@5"
+    },
+    "hybrid_no_runtime_failures": {
+      "failure_reason": null,
+      "observed": [],
+      "passed": true,
+      "requirement": "no crash, OOM, identity drift, corpus drift, or provenance loss occurs"
+    },
+    "hybrid_ranking_integrity": {
+      "failure_reason": null,
+      "observed": true,
+      "passed": true,
+      "requirement": "all eight cases have unique well-formed dense, BM25, and fused top-10 rankings"
+    },
+    "hybrid_ranking_stability": {
+      "failure_reason": null,
+      "observed": true,
+      "passed": true,
+      "requirement": "all three measured repetitions preserve deterministic channel ordering"
+    },
+    "hybrid_total_indexing_time": {
+      "failure_reason": null,
+      "observed": 20.297961833974114,
+      "passed": true,
+      "requirement": "total dense plus lexical indexing completes within five minutes"
+    },
+    "hybrid_warm_p95_latency": {
+      "failure_reason": null,
+      "observed": 0.16936440450517692,
+      "passed": true,
+      "requirement": "fused end-to-end warm p95 latency is below one second"
+    },
+    "hybrid_warm_sample_count": {
+      "failure_reason": null,
+      "observed": 24,
+      "passed": true,
+      "requirement": "exactly three measured fused repetitions for each of eight questions"
     },
     "inherited_artifacts_match": {
       "failure_reason": null,
