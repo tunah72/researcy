@@ -1,0 +1,122 @@
+{
+  "architecture": "arm64",
+  "artifact_version": "q0.1-hybrid-1",
+  "baseline_run_id": "q0-20260920T124722Z-cd96df4",
+  "failure_reasons": [],
+  "identities": {
+    "baseline_run_id": "q0-20260920T124722Z-cd96df4",
+    "corpus_paper_ids": [
+      "1706.03762",
+      "2005.11401"
+    ],
+    "parser": {
+      "candidate": "pymupdf",
+      "coordinate_origin": "bottom-left",
+      "version": "1.28.2"
+    },
+    "producer_git_revision": "36f32aea3f7946c58a4db61628d875a73a17cf47"
+  },
+  "inherited_artifact_sha256": {
+    "qualification/corpus/manifest.json": "50e221e0a441607306ba0a6eb9adf517793660c720ca2f5facb41bf5f442b8f9",
+    "qualification/gold/evidence.jsonl": "858d2547c8dd515eaaad35e8dd73a1597a0dfa9147658128f159d7dab2d820bd",
+    "qualification/gold/reading-order.jsonl": "d1346420ee29220ebc6cb308fbcfb36a6b6cb680d49a9e01639e642ca3d647bb",
+    "qualification/results/q0-20260920T124722Z-cd96df4/embedding.json": "28536767095569d87f136fe848f9842a310deb649eb08b588ede156fd5c714c1",
+    "qualification/results/q0-20260920T124722Z-cd96df4/environment.json": "fbb995829a87a7eb8172fd0899de6280b2f597fbd9aa2ea9fe2906856eb4b93f",
+    "qualification/results/q0-20260920T124722Z-cd96df4/parser.json": "820fb2a71f075570bf89872cf468b4ac23e18c373009e06de109b8086c096c61"
+  },
+  "initialized_at_utc": "2026-09-21T03:06:40.398025Z",
+  "measurements": {
+    "baseline": {
+      "chunks": {
+        "count": 93,
+        "cross_section_chunks": 0,
+        "max_chars": 2000,
+        "overlap_chars": 0,
+        "paragraph_boundary_preference": true,
+        "sha256": "0aa4bbf11729158948230963930520c2cb52b04e5a292f03ba97c64d7c572cde",
+        "stream_relative_path": "qualification/private/q0-1-20260921T030640Z-36f32ae/chunks.jsonl",
+        "validated_as_chunk": true
+      },
+      "gold_validation": {
+        "answerable_cases": 8,
+        "coordinate_origin": "bottom-left",
+        "coverage_references": 2,
+        "independent_golden_boxes": 3,
+        "papers": 2,
+        "reading_order_relations": 12,
+        "unanswerable_cases": 2,
+        "valid": true
+      },
+      "parser": {
+        "candidate": "pymupdf",
+        "coordinate_origin": "bottom-left",
+        "parsed_block_count": 914,
+        "parsed_block_counts_by_paper": {
+          "1706.03762": 526,
+          "2005.11401": 388
+        },
+        "stream_relative_path": "qualification/private/q0-1-20260921T030640Z-36f32ae/parsed-blocks-pymupdf.jsonl",
+        "stream_sha256": "11288709a377835c106cb99000c3deeafb3300f55b66520c609f08da2c55fa0e",
+        "validated_as_parsed_block": true,
+        "version": "1.28.2"
+      },
+      "pdf_count": 2,
+      "pdfs": [
+        {
+          "page_count": 15,
+          "paper_id": "1706.03762",
+          "sha256": "bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697"
+        },
+        {
+          "page_count": 19,
+          "paper_id": "2005.11401",
+          "sha256": "23e3249e9a1e75418d82efecab0ea8c4d033b89c93742f63208d47ce01f21233"
+        }
+      ],
+      "status": "prepared"
+    }
+  },
+  "ollama_version": null,
+  "os_version": "macOS 26.6",
+  "physical_memory_bytes": 8589934592,
+  "producer_git_revision": "36f32aea3f7946c58a4db61628d875a73a17cf47",
+  "python_version": "3.12.13",
+  "qdrant_container_image_id": null,
+  "qdrant_version": null,
+  "regenerated_chunk_set_sha256": "0aa4bbf11729158948230963930520c2cb52b04e5a292f03ba97c64d7c572cde",
+  "run_id": "q0-1-20260921T030640Z-36f32ae",
+  "run_initialized_git_revision": "36f32aea3f7946c58a4db61628d875a73a17cf47",
+  "threshold_outcomes": {
+    "chunk_identity": {
+      "failure_reason": null,
+      "observed": "0aa4bbf11729158948230963930520c2cb52b04e5a292f03ba97c64d7c572cde",
+      "passed": true,
+      "requirement": "exactly 93 chunks match the inherited chunk-set SHA-256"
+    },
+    "exact_corpus": {
+      "failure_reason": null,
+      "observed": 2,
+      "passed": true,
+      "requirement": "two cached PDFs match manifest hashes and page counts"
+    },
+    "inherited_artifacts_match": {
+      "failure_reason": null,
+      "observed": 6,
+      "passed": true,
+      "requirement": "all six approved Q0 artifact hashes match"
+    },
+    "pymupdf_provenance": {
+      "failure_reason": null,
+      "observed": 914,
+      "passed": true,
+      "requirement": "every PyMuPDF block validates with bottom-left provenance"
+    },
+    "tracked_tree_clean": {
+      "failure_reason": null,
+      "observed": true,
+      "passed": true,
+      "requirement": "tracked tree is clean at Q0.1 run initialization"
+    }
+  },
+  "tracked_tree_clean": true
+}
