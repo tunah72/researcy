@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import asyncio
+import fcntl
 import hashlib
 import json
 import os
 import re
 import subprocess
-from collections.abc import AsyncIterator, Mapping, Sequence
+import time
+from collections.abc import AsyncIterator, Iterator, Mapping, Sequence
+from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Protocol, TypeAlias, cast
 
@@ -1082,6 +1086,36 @@ class GenerationConfigurationAssertion(BaseModel):
         return self
 
 
+RequestSlot: TypeAlias = Literal[
+    "preflight",
+    "golden",
+    "follow-up",
+    "unanswerable",
+]
+_REQUEST_SLOT_ORDINAL: dict[RequestSlot, int] = {
+    "preflight": 1,
+    "golden": 2,
+    "follow-up": 3,
+    "unanswerable": 4,
+}
+
+
+class _RequestTiming(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    ttft_seconds: float | None = Field(default=None, gt=0)
+    total_latency_seconds: float = Field(gt=0)
+
+    @model_validator(mode="after")
+    def validate_ordering(self) -> _RequestTiming:
+        if (
+            self.ttft_seconds is not None
+            and self.total_latency_seconds < self.ttft_seconds
+        ):
+            raise ValueError("total latency must not precede time to first token")
+        return self
+
+
 class _NormalizedEventRecord(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
@@ -1109,6 +1143,82 @@ class _CitationIdentityRecord(BaseModel):
     evidence_quote_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
+class _RequestAttempt(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    slot: RequestSlot
+    ordinal: int = Field(ge=1, le=4)
+    state: Literal["reserved", "completed", "failed"]
+    terminal_type: Literal[
+        "answer.completed",
+        "answer.failed",
+        "validation.failed",
+    ] | None = None
+    timing: _RequestTiming | None = None
+    error: GenerationError | None = None
+
+    @model_validator(mode="after")
+    def validate_attempt(self) -> _RequestAttempt:
+        if self.ordinal != _REQUEST_SLOT_ORDINAL[self.slot]:
+            raise ValueError("request slot ordinal changed")
+        if self.state == "reserved":
+            if (
+                self.terminal_type is not None
+                or self.timing is not None
+                or self.error is not None
+            ):
+                raise ValueError("reserved request slot contains terminal evidence")
+        elif self.state == "completed":
+            if (
+                self.terminal_type != "answer.completed"
+                or self.timing is None
+                or self.timing.ttft_seconds is None
+                or self.error is not None
+            ):
+                raise ValueError("completed request slot evidence is incomplete")
+        elif (
+            self.terminal_type not in {"answer.failed", "validation.failed"}
+            or self.timing is None
+            or self.error is None
+        ):
+            raise ValueError("failed request slot evidence is incomplete")
+        return self
+
+
+class _GenerationRequestLedger(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    artifact_version: Literal["q0.1-generation-private-1"] = PRIVATE_ARTIFACT_VERSION
+    run_id: str
+    producer_git_revision: str = Field(pattern=r"^[0-9a-f]{40}$")
+    frozen_input_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    configuration_assertion_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    slots: dict[str, _RequestAttempt]
+
+    @model_validator(mode="after")
+    def validate_slots(self) -> _GenerationRequestLedger:
+        allowed = set(_REQUEST_SLOT_ORDINAL)
+        if not set(self.slots).issubset(allowed):
+            raise ValueError("request ledger contains an unknown slot")
+        for name, attempt in self.slots.items():
+            if name != attempt.slot:
+                raise ValueError("request ledger slot key changed")
+        for slot, prerequisites in (
+            ("golden", ("preflight",)),
+            ("follow-up", ("preflight", "golden")),
+            ("unanswerable", ("preflight", "golden", "follow-up")),
+        ):
+            if slot in self.slots and any(
+                prerequisite not in self.slots for prerequisite in prerequisites
+            ):
+                raise ValueError("request ledger slot sequence is incomplete")
+        return self
+
+    @property
+    def attempted_count(self) -> int:
+        return len(self.slots)
+
+
 class _GenerationPreflightState(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
@@ -1124,6 +1234,7 @@ class _GenerationPreflightState(BaseModel):
     event_types: tuple[Literal["answer.delta", "answer.completed"], ...]
     delta_event_count: int = Field(gt=0)
     terminal_event_count: Literal[1] = 1
+    timing: _RequestTiming
     usage: GenerationUsage
     identity: GatewayIdentity
 
@@ -1138,9 +1249,19 @@ class _ValidatedGenerationCase(BaseModel):
     events: tuple[_NormalizedEventRecord, ...]
     delta_event_count: int = Field(gt=0)
     terminal_event_count: Literal[1] = 1
+    timing: _RequestTiming
     usage: GenerationUsage
     identity: GatewayIdentity
     citation_identities: tuple[_CitationIdentityRecord, ...]
+
+
+class _PrivateGenerationFailure(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    slot: RequestSlot
+    case_id: str
+    error: GenerationError
+    timing: _RequestTiming
 
 
 class _ValidatedGenerationArtifact(BaseModel):
@@ -1153,6 +1274,46 @@ class _ValidatedGenerationArtifact(BaseModel):
     frozen_input_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     source_set_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     cases: tuple[_ValidatedGenerationCase, ...]
+    failure: _PrivateGenerationFailure | None
+
+
+@dataclass(frozen=True)
+class _CollectedGeneration:
+    events: tuple[GenerationEvent, ...]
+    request_started_ns: int
+    first_delta_ns: int | None
+    terminal_ns: int | None
+    request_ended_ns: int
+
+    def timing(self, *, require_first_delta: bool) -> _RequestTiming:
+        terminal_ns = self.terminal_ns or self.request_ended_ns
+        total_ns = terminal_ns - self.request_started_ns
+        if total_ns <= 0:
+            raise GenerationValidationError(
+                "generation total latency is not positive"
+            )
+        ttft_seconds: float | None = None
+        if self.first_delta_ns is not None:
+            ttft_ns = self.first_delta_ns - self.request_started_ns
+            if ttft_ns <= 0 or ttft_ns > total_ns:
+                raise GenerationValidationError(
+                    "generation time to first token is not ordered"
+                )
+            ttft_seconds = ttft_ns / 1_000_000_000
+        elif require_first_delta:
+            raise GenerationValidationError(
+                "completed generation emitted no answer delta"
+            )
+        return _RequestTiming(
+            ttft_seconds=ttft_seconds,
+            total_latency_seconds=total_ns / 1_000_000_000,
+        )
+
+
+@dataclass(frozen=True)
+class _MeasurementExecution:
+    cases: tuple[_ValidatedGenerationCase, ...]
+    failure: _PrivateGenerationFailure | None
 
 
 def _git(root: Path, *arguments: str) -> str:
@@ -1260,6 +1421,238 @@ def _validated_generation_path(root: Path, run_id: str) -> Path:
     )
 
 
+def _request_ledger_path(root: Path, run_id: str) -> Path:
+    return (
+        root
+        / "qualification"
+        / "private"
+        / run_id
+        / "generation-request-ledger.json"
+    )
+
+
+@contextmanager
+def _request_ledger_lock(root: Path, run_id: str) -> Iterator[None]:
+    directory = root / "qualification" / "private" / run_id
+    directory.mkdir(parents=True, exist_ok=True)
+    lock_path = directory / ".generation-request-ledger.lock"
+    with lock_path.open("a+b") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+def _read_request_ledger_unlocked(
+    path: Path,
+) -> _GenerationRequestLedger | None:
+    try:
+        encoded = path.read_bytes()
+    except FileNotFoundError:
+        return None
+    except OSError as error:
+        raise GenerationConfigurationError(
+            "cannot read private generation request ledger"
+        ) from error
+    try:
+        return _GenerationRequestLedger.model_validate_json(encoded)
+    except ValidationError as error:
+        raise GenerationConfigurationError(
+            "private generation request ledger is invalid"
+        ) from error
+
+
+def _validate_request_ledger_identity(
+    ledger: _GenerationRequestLedger,
+    *,
+    run_id: str,
+    producer_git_revision: str,
+    frozen_input_sha256: str,
+    configuration_assertion_sha256: str,
+) -> None:
+    if ledger.run_id != run_id:
+        raise GenerationConfigurationError("request ledger run identity changed")
+    if ledger.producer_git_revision != producer_git_revision:
+        raise GenerationConfigurationError(
+            "request ledger producer revision changed"
+        )
+    if ledger.frozen_input_sha256 != frozen_input_sha256:
+        raise GenerationConfigurationError("request ledger frozen inputs changed")
+    if (
+        ledger.configuration_assertion_sha256
+        != configuration_assertion_sha256
+    ):
+        raise GenerationConfigurationError(
+            "request ledger gateway assertion changed"
+        )
+
+
+def _persist_request_ledger(
+    path: Path,
+    ledger: _GenerationRequestLedger,
+) -> _GenerationRequestLedger:
+    write_json_atomic(path, ledger)
+    try:
+        return _GenerationRequestLedger.model_validate_json(path.read_bytes())
+    except (OSError, ValidationError) as error:
+        raise GenerationValidationError(
+            "persisted generation request ledger failed validation"
+        ) from error
+
+
+def _assert_request_slot_available(
+    *,
+    root: Path,
+    run_id: str,
+    producer_git_revision: str,
+    frozen_input_sha256: str,
+    configuration_assertion_sha256: str,
+    slot: RequestSlot,
+) -> None:
+    path = _request_ledger_path(root, run_id)
+    with _request_ledger_lock(root, run_id):
+        ledger = _read_request_ledger_unlocked(path)
+        if ledger is None:
+            return
+        _validate_request_ledger_identity(
+            ledger,
+            run_id=run_id,
+            producer_git_revision=producer_git_revision,
+            frozen_input_sha256=frozen_input_sha256,
+            configuration_assertion_sha256=configuration_assertion_sha256,
+        )
+        if slot in ledger.slots:
+            raise GenerationConfigurationError(
+                f"generation request slot {slot!r} was already attempted"
+            )
+
+
+def _reserve_request_slot(
+    *,
+    root: Path,
+    run_id: str,
+    producer_git_revision: str,
+    frozen_input_sha256: str,
+    configuration_assertion_sha256: str,
+    slot: RequestSlot,
+) -> _GenerationRequestLedger:
+    path = _request_ledger_path(root, run_id)
+    with _request_ledger_lock(root, run_id):
+        ledger = _read_request_ledger_unlocked(path)
+        if ledger is None:
+            ledger = _GenerationRequestLedger(
+                run_id=run_id,
+                producer_git_revision=producer_git_revision,
+                frozen_input_sha256=frozen_input_sha256,
+                configuration_assertion_sha256=configuration_assertion_sha256,
+                slots={},
+            )
+        else:
+            _validate_request_ledger_identity(
+                ledger,
+                run_id=run_id,
+                producer_git_revision=producer_git_revision,
+                frozen_input_sha256=frozen_input_sha256,
+                configuration_assertion_sha256=configuration_assertion_sha256,
+            )
+        if slot in ledger.slots:
+            raise GenerationConfigurationError(
+                f"generation request slot {slot!r} was already attempted"
+            )
+        slots = {
+            **ledger.slots,
+            slot: _RequestAttempt(
+                slot=slot,
+                ordinal=_REQUEST_SLOT_ORDINAL[slot],
+                state="reserved",
+            ),
+        }
+        return _persist_request_ledger(
+            path,
+            ledger.model_copy(update={"slots": slots}),
+        )
+
+
+def _finish_request_slot(
+    *,
+    root: Path,
+    run_id: str,
+    producer_git_revision: str,
+    frozen_input_sha256: str,
+    configuration_assertion_sha256: str,
+    slot: RequestSlot,
+    terminal_type: Literal[
+        "answer.completed",
+        "answer.failed",
+        "validation.failed",
+    ],
+    timing: _RequestTiming,
+    error: GenerationError | None,
+) -> _GenerationRequestLedger:
+    path = _request_ledger_path(root, run_id)
+    with _request_ledger_lock(root, run_id):
+        ledger = _read_request_ledger_unlocked(path)
+        if ledger is None:
+            raise GenerationConfigurationError(
+                "generation request ledger disappeared after reservation"
+            )
+        _validate_request_ledger_identity(
+            ledger,
+            run_id=run_id,
+            producer_git_revision=producer_git_revision,
+            frozen_input_sha256=frozen_input_sha256,
+            configuration_assertion_sha256=configuration_assertion_sha256,
+        )
+        existing = ledger.slots.get(slot)
+        if existing is None or existing.state != "reserved":
+            raise GenerationConfigurationError(
+                f"generation request slot {slot!r} is not reserved"
+            )
+        state: Literal["completed", "failed"] = (
+            "completed" if terminal_type == "answer.completed" else "failed"
+        )
+        attempt = _RequestAttempt(
+            slot=slot,
+            ordinal=_REQUEST_SLOT_ORDINAL[slot],
+            state=state,
+            terminal_type=terminal_type,
+            timing=timing,
+            error=error,
+        )
+        return _persist_request_ledger(
+            path,
+            ledger.model_copy(
+                update={"slots": {**ledger.slots, slot: attempt}}
+            ),
+        )
+
+
+def _request_ledger_snapshot(
+    *,
+    root: Path,
+    run_id: str,
+    producer_git_revision: str,
+    frozen_input_sha256: str,
+    configuration_assertion_sha256: str,
+) -> _GenerationRequestLedger:
+    path = _request_ledger_path(root, run_id)
+    with _request_ledger_lock(root, run_id):
+        ledger = _read_request_ledger_unlocked(path)
+        if ledger is None:
+            raise GenerationConfigurationError(
+                "generation request ledger does not exist"
+            )
+        _validate_request_ledger_identity(
+            ledger,
+            run_id=run_id,
+            producer_git_revision=producer_git_revision,
+            frozen_input_sha256=frozen_input_sha256,
+            configuration_assertion_sha256=configuration_assertion_sha256,
+        )
+        return ledger
+
+
 def _load_configuration_assertion(
     root: Path, run_id: str
 ) -> tuple[GenerationConfigurationAssertion, str]:
@@ -1335,8 +1728,25 @@ async def _gateway_checks(
 async def _collect_events(
     client: OpenAICompatibleGenerationClient,
     request: GenerationRequest,
-) -> list[GenerationEvent]:
-    return [event async for event in client.stream_answer(request)]
+) -> _CollectedGeneration:
+    request_started_ns = time.monotonic_ns()
+    first_delta_ns: int | None = None
+    terminal_ns: int | None = None
+    events: list[GenerationEvent] = []
+    async for event in client.stream_answer(request):
+        observed_ns = time.monotonic_ns()
+        events.append(event)
+        if isinstance(event, AnswerDeltaEvent) and first_delta_ns is None:
+            first_delta_ns = observed_ns
+        if isinstance(event, (AnswerCompletedEvent, AnswerFailedEvent)):
+            terminal_ns = observed_ns
+    return _CollectedGeneration(
+        events=tuple(events),
+        request_started_ns=request_started_ns,
+        first_delta_ns=first_delta_ns,
+        terminal_ns=terminal_ns,
+        request_ended_ns=time.monotonic_ns(),
+    )
 
 
 def _completed_event(
@@ -1344,26 +1754,23 @@ def _completed_event(
     *,
     label: str,
     expected_upstream_identity: str,
-) -> AnswerCompletedEvent:
-    delta_count = sum(event.type == "answer.delta" for event in events)
+) -> AnswerCompletedEvent | AnswerFailedEvent:
     terminals = [
         event
         for event in events
         if event.type in {"answer.completed", "answer.failed"}
     ]
-    if delta_count < 1:
-        raise GenerationValidationError(f"{label} emitted no answer delta")
     if len(terminals) != 1 or not events or events[-1] is not terminals[0]:
         raise GenerationValidationError(
             f"{label} did not emit exactly one final terminal event"
         )
     terminal = terminals[0]
     if isinstance(terminal, AnswerFailedEvent):
-        raise GenerationValidationError(
-            f"{label} failed with typed category {terminal.error.category}"
-        )
+        return terminal
     if not isinstance(terminal, AnswerCompletedEvent):
         raise GenerationValidationError(f"{label} emitted an invalid terminal event")
+    if not any(event.type == "answer.delta" for event in events):
+        raise GenerationValidationError(f"{label} emitted no answer delta")
     identity = terminal.identity
     if (
         identity.gateway_version != PINNED_GATEWAY_VERSION
@@ -1371,19 +1778,39 @@ def _completed_event(
         or identity.configured_model != PINNED_MODEL
         or identity.requested_model != PINNED_MODEL
         or identity.response_model != PINNED_MODEL
-        or identity.upstream_identity != expected_upstream_identity
+        or (
+            identity.upstream_identity is not None
+            and identity.upstream_identity != expected_upstream_identity
+        )
     ):
         raise GenerationValidationError(f"{label} generation identity drifted")
     return terminal
 
 
+def _typed_validation_error(error: GenerationValidationError) -> GenerationError:
+    identity_mismatch = "identity" in str(error).casefold()
+    return GenerationError(
+        category="identity_mismatch" if identity_mismatch else "interrupted_stream",
+        message=(
+            "generation identity validation failed"
+            if identity_mismatch
+            else "generation stream validation failed"
+        ),
+        retryable=not identity_mismatch,
+    )
+
+
 async def _run_preflight_request(
     *,
+    root: Path,
+    run_id: str,
+    producer_git_revision: str,
     frozen: FrozenGenerationInputs,
     assertion: GenerationConfigurationAssertion,
+    configuration_assertion_sha256: str,
     environ: Mapping[str, str],
     transport: httpx.AsyncBaseTransport | None,
-) -> tuple[list[GenerationEvent], AnswerCompletedEvent]:
+) -> tuple[_CollectedGeneration, AnswerCompletedEvent | AnswerFailedEvent]:
     client = OpenAICompatibleGenerationClient.from_environment(
         environ,
         transport=transport,
@@ -1394,15 +1821,64 @@ async def _run_preflight_request(
             api_key=environ["GENERATION_API_KEY"],
             transport=transport,
         )
-        events = await _collect_events(client, build_golden_request(frozen))
+        _reserve_request_slot(
+            root=root,
+            run_id=run_id,
+            producer_git_revision=producer_git_revision,
+            frozen_input_sha256=frozen.frozen_input_sha256,
+            configuration_assertion_sha256=configuration_assertion_sha256,
+            slot="preflight",
+        )
+        collected = await _collect_events(client, build_golden_request(frozen))
     finally:
         await client.aclose()
-    completed = _completed_event(
-        events,
-        label="generation preflight",
-        expected_upstream_identity=assertion.upstream_identity,
+    timing = collected.timing(require_first_delta=False)
+    try:
+        terminal = _completed_event(
+            collected.events,
+            label="generation preflight",
+            expected_upstream_identity=assertion.upstream_identity,
+        )
+    except GenerationValidationError as validation_error:
+        typed_error = _typed_validation_error(validation_error)
+        _finish_request_slot(
+            root=root,
+            run_id=run_id,
+            producer_git_revision=producer_git_revision,
+            frozen_input_sha256=frozen.frozen_input_sha256,
+            configuration_assertion_sha256=configuration_assertion_sha256,
+            slot="preflight",
+            terminal_type="validation.failed",
+            timing=timing,
+            error=typed_error,
+        )
+        raise
+    if isinstance(terminal, AnswerFailedEvent):
+        _finish_request_slot(
+            root=root,
+            run_id=run_id,
+            producer_git_revision=producer_git_revision,
+            frozen_input_sha256=frozen.frozen_input_sha256,
+            configuration_assertion_sha256=configuration_assertion_sha256,
+            slot="preflight",
+            terminal_type="answer.failed",
+            timing=timing,
+            error=terminal.error,
+        )
+        return collected, terminal
+    completed_timing = collected.timing(require_first_delta=True)
+    _finish_request_slot(
+        root=root,
+        run_id=run_id,
+        producer_git_revision=producer_git_revision,
+        frozen_input_sha256=frozen.frozen_input_sha256,
+        configuration_assertion_sha256=configuration_assertion_sha256,
+        slot="preflight",
+        terminal_type="answer.completed",
+        timing=completed_timing,
+        error=None,
     )
-    return events, completed
+    return collected, terminal
 
 
 def _normalized_event_records(
@@ -1451,7 +1927,7 @@ def _citation_identity_records(
 
 def _validated_case(
     request: GenerationRequest,
-    events: Sequence[GenerationEvent],
+    collected: _CollectedGeneration,
     completed: AnswerCompletedEvent,
     frozen: FrozenGenerationInputs,
 ) -> _ValidatedGenerationCase:
@@ -1461,8 +1937,11 @@ def _validated_case(
         kind=request.kind,
         answer=completed.answer,
         answer_sha256=_sha256_bytes(_canonical_json_bytes(answer_payload)),
-        events=_normalized_event_records(events),
-        delta_event_count=sum(event.type == "answer.delta" for event in events),
+        events=_normalized_event_records(collected.events),
+        delta_event_count=sum(
+            event.type == "answer.delta" for event in collected.events
+        ),
+        timing=collected.timing(require_first_delta=True),
         usage=completed.usage,
         identity=completed.identity,
         citation_identities=_citation_identity_records(completed.answer, frozen),
@@ -1471,67 +1950,171 @@ def _validated_case(
 
 async def _run_measured_requests(
     *,
+    root: Path,
+    run_id: str,
+    producer_git_revision: str,
     frozen: FrozenGenerationInputs,
     assertion: GenerationConfigurationAssertion,
+    configuration_assertion_sha256: str,
     environ: Mapping[str, str],
     transport: httpx.AsyncBaseTransport | None,
-) -> tuple[_ValidatedGenerationCase, ...]:
+) -> _MeasurementExecution:
     client = OpenAICompatibleGenerationClient.from_environment(
         environ,
         transport=transport,
         expected_upstream_identity=assertion.upstream_identity,
     )
     cases: list[_ValidatedGenerationCase] = []
+
+    async def attempt(
+        slot: RequestSlot,
+        request: GenerationRequest,
+    ) -> tuple[_ValidatedGenerationCase | None, _PrivateGenerationFailure | None]:
+        _reserve_request_slot(
+            root=root,
+            run_id=run_id,
+            producer_git_revision=producer_git_revision,
+            frozen_input_sha256=frozen.frozen_input_sha256,
+            configuration_assertion_sha256=configuration_assertion_sha256,
+            slot=slot,
+        )
+        dispatch_started_ns = time.monotonic_ns()
+        try:
+            collected = await _collect_events(client, request)
+        except Exception:
+            elapsed_ns = time.monotonic_ns() - dispatch_started_ns
+            timing = _RequestTiming(
+                total_latency_seconds=max(elapsed_ns, 1) / 1_000_000_000
+            )
+            error = GenerationError(
+                category="unavailable",
+                message="generation failed with an unavailable transport",
+                retryable=True,
+            )
+            _finish_request_slot(
+                root=root,
+                run_id=run_id,
+                producer_git_revision=producer_git_revision,
+                frozen_input_sha256=frozen.frozen_input_sha256,
+                configuration_assertion_sha256=configuration_assertion_sha256,
+                slot=slot,
+                terminal_type="validation.failed",
+                timing=timing,
+                error=error,
+            )
+            return None, _PrivateGenerationFailure(
+                slot=slot,
+                case_id=request.case_id,
+                error=error,
+                timing=timing,
+            )
+        timing = collected.timing(require_first_delta=False)
+        try:
+            terminal = _completed_event(
+                collected.events,
+                label=request.case_id,
+                expected_upstream_identity=assertion.upstream_identity,
+            )
+        except GenerationValidationError as validation_error:
+            error = _typed_validation_error(validation_error)
+            _finish_request_slot(
+                root=root,
+                run_id=run_id,
+                producer_git_revision=producer_git_revision,
+                frozen_input_sha256=frozen.frozen_input_sha256,
+                configuration_assertion_sha256=configuration_assertion_sha256,
+                slot=slot,
+                terminal_type="validation.failed",
+                timing=timing,
+                error=error,
+            )
+            return None, _PrivateGenerationFailure(
+                slot=slot,
+                case_id=request.case_id,
+                error=error,
+                timing=timing,
+            )
+        if isinstance(terminal, AnswerFailedEvent):
+            _finish_request_slot(
+                root=root,
+                run_id=run_id,
+                producer_git_revision=producer_git_revision,
+                frozen_input_sha256=frozen.frozen_input_sha256,
+                configuration_assertion_sha256=configuration_assertion_sha256,
+                slot=slot,
+                terminal_type="answer.failed",
+                timing=timing,
+                error=terminal.error,
+            )
+            return None, _PrivateGenerationFailure(
+                slot=slot,
+                case_id=request.case_id,
+                error=terminal.error,
+                timing=timing,
+            )
+        try:
+            validated = _validated_case(request, collected, terminal, frozen)
+        except (GenerationValidationError, ValidationError, KeyError) as validation_error:
+            error = GenerationError(
+                category="malformed_output",
+                message="completed generation failed local evidence validation",
+                retryable=False,
+            )
+            _finish_request_slot(
+                root=root,
+                run_id=run_id,
+                producer_git_revision=producer_git_revision,
+                frozen_input_sha256=frozen.frozen_input_sha256,
+                configuration_assertion_sha256=configuration_assertion_sha256,
+                slot=slot,
+                terminal_type="validation.failed",
+                timing=timing,
+                error=error,
+            )
+            return None, _PrivateGenerationFailure(
+                slot=slot,
+                case_id=request.case_id,
+                error=error,
+                timing=timing,
+            )
+        _finish_request_slot(
+            root=root,
+            run_id=run_id,
+            producer_git_revision=producer_git_revision,
+            frozen_input_sha256=frozen.frozen_input_sha256,
+            configuration_assertion_sha256=configuration_assertion_sha256,
+            slot=slot,
+            terminal_type="answer.completed",
+            timing=validated.timing,
+            error=None,
+        )
+        return validated, None
+
     try:
         golden_request = build_golden_request(frozen)
-        golden_events = await _collect_events(client, golden_request)
-        golden_completed = _completed_event(
-            golden_events,
-            label=golden_request.case_id,
-            expected_upstream_identity=assertion.upstream_identity,
-        )
-        cases.append(
-            _validated_case(
-                golden_request, golden_events, golden_completed, frozen
-            )
-        )
+        golden_case, failure = await attempt("golden", golden_request)
+        if failure is not None or golden_case is None:
+            return _MeasurementExecution(cases=tuple(cases), failure=failure)
+        cases.append(golden_case)
 
         follow_up_request = build_follow_up_request(
-            frozen, golden_completed.answer
+            frozen, golden_case.answer
         )
-        follow_up_events = await _collect_events(client, follow_up_request)
-        follow_up_completed = _completed_event(
-            follow_up_events,
-            label=follow_up_request.case_id,
-            expected_upstream_identity=assertion.upstream_identity,
-        )
-        cases.append(
-            _validated_case(
-                follow_up_request,
-                follow_up_events,
-                follow_up_completed,
-                frozen,
-            )
-        )
+        follow_up_case, failure = await attempt("follow-up", follow_up_request)
+        if failure is not None or follow_up_case is None:
+            return _MeasurementExecution(cases=tuple(cases), failure=failure)
+        cases.append(follow_up_case)
 
         unanswerable_request = build_unanswerable_request(frozen)
-        unanswerable_events = await _collect_events(client, unanswerable_request)
-        unanswerable_completed = _completed_event(
-            unanswerable_events,
-            label=unanswerable_request.case_id,
-            expected_upstream_identity=assertion.upstream_identity,
+        unanswerable_case, failure = await attempt(
+            "unanswerable", unanswerable_request
         )
-        cases.append(
-            _validated_case(
-                unanswerable_request,
-                unanswerable_events,
-                unanswerable_completed,
-                frozen,
-            )
-        )
+        if failure is not None or unanswerable_case is None:
+            return _MeasurementExecution(cases=tuple(cases), failure=failure)
+        cases.append(unanswerable_case)
+        return _MeasurementExecution(cases=tuple(cases), failure=None)
     finally:
         await client.aclose()
-    return tuple(cases)
 
 
 def _assert_sanitized_durable_payload(
@@ -1584,15 +2167,33 @@ def run_generation_preflight(
     frozen = load_frozen_generation_inputs(root=root, run_id=run_id)
     assertion, assertion_sha256 = _load_configuration_assertion(root, run_id)
     values = _environment_values(environ)
-    events, completed = asyncio.run(
+    _assert_request_slot_available(
+        root=root,
+        run_id=run_id,
+        producer_git_revision=producer_revision,
+        frozen_input_sha256=frozen.frozen_input_sha256,
+        configuration_assertion_sha256=assertion_sha256,
+        slot="preflight",
+    )
+    collected, terminal = asyncio.run(
         _run_preflight_request(
+            root=root,
+            run_id=run_id,
+            producer_git_revision=producer_revision,
             frozen=frozen,
             assertion=assertion,
+            configuration_assertion_sha256=assertion_sha256,
             environ=values,
             transport=transport,
         )
     )
-    answer_payload = completed.answer.model_dump(mode="json")
+    if isinstance(terminal, AnswerFailedEvent):
+        raise GenerationValidationError(
+            "generation preflight failed with typed category "
+            f"{terminal.error.category}"
+        )
+    answer_payload = terminal.answer.model_dump(mode="json")
+    timing = collected.timing(require_first_delta=True)
     state = _GenerationPreflightState(
         run_id=run_id,
         producer_git_revision=producer_revision,
@@ -1601,10 +2202,13 @@ def run_generation_preflight(
         gateway_version=PINNED_GATEWAY_VERSION,
         route_present=True,
         answer_sha256=_sha256_bytes(_canonical_json_bytes(answer_payload)),
-        event_types=tuple(event.type for event in events),
-        delta_event_count=sum(event.type == "answer.delta" for event in events),
-        usage=completed.usage,
-        identity=completed.identity,
+        event_types=tuple(event.type for event in collected.events),
+        delta_event_count=sum(
+            event.type == "answer.delta" for event in collected.events
+        ),
+        timing=timing,
+        usage=terminal.usage,
+        identity=terminal.identity,
     )
     path = _preflight_path(root, run_id)
     write_json_atomic(path, state)
@@ -1627,11 +2231,26 @@ def run_generation_preflight(
         "run_id": run_id,
         "producer_git_revision": producer_revision,
         "gateway_version": PINNED_GATEWAY_VERSION,
-        "requested_model": completed.identity.requested_model,
-        "response_model": completed.identity.response_model,
-        "upstream_identity": completed.identity.upstream_identity,
+        "requested_model": terminal.identity.requested_model,
+        "response_model": terminal.identity.response_model,
+        "upstream_identity": terminal.identity.upstream_identity,
         "completed": True,
     }
+
+
+def _generation_outcome(
+    *,
+    passed: bool,
+    requirement: str,
+    observed: Any,
+    failure_reason: str | None = None,
+) -> ThresholdOutcome:
+    return ThresholdOutcome(
+        passed=passed,
+        requirement=requirement,
+        observed=observed,
+        failure_reason=None if passed else failure_reason or "generation threshold failed",
+    )
 
 
 def run_generation_measurement(
@@ -1672,21 +2291,41 @@ def run_generation_measurement(
         raise GenerationConfigurationError(
             "gateway configuration assertion changed after preflight"
         )
+    initial_ledger = _request_ledger_snapshot(
+        root=root,
+        run_id=run_id,
+        producer_git_revision=producer_revision,
+        frozen_input_sha256=frozen.frozen_input_sha256,
+        configuration_assertion_sha256=assertion_sha256,
+    )
+    preflight_attempt = initial_ledger.slots.get("preflight")
+    if preflight_attempt is None or preflight_attempt.state != "completed":
+        raise GenerationConfigurationError(
+            "generation preflight request did not complete successfully"
+        )
+
     values = _environment_values(environ)
-    cases = asyncio.run(
+    execution = asyncio.run(
         _run_measured_requests(
+            root=root,
+            run_id=run_id,
+            producer_git_revision=producer_revision,
             frozen=frozen,
             assertion=assertion,
+            configuration_assertion_sha256=assertion_sha256,
             environ=values,
             transport=transport,
         )
     )
-    if tuple(case.case_id for case in cases) != (
+    cases = execution.cases
+    expected_case_prefix = (
         GOLDEN_CASE_ID,
         FOLLOW_UP_CASE_ID,
         UNANSWERABLE_CASE_ID,
-    ):
+    )[: len(cases)]
+    if tuple(case.case_id for case in cases) != expected_case_prefix:
         raise GenerationValidationError("measured generation case sequence changed")
+
     validated = _ValidatedGenerationArtifact(
         run_id=run_id,
         producer_git_revision=producer_revision,
@@ -1694,6 +2333,7 @@ def run_generation_measurement(
         frozen_input_sha256=frozen.frozen_input_sha256,
         source_set_sha256=frozen.source_set_sha256,
         cases=cases,
+        failure=execution.failure,
     )
     private_path = _validated_generation_path(root, run_id)
     write_json_atomic(private_path, validated)
@@ -1707,6 +2347,14 @@ def run_generation_measurement(
         ) from error
     private_sha256 = _sha256_bytes(private_path.read_bytes())
 
+    ledger = _request_ledger_snapshot(
+        root=root,
+        run_id=run_id,
+        producer_git_revision=producer_revision,
+        frozen_input_sha256=frozen.frozen_input_sha256,
+        configuration_assertion_sha256=assertion_sha256,
+    )
+    attempted_count = ledger.attempted_count
     durable_cases: list[dict[str, Any]] = []
     for case in cases:
         coverage = (
@@ -1724,6 +2372,7 @@ def run_generation_measurement(
                 "event_types": [event.type for event in case.events],
                 "delta_event_count": case.delta_event_count,
                 "terminal_event_count": case.terminal_event_count,
+                "timing": case.timing.model_dump(mode="json"),
                 "usage": case.usage.model_dump(mode="json"),
                 "identity": case.identity.model_dump(mode="json"),
                 "citation_identities": [
@@ -1732,31 +2381,74 @@ def run_generation_measurement(
                 ],
             }
         )
-    all_identities_stable = all(
-        case.identity.configured_model == PINNED_MODEL
-        and case.identity.requested_model == PINNED_MODEL
-        and case.identity.response_model == PINNED_MODEL
-        and case.identity.upstream_identity == assertion.upstream_identity
-        for case in cases
+
+    preflight_identity_stable = (
+        preflight.identity.configured_model == PINNED_MODEL
+        and preflight.identity.requested_model == PINNED_MODEL
+        and preflight.identity.response_model == PINNED_MODEL
+        and (
+            preflight.identity.upstream_identity is None
+            or preflight.identity.upstream_identity == assertion.upstream_identity
+        )
     )
-    all_usage_present = all(
+    all_identities_stable = (
+        len(cases) == 3
+        and preflight_identity_stable
+        and all(
+            case.identity.configured_model == PINNED_MODEL
+            and case.identity.requested_model == PINNED_MODEL
+            and case.identity.response_model == PINNED_MODEL
+            and (
+                case.identity.upstream_identity is None
+                or case.identity.upstream_identity == assertion.upstream_identity
+            )
+            for case in cases
+        )
+    )
+    all_usage_present = len(cases) == 3 and all(
         case.usage.input_tokens > 0
         and case.usage.output_tokens > 0
         and case.usage.total_tokens
         >= case.usage.input_tokens + case.usage.output_tokens
         for case in cases
     )
-    all_streams_valid = all(
+    all_streams_valid = len(cases) == 3 and all(
         case.delta_event_count >= 1 and case.terminal_event_count == 1
         for case in cases
     )
+    all_latency_present = (
+        preflight.timing.ttft_seconds is not None
+        and preflight.timing.total_latency_seconds
+        >= preflight.timing.ttft_seconds
+        and len(cases) == 3
+        and all(
+            case.timing.ttft_seconds is not None
+            and case.timing.total_latency_seconds >= case.timing.ttft_seconds
+            for case in cases
+        )
+    )
+    required_slots = {
+        "preflight",
+        "golden",
+        "follow-up",
+        "unanswerable",
+    }
+    exact_request_scope = (
+        set(ledger.slots) == required_slots
+        and attempted_count == 4
+        and all(
+            attempt.state == "completed" for attempt in ledger.slots.values()
+        )
+    )
+    no_generation_failure = execution.failure is None
     thresholds = {
-        "pinned_gateway_version": ThresholdOutcome(
+        "pinned_gateway_version": _generation_outcome(
             passed=preflight.gateway_version == PINNED_GATEWAY_VERSION,
             requirement="9Router currentVersion is exactly 0.5.81",
             observed=preflight.gateway_version,
+            failure_reason="pinned gateway version changed",
         ),
-        "direct_route": ThresholdOutcome(
+        "direct_route": _generation_outcome(
             passed=assertion.route == PINNED_MODEL
             and assertion.route_kind == "direct"
             and not assertion.fallback_candidates,
@@ -1766,8 +2458,9 @@ def run_generation_measurement(
                 "route_kind": assertion.route_kind,
                 "fallback_candidate_count": len(assertion.fallback_candidates),
             },
+            failure_reason="generation route is not the pinned direct route",
         ),
-        "single_connection_and_account": ThresholdOutcome(
+        "single_connection_and_account": _generation_outcome(
             passed=assertion.active_connection_ids == (PINNED_CONNECTION_ID,)
             and assertion.selected_account_count == 1,
             requirement="exactly the pinned connection and one selected account are active",
@@ -1775,8 +2468,9 @@ def run_generation_measurement(
                 "active_connection_ids": list(assertion.active_connection_ids),
                 "selected_account_count": assertion.selected_account_count,
             },
+            failure_reason="active connection or selected account count changed",
         ),
-        "safe_gateway_features": ThresholdOutcome(
+        "safe_gateway_features": _generation_outcome(
             passed=not any(
                 (
                     assertion.rtk_enabled,
@@ -1796,42 +2490,68 @@ def run_generation_measurement(
                 "tunnel_enabled": assertion.tunnel_enabled,
                 "body_logging_enabled": assertion.body_logging_enabled,
             },
+            failure_reason="a disallowed gateway feature is enabled",
         ),
-        "existing_quota": ThresholdOutcome(
+        "existing_quota": _generation_outcome(
             passed=assertion.existing_quota_confirmed,
             requirement="existing quota covers one preflight and exactly three cases without new paid spend",
             observed=assertion.existing_quota_confirmed,
+            failure_reason="existing quota was not confirmed",
         ),
-        "exact_request_scope": ThresholdOutcome(
-            passed=len(cases) == 3,
-            requirement="one preflight plus exactly three frozen measured cases",
+        "exact_request_scope": _generation_outcome(
+            passed=exact_request_scope,
+            requirement="exactly four atomically reserved slots are completed once",
             observed={
-                "preflight_requests": 1,
-                "measured_requests": len(cases),
-                "total_requests": 1 + len(cases),
+                "attempted_slots": list(ledger.slots),
+                "slot_states": {
+                    slot: attempt.state
+                    for slot, attempt in ledger.slots.items()
+                },
+                "total_requests": attempted_count,
             },
+            failure_reason="the four-call request ledger did not complete exactly once",
         ),
-        "stream_integrity": ThresholdOutcome(
+        "stream_integrity": _generation_outcome(
             passed=all_streams_valid,
-            requirement="every call emits at least one delta and exactly one terminal event",
+            requirement="every measured call emits at least one delta and exactly one terminal event",
             observed=all_streams_valid,
+            failure_reason="one or more measured streams failed integrity checks",
         ),
-        "provider_usage": ThresholdOutcome(
+        "latency_evidence": _generation_outcome(
+            passed=all_latency_present,
+            requirement="preflight and every measured case have positive ordered TTFT and total latency",
+            observed=all_latency_present,
+            failure_reason="generation latency evidence is incomplete",
+        ),
+        "provider_usage": _generation_outcome(
             passed=all_usage_present,
             requirement="provider-reported positive input, output, and total token usage is present for every case",
             observed=all_usage_present,
+            failure_reason="provider usage is missing or invalid",
         ),
-        "identity_stability": ThresholdOutcome(
+        "identity_stability": _generation_outcome(
             passed=all_identities_stable,
-            requirement="configured, requested, response, and upstream identities stay pinned",
+            requirement="configured, requested, and response identities stay pinned; exposed upstream identity matches",
             observed=all_identities_stable,
+            failure_reason="generation identity changed",
         ),
-        "three_valid_cases": ThresholdOutcome(
+        "three_valid_cases": _generation_outcome(
             passed=len(cases) == 3,
             requirement="golden, bounded follow-up, and unanswerable outputs all pass strict validation on first attempt",
             observed=[case.case_id for case in cases],
+            failure_reason="fewer than three generation cases validated",
         ),
-        "source_hash_consistency": ThresholdOutcome(
+        "no_generation_failure": _generation_outcome(
+            passed=no_generation_failure,
+            requirement="no typed provider or local validation failure occurs",
+            observed=(
+                None
+                if execution.failure is None
+                else execution.failure.error.model_dump(mode="json")
+            ),
+            failure_reason="a typed generation failure occurred",
+        ),
+        "source_hash_consistency": _generation_outcome(
             passed=True,
             requirement="generation uses the frozen hybrid context, source set, and evidence gold hashes",
             observed={
@@ -1847,6 +2567,12 @@ def run_generation_measurement(
         for name, outcome in thresholds.items()
         if not outcome.passed
     ]
+    if execution.failure is not None:
+        failure_reasons.append(
+            f"{execution.failure.case_id} failed with typed category "
+            f"{execution.failure.error.category}"
+        )
+
     result = GenerationResult(
         run_id=run_id,
         provider="gemini-cli",
@@ -1864,7 +2590,8 @@ def run_generation_measurement(
             "fallback_candidates": list(assertion.fallback_candidates),
             "requested_model": PINNED_MODEL,
             "response_model": PINNED_MODEL if all_identities_stable else None,
-            "upstream_identity": assertion.upstream_identity,
+            "configured_upstream_identity": assertion.upstream_identity,
+            "preflight_upstream_identity": preflight.identity.upstream_identity,
             "tracked_tree_clean_before_traffic": True,
         },
         measurements={
@@ -1882,16 +2609,30 @@ def run_generation_measurement(
                 "event_types": list(preflight.event_types),
                 "delta_event_count": preflight.delta_event_count,
                 "terminal_event_count": preflight.terminal_event_count,
+                "timing": preflight.timing.model_dump(mode="json"),
                 "usage": preflight.usage.model_dump(mode="json"),
                 "identity": preflight.identity.model_dump(mode="json"),
             },
             "cases": durable_cases,
+            "failure": (
+                None
+                if execution.failure is None
+                else execution.failure.model_dump(mode="json")
+            ),
             "validated_generation": {
                 "relative_path": str(private_path.relative_to(root)),
                 "sha256": private_sha256,
                 "case_count": len(cases),
             },
-            "live_request_count": 1 + len(cases),
+            "request_slots": {
+                slot: {
+                    "ordinal": attempt.ordinal,
+                    "state": attempt.state,
+                    "terminal_type": attempt.terminal_type,
+                }
+                for slot, attempt in ledger.slots.items()
+            },
+            "live_request_count": attempted_count,
         },
         threshold_outcomes=thresholds,
         failure_reasons=failure_reasons,
@@ -1912,10 +2653,21 @@ def run_generation_measurement(
             "persisted durable generation result failed validation"
         ) from error
 
+    summary = {
+        "run_id": run_id,
+        "passed": not failure_reasons,
+        "case_count": len(cases),
+        "producer_git_revision": producer_revision,
+        "live_request_count": attempted_count,
+        "failure_reasons": failure_reasons,
+    }
+    if failure_reasons:
+        return summary
+
     generation_summary = {
-        "status": "qualified" if not failure_reasons else "failed",
+        "status": "qualified",
         "result_relative_path": str(result_path.relative_to(root)),
-        "live_request_count": 1 + len(cases),
+        "live_request_count": attempted_count,
         "case_count": len(cases),
         "validated_generation_sha256": private_sha256,
     }
@@ -1930,8 +2682,9 @@ def run_generation_measurement(
                     "connection_id": PINNED_CONNECTION_ID,
                     "route": PINNED_MODEL,
                     "requested_model": PINNED_MODEL,
-                    "response_model": PINNED_MODEL if all_identities_stable else None,
-                    "upstream_identity": assertion.upstream_identity,
+                    "response_model": PINNED_MODEL,
+                    "configured_upstream_identity": assertion.upstream_identity,
+                    "preflight_upstream_identity": preflight.identity.upstream_identity,
                 },
             },
             "measurements": {
@@ -1945,10 +2698,6 @@ def run_generation_measurement(
                     for name, outcome in thresholds.items()
                 },
             },
-            "failure_reasons": [
-                *environment.failure_reasons,
-                *failure_reasons,
-            ],
         }
     )
     environment_path = (
@@ -1961,12 +2710,7 @@ def run_generation_measurement(
         raise GenerationValidationError(
             "persisted updated environment failed validation"
         ) from error
-    return {
-        "run_id": run_id,
-        "passed": not failure_reasons,
-        "case_count": len(cases),
-        "producer_git_revision": producer_revision,
-    }
+    return summary
 
 
 __all__ = [

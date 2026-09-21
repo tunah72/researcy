@@ -985,6 +985,8 @@ def test_live_run_sends_exactly_three_cases_and_writes_sanitized_gate_result(
         "passed": True,
         "case_count": 3,
         "producer_git_revision": revision,
+        "live_request_count": 4,
+        "failure_reasons": [],
     }
     assert len(gateway.chat_requests) == 4
     measured_requests = gateway.chat_requests[1:]
@@ -1004,11 +1006,24 @@ def test_live_run_sends_exactly_three_cases_and_writes_sanitized_gate_result(
     assert all(
         outcome["passed"] for outcome in result["threshold_outcomes"].values()
     )
+    assert all(
+        outcome["failure_reason"] is None
+        for outcome in result["threshold_outcomes"].values()
+    )
     assert [case["case_id"] for case in result["measurements"]["cases"]] == [
         "1706.03762-answer-1",
         "1706.03762-answer-1-follow-up",
         "1706.03762-unanswerable",
     ]
+    assert result["measurements"]["live_request_count"] == 4
+    assert result["measurements"]["preflight"]["timing"]["ttft_seconds"] > 0
+    assert (
+        result["measurements"]["preflight"]["timing"]["total_latency_seconds"]
+        >= result["measurements"]["preflight"]["timing"]["ttft_seconds"]
+    )
+    for case in result["measurements"]["cases"]:
+        assert case["timing"]["ttft_seconds"] > 0
+        assert case["timing"]["total_latency_seconds"] >= case["timing"]["ttft_seconds"]
     assert "fixture-secret" not in serialized
     assert real_context_quote(root) not in serialized
     assert GOLDEN_QUESTION not in serialized
@@ -1022,6 +1037,24 @@ def test_live_run_sends_exactly_three_cases_and_writes_sanitized_gate_result(
     private = json.loads(private_path.read_text("utf-8"))
     assert len(private["cases"]) == 3
     assert private["cases"][0]["answer"] == golden
+    assert private["failure"] is None
+    assert all(case["timing"]["ttft_seconds"] > 0 for case in private["cases"])
+    ledger = json.loads(
+        (
+            root
+            / "qualification"
+            / "private"
+            / RUN_ID
+            / "generation-request-ledger.json"
+        ).read_text("utf-8")
+    )
+    assert set(ledger["slots"]) == {
+        "preflight",
+        "golden",
+        "follow-up",
+        "unanswerable",
+    }
+    assert all(attempt["state"] == "completed" for attempt in ledger["slots"].values())
     environment = json.loads(
         (
             root / "qualification" / "results" / RUN_ID / "environment.json"
@@ -1065,3 +1098,237 @@ def test_generation_run_cli_returns_nonzero_when_gate_fails(
 
     assert exit_code == 2
     assert "generation gate failed: provider usage was missing" in capsys.readouterr().err
+
+
+def test_preflight_slot_cannot_be_attempted_twice(monkeypatch, tmp_path):
+    g = generation_module()
+    root = copy_frozen_generation_root(tmp_path)
+    golden, _, _ = live_payloads(root)
+    gateway = LiveGatewayFixture(deque([completion_sse(golden)]))
+    monkeypatch.setattr(g, "_require_clean_producer", lambda root: "a" * 40)
+
+    g.run_generation_preflight(
+        root=root,
+        run_id=RUN_ID,
+        environ=pinned_environment(),
+        transport=gateway.transport,
+    )
+
+    with pytest.raises(g.GenerationConfigurationError, match="already attempted"):
+        g.run_generation_preflight(
+            root=root,
+            run_id=RUN_ID,
+            environ=pinned_environment(),
+            transport=gateway.transport,
+        )
+    assert len(gateway.chat_requests) == 1
+
+
+def test_crash_after_atomic_reservation_cannot_reopen_preflight_slot(
+    monkeypatch, tmp_path
+):
+    g = generation_module()
+    root = copy_frozen_generation_root(tmp_path)
+    gateway = LiveGatewayFixture(deque())
+    monkeypatch.setattr(g, "_require_clean_producer", lambda root: "a" * 40)
+
+    class SimulatedCrash(BaseException):
+        pass
+
+    async def crash_after_reservation(client, request):
+        raise SimulatedCrash
+
+    monkeypatch.setattr(g, "_collect_events", crash_after_reservation)
+    with pytest.raises(SimulatedCrash):
+        g.run_generation_preflight(
+            root=root,
+            run_id=RUN_ID,
+            environ=pinned_environment(),
+            transport=gateway.transport,
+        )
+
+    ledger_path = (
+        root
+        / "qualification"
+        / "private"
+        / RUN_ID
+        / "generation-request-ledger.json"
+    )
+    ledger = json.loads(ledger_path.read_text("utf-8"))
+    assert ledger["slots"]["preflight"]["state"] == "reserved"
+    request_count = len(gateway.requests)
+    with pytest.raises(g.GenerationConfigurationError, match="already attempted"):
+        g.run_generation_preflight(
+            root=root,
+            run_id=RUN_ID,
+            environ=pinned_environment(),
+            transport=gateway.transport,
+        )
+    assert len(gateway.requests) == request_count
+
+
+def test_completed_event_preserves_zero_delta_typed_failure():
+    g = generation_module()
+    failure = g.AnswerFailedEvent(
+        error=g.GenerationError(
+            category="authentication",
+            message="generation authentication failed",
+            retryable=False,
+            status_code=401,
+        )
+    )
+
+    terminal_event = g._completed_event(
+        [failure],
+        label="fixture",
+        expected_upstream_identity=UPSTREAM_IDENTITY,
+    )
+
+    assert terminal_event is failure
+    assert terminal_event.error.category == "authentication"
+
+
+def test_live_preflight_accepts_unexposed_upstream_identity(monkeypatch, tmp_path):
+    g = generation_module()
+    root = copy_frozen_generation_root(tmp_path)
+    golden, _, _ = live_payloads(root)
+    gateway = LiveGatewayFixture(
+        deque([completion_sse(golden, upstream_identity=None)])
+    )
+    monkeypatch.setattr(g, "_require_clean_producer", lambda root: "a" * 40)
+
+    summary = g.run_generation_preflight(
+        root=root,
+        run_id=RUN_ID,
+        environ=pinned_environment(),
+        transport=gateway.transport,
+    )
+
+    assert summary["completed"] is True
+    assert summary["upstream_identity"] is None
+
+
+def test_failed_threshold_leaves_environment_byte_identical(monkeypatch, tmp_path):
+    g = generation_module()
+    root = copy_frozen_generation_root(tmp_path)
+    golden, follow_up, refusal = live_payloads(root)
+    gateway = LiveGatewayFixture(
+        deque(
+            [
+                completion_sse(golden),
+                completion_sse(golden),
+                completion_sse(follow_up),
+                completion_sse(refusal),
+            ]
+        )
+    )
+    monkeypatch.setattr(g, "_require_clean_producer", lambda root: "b" * 40)
+    environment_path = (
+        root / "qualification" / "results" / RUN_ID / "environment.json"
+    )
+    environment_before = environment_path.read_bytes()
+    g.run_generation_preflight(
+        root=root,
+        run_id=RUN_ID,
+        environ=pinned_environment(),
+        transport=gateway.transport,
+    )
+    preflight_path = (
+        root
+        / "qualification"
+        / "private"
+        / RUN_ID
+        / "generation-preflight.json"
+    )
+    preflight = json.loads(preflight_path.read_text("utf-8"))
+    preflight["gateway_version"] = "0.5.80"
+    preflight_path.write_text(json.dumps(preflight), encoding="utf-8")
+
+    summary = g.run_generation_measurement(
+        root=root,
+        run_id=RUN_ID,
+        environ=pinned_environment(),
+        transport=gateway.transport,
+    )
+
+    assert summary["passed"] is False
+    assert summary["live_request_count"] == 4
+    assert environment_path.read_bytes() == environment_before
+    durable = json.loads(
+        (
+            root / "qualification" / "results" / RUN_ID / "generation.json"
+        ).read_text("utf-8")
+    )
+    assert durable["threshold_outcomes"]["pinned_gateway_version"]["passed"] is False
+
+
+def test_measurement_failure_is_typed_persisted_and_stops_later_cases(
+    monkeypatch, tmp_path
+):
+    g = generation_module()
+    root = copy_frozen_generation_root(tmp_path)
+    golden, _, _ = live_payloads(root)
+    gateway = LiveGatewayFixture(
+        deque(
+            [
+                completion_sse(golden),
+                b"data: [DONE]\n\n",
+            ]
+        )
+    )
+    monkeypatch.setattr(g, "_require_clean_producer", lambda root: "c" * 40)
+    environment_path = (
+        root / "qualification" / "results" / RUN_ID / "environment.json"
+    )
+    environment_before = environment_path.read_bytes()
+    g.run_generation_preflight(
+        root=root,
+        run_id=RUN_ID,
+        environ=pinned_environment(),
+        transport=gateway.transport,
+    )
+
+    summary = g.run_generation_measurement(
+        root=root,
+        run_id=RUN_ID,
+        environ=pinned_environment(),
+        transport=gateway.transport,
+    )
+
+    assert summary["passed"] is False
+    assert summary["case_count"] == 0
+    assert summary["live_request_count"] == 2
+    assert len(gateway.chat_requests) == 2
+    private = json.loads(
+        (
+            root
+            / "qualification"
+            / "private"
+            / RUN_ID
+            / "validated-generation.json"
+        ).read_text("utf-8")
+    )
+    assert private["cases"] == []
+    assert private["failure"]["slot"] == "golden"
+    assert private["failure"]["case_id"] == "1706.03762-answer-1"
+    assert private["failure"]["error"]["category"] == "interrupted_stream"
+    ledger = json.loads(
+        (
+            root
+            / "qualification"
+            / "private"
+            / RUN_ID
+            / "generation-request-ledger.json"
+        ).read_text("utf-8")
+    )
+    assert set(ledger["slots"]) == {"preflight", "golden"}
+    assert ledger["slots"]["golden"]["state"] == "failed"
+    durable = json.loads(
+        (
+            root / "qualification" / "results" / RUN_ID / "generation.json"
+        ).read_text("utf-8")
+    )
+    assert durable["measurements"]["failure"]["case_id"] == "1706.03762-answer-1"
+    assert durable["measurements"]["failure"]["error"]["category"] == "interrupted_stream"
+    assert durable["measurements"]["live_request_count"] == 2
+    assert environment_path.read_bytes() == environment_before
