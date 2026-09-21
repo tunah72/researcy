@@ -81,6 +81,46 @@ def _handle_hybrid_evaluate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_generation_preflight(args: argparse.Namespace) -> int:
+    from q0.generation import (
+        load_generation_environment,
+        run_generation_preflight,
+    )
+
+    environment = load_generation_environment(args.root)
+    summary = run_generation_preflight(
+        root=args.root,
+        run_id=args.run_id,
+        environ=environment,
+    )
+    print(json.dumps(summary, sort_keys=True))
+    return 0
+
+
+def _handle_generation_run(args: argparse.Namespace) -> int:
+    from q0.generation import (
+        load_generation_environment,
+        run_generation_measurement,
+    )
+
+    environment = load_generation_environment(args.root)
+    summary = run_generation_measurement(
+        root=args.root,
+        run_id=args.run_id,
+        environ=environment,
+    )
+    if summary.get("passed") is not True:
+        failure_reasons = summary.get("failure_reasons")
+        detail = (
+            "; ".join(str(reason) for reason in failure_reasons)
+            if isinstance(failure_reasons, list) and failure_reasons
+            else "unspecified gate failure"
+        )
+        raise CommandError(f"generation gate failed: {detail}")
+    print(json.dumps(summary, sort_keys=True))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="q01",
@@ -121,9 +161,31 @@ def build_parser() -> argparse.ArgumentParser:
         _add_root_argument(hybrid_command)
         hybrid_command.set_defaults(handler=handler)
 
-    for name in ("generation", "proof"):
-        future = commands.add_parser(name, help=f"run the {name} qualification stage")
-        future.set_defaults(handler=_not_implemented)
+    generation = commands.add_parser(
+        "generation", help="run pinned 9Router generation qualification"
+    )
+    generation_commands = generation.add_subparsers(
+        dest="generation_command", metavar="COMMAND", required=True
+    )
+    for name, help_text, handler in (
+        (
+            "preflight",
+            "verify the pinned gateway and send one bounded preflight",
+            _handle_generation_preflight,
+        ),
+        (
+            "run",
+            "send exactly the three frozen generation cases",
+            _handle_generation_run,
+        ),
+    ):
+        generation_command = generation_commands.add_parser(name, help=help_text)
+        generation_command.add_argument("--run-id", required=True)
+        _add_root_argument(generation_command)
+        generation_command.set_defaults(handler=handler)
+
+    proof = commands.add_parser("proof", help="run the proof qualification stage")
+    proof.set_defaults(handler=_not_implemented)
 
     return parser
 

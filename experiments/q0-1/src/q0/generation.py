@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import os
 import re
+import subprocess
 from collections.abc import AsyncIterator, Mapping, Sequence
 from pathlib import Path
 from typing import Any, Literal, Protocol, TypeAlias, cast
@@ -21,12 +23,28 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 
 from q0.corpus import normalize_text
 from q0.hybrid import SELECTED_CONFIGURATION
-from q0.models import Citation, GroundedAnswer
+from q0.models import (
+    Citation,
+    EnvironmentResult,
+    GenerationResult,
+    GroundedAnswer,
+    ThresholdOutcome,
+    write_json_atomic,
+)
 
 PINNED_BASE_URL = "http://127.0.0.1:20128/v1"
 PINNED_MODEL = "gc/gemini-2.5-flash"
 PINNED_GATEWAY_VERSION = "0.5.81"
 PINNED_CONNECTION_ID = "2386766d-a7c1-4839-953c-deaeaa10e719"
+PINNED_UPSTREAM_IDENTITY = "gemini-cli/gemini-2.5-flash"
+PRIVATE_ARTIFACT_VERSION = "q0.1-generation-private-1"
+_GENERATION_ENVIRONMENT_NAMES = (
+    "GENERATION_BASE_URL",
+    "GENERATION_API_KEY",
+    "GENERATION_MODEL",
+    "Q0_9ROUTER_VERSION",
+    "Q0_9ROUTER_CONNECTION_ID",
+)
 FROZEN_RUN_ID = "q0-1-20260921T030640Z-36f32ae"
 FROZEN_HYBRID_RESULT_SHA256 = (
     "216577d0c170824f361885ffc0c103b088a84dfc27bc1a4c6c7c63af49b33f54"
@@ -1014,6 +1032,943 @@ class OpenAICompatibleGenerationClient:
             )
 
 
+class GenerationConfigurationAssertion(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    gateway_version: str
+    connection_id: str
+    active_connection_ids: tuple[str, ...]
+    selected_account_count: int
+    route: str
+    route_kind: Literal["direct"]
+    fallback_candidates: tuple[str, ...]
+    rtk_enabled: bool
+    caveman_enabled: bool
+    prompt_transforms_enabled: bool
+    cloud_sync_enabled: bool
+    tunnel_enabled: bool
+    body_logging_enabled: bool
+    existing_quota_confirmed: bool
+    upstream_identity: str
+
+    @model_validator(mode="after")
+    def validate_pinned_gateway(self) -> GenerationConfigurationAssertion:
+        if self.gateway_version != PINNED_GATEWAY_VERSION:
+            raise ValueError("gateway version is not pinned")
+        if self.connection_id != PINNED_CONNECTION_ID:
+            raise ValueError("provider connection is not pinned")
+        if self.active_connection_ids != (PINNED_CONNECTION_ID,):
+            raise ValueError("exactly the pinned provider connection must be active")
+        if self.selected_account_count != 1:
+            raise ValueError("exactly one selected account is required")
+        if self.route != PINNED_MODEL or self.route_kind != "direct":
+            raise ValueError("generation route must be the pinned literal direct route")
+        if self.fallback_candidates:
+            raise ValueError("generation route must not have fallback candidates")
+        feature_flags = (
+            self.rtk_enabled,
+            self.caveman_enabled,
+            self.prompt_transforms_enabled,
+            self.cloud_sync_enabled,
+            self.tunnel_enabled,
+            self.body_logging_enabled,
+        )
+        if any(feature_flags):
+            raise ValueError("gateway transformations, tunneling, sync, and logging must be disabled")
+        if self.existing_quota_confirmed is not True:
+            raise ValueError("existing quota for exactly four requests is not confirmed")
+        if self.upstream_identity != PINNED_UPSTREAM_IDENTITY:
+            raise ValueError("upstream identity is not pinned")
+        return self
+
+
+class _NormalizedEventRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    type: Literal["answer.delta", "answer.completed"]
+    sequence: int | None = Field(default=None, ge=0)
+    delta_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_shape(self) -> _NormalizedEventRecord:
+        if self.type == "answer.delta":
+            if self.sequence is None or self.delta_sha256 is None:
+                raise ValueError("delta event record requires sequence and hash")
+        elif self.sequence is not None or self.delta_sha256 is not None:
+            raise ValueError("terminal event record must not contain delta fields")
+        return self
+
+
+class _CitationIdentityRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    marker: int = Field(gt=0)
+    source_ref: str
+    chunk_id: str
+    source_text_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    evidence_quote_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class _GenerationPreflightState(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    artifact_version: Literal["q0.1-generation-private-1"] = PRIVATE_ARTIFACT_VERSION
+    run_id: str
+    stage: Literal["preflight"] = "preflight"
+    producer_git_revision: str = Field(pattern=r"^[0-9a-f]{40}$")
+    frozen_input_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    configuration_assertion_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    gateway_version: str
+    route_present: bool
+    answer_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    event_types: tuple[Literal["answer.delta", "answer.completed"], ...]
+    delta_event_count: int = Field(gt=0)
+    terminal_event_count: Literal[1] = 1
+    usage: GenerationUsage
+    identity: GatewayIdentity
+
+
+class _ValidatedGenerationCase(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    case_id: str
+    kind: Literal["answerable", "follow_up", "unanswerable"]
+    answer: GroundedAnswer
+    answer_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    events: tuple[_NormalizedEventRecord, ...]
+    delta_event_count: int = Field(gt=0)
+    terminal_event_count: Literal[1] = 1
+    usage: GenerationUsage
+    identity: GatewayIdentity
+    citation_identities: tuple[_CitationIdentityRecord, ...]
+
+
+class _ValidatedGenerationArtifact(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    artifact_version: Literal["q0.1-generation-private-1"] = PRIVATE_ARTIFACT_VERSION
+    run_id: str
+    producer_git_revision: str = Field(pattern=r"^[0-9a-f]{40}$")
+    preflight_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    frozen_input_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    source_set_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    cases: tuple[_ValidatedGenerationCase, ...]
+
+
+def _git(root: Path, *arguments: str) -> str:
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(root), *arguments],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as error:
+        detail = error.stderr.strip() or error.stdout.strip() or str(error)
+        raise GenerationConfigurationError(
+            f"git {' '.join(arguments)} failed: {detail}"
+        ) from error
+    return completed.stdout.strip()
+
+
+def _require_clean_producer(root: Path) -> str:
+    status = _git(root, "status", "--porcelain=v1", "--untracked-files=no")
+    if status:
+        raise GenerationConfigurationError(
+            f"tracked tree must be clean before generation traffic; status was:\n{status}"
+        )
+    revision = _git(root, "rev-parse", "HEAD")
+    if re.fullmatch(r"[0-9a-f]{40}", revision) is None:
+        raise GenerationConfigurationError("generation producer revision is invalid")
+    return revision
+
+
+def _load_environment(root: Path, run_id: str) -> EnvironmentResult:
+    path = root / "qualification" / "results" / run_id / "environment.json"
+    try:
+        environment = EnvironmentResult.model_validate_json(path.read_text("utf-8"))
+    except FileNotFoundError as error:
+        raise GenerationConfigurationError(f"Q0.1 environment not found: {path}") from error
+    except (OSError, ValidationError) as error:
+        raise GenerationConfigurationError(f"invalid Q0.1 environment: {path}") from error
+    if environment.run_id != run_id:
+        raise GenerationConfigurationError("environment run ID does not match requested run")
+    hybrid = environment.measurements.get("hybrid_retrieval")
+    if not isinstance(hybrid, dict) or hybrid.get("status") != "qualified":
+        raise GenerationConfigurationError("hybrid retrieval gate is not qualified")
+    return environment
+
+
+def load_generation_environment(root: Path) -> dict[str, str]:
+    path = root.resolve() / "experiments" / "q0-1" / ".env"
+    try:
+        lines = path.read_text("utf-8").splitlines()
+    except FileNotFoundError as error:
+        raise GenerationConfigurationError(f"generation environment file is missing: {path}") from error
+    except (OSError, UnicodeDecodeError) as error:
+        raise GenerationConfigurationError(f"cannot read generation environment file: {path}") from error
+    values: dict[str, str] = {}
+    allowed = set(_GENERATION_ENVIRONMENT_NAMES)
+    for line_number, raw_line in enumerate(lines, start=1):
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            raise GenerationConfigurationError(
+                f"invalid generation environment entry at line {line_number}"
+            )
+        name, value = line.split("=", 1)
+        name = name.strip()
+        if name not in allowed:
+            raise GenerationConfigurationError(
+                f"unexpected generation environment name at line {line_number}"
+            )
+        if name in values:
+            raise GenerationConfigurationError(
+                f"duplicate generation environment name at line {line_number}"
+            )
+        if not value.strip():
+            raise GenerationConfigurationError(f"{name} is missing")
+        values[name] = value.strip()
+    missing = [name for name in _GENERATION_ENVIRONMENT_NAMES if name not in values]
+    if missing:
+        raise GenerationConfigurationError(
+            f"generation environment is missing {', '.join(missing)}"
+        )
+    return values
+
+
+def _configuration_assertion_path(root: Path, run_id: str) -> Path:
+    return (
+        root
+        / "qualification"
+        / "private"
+        / run_id
+        / "generation-configuration-assertion.json"
+    )
+
+
+def _preflight_path(root: Path, run_id: str) -> Path:
+    return (
+        root / "qualification" / "private" / run_id / "generation-preflight.json"
+    )
+
+
+def _validated_generation_path(root: Path, run_id: str) -> Path:
+    return (
+        root / "qualification" / "private" / run_id / "validated-generation.json"
+    )
+
+
+def _load_configuration_assertion(
+    root: Path, run_id: str
+) -> tuple[GenerationConfigurationAssertion, str]:
+    path = _configuration_assertion_path(root, run_id)
+    try:
+        encoded = path.read_bytes()
+        assertion = GenerationConfigurationAssertion.model_validate_json(encoded)
+    except FileNotFoundError as error:
+        raise GenerationConfigurationError(
+            f"private generation configuration assertion not found: {path}"
+        ) from error
+    except (OSError, ValidationError) as error:
+        raise GenerationConfigurationError(
+            f"invalid private generation configuration assertion: {error}"
+        ) from error
+    return assertion, _sha256_bytes(encoded)
+
+
+def _environment_values(environ: Mapping[str, str] | None) -> Mapping[str, str]:
+    return os.environ if environ is None else environ
+
+
+async def _gateway_checks(
+    *,
+    api_key: str,
+    transport: httpx.AsyncBaseTransport | None,
+) -> None:
+    headers = {"Authorization": f"Bearer {api_key}"}
+    async with httpx.AsyncClient(
+        headers=headers,
+        timeout=TIMEOUT_SECONDS,
+        transport=transport,
+    ) as client:
+        try:
+            version_response = await client.get(
+                "http://127.0.0.1:20128/api/version"
+            )
+            models_response = await client.get(f"{PINNED_BASE_URL}/models")
+        except httpx.HTTPError as error:
+            raise GenerationConfigurationError(
+                "cannot verify the pinned local generation gateway"
+            ) from error
+    if version_response.status_code != 200:
+        raise GenerationConfigurationError(
+            f"9Router version endpoint returned HTTP {version_response.status_code}"
+        )
+    if models_response.status_code != 200:
+        raise GenerationConfigurationError(
+            f"9Router models endpoint returned HTTP {models_response.status_code}"
+        )
+    try:
+        version_payload = version_response.json()
+        models_payload = models_response.json()
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise GenerationConfigurationError(
+            "9Router identity endpoint returned invalid JSON"
+        ) from error
+    if (
+        not isinstance(version_payload, dict)
+        or version_payload.get("currentVersion") != PINNED_GATEWAY_VERSION
+    ):
+        raise GenerationConfigurationError("9Router currentVersion is not pinned")
+    models = models_payload.get("data") if isinstance(models_payload, dict) else None
+    if not isinstance(models, list) or not any(
+        isinstance(model, dict) and model.get("id") == PINNED_MODEL
+        for model in models
+    ):
+        raise GenerationConfigurationError(
+            "pinned literal generation route is absent from /v1/models"
+        )
+
+
+async def _collect_events(
+    client: OpenAICompatibleGenerationClient,
+    request: GenerationRequest,
+) -> list[GenerationEvent]:
+    return [event async for event in client.stream_answer(request)]
+
+
+def _completed_event(
+    events: Sequence[GenerationEvent],
+    *,
+    label: str,
+    expected_upstream_identity: str,
+) -> AnswerCompletedEvent:
+    delta_count = sum(event.type == "answer.delta" for event in events)
+    terminals = [
+        event
+        for event in events
+        if event.type in {"answer.completed", "answer.failed"}
+    ]
+    if delta_count < 1:
+        raise GenerationValidationError(f"{label} emitted no answer delta")
+    if len(terminals) != 1 or not events or events[-1] is not terminals[0]:
+        raise GenerationValidationError(
+            f"{label} did not emit exactly one final terminal event"
+        )
+    terminal = terminals[0]
+    if isinstance(terminal, AnswerFailedEvent):
+        raise GenerationValidationError(
+            f"{label} failed with typed category {terminal.error.category}"
+        )
+    if not isinstance(terminal, AnswerCompletedEvent):
+        raise GenerationValidationError(f"{label} emitted an invalid terminal event")
+    identity = terminal.identity
+    if (
+        identity.gateway_version != PINNED_GATEWAY_VERSION
+        or identity.connection_id != PINNED_CONNECTION_ID
+        or identity.configured_model != PINNED_MODEL
+        or identity.requested_model != PINNED_MODEL
+        or identity.response_model != PINNED_MODEL
+        or identity.upstream_identity != expected_upstream_identity
+    ):
+        raise GenerationValidationError(f"{label} generation identity drifted")
+    return terminal
+
+
+async def _run_preflight_request(
+    *,
+    frozen: FrozenGenerationInputs,
+    assertion: GenerationConfigurationAssertion,
+    environ: Mapping[str, str],
+    transport: httpx.AsyncBaseTransport | None,
+) -> tuple[list[GenerationEvent], AnswerCompletedEvent]:
+    client = OpenAICompatibleGenerationClient.from_environment(
+        environ,
+        transport=transport,
+        expected_upstream_identity=assertion.upstream_identity,
+    )
+    try:
+        await _gateway_checks(
+            api_key=environ["GENERATION_API_KEY"],
+            transport=transport,
+        )
+        events = await _collect_events(client, build_golden_request(frozen))
+    finally:
+        await client.aclose()
+    completed = _completed_event(
+        events,
+        label="generation preflight",
+        expected_upstream_identity=assertion.upstream_identity,
+    )
+    return events, completed
+
+
+def _normalized_event_records(
+    events: Sequence[GenerationEvent],
+) -> tuple[_NormalizedEventRecord, ...]:
+    records: list[_NormalizedEventRecord] = []
+    for event in events:
+        if isinstance(event, AnswerDeltaEvent):
+            records.append(
+                _NormalizedEventRecord(
+                    type="answer.delta",
+                    sequence=event.sequence,
+                    delta_sha256=_sha256_bytes(event.delta.encode("utf-8")),
+                )
+            )
+        elif isinstance(event, AnswerCompletedEvent):
+            records.append(_NormalizedEventRecord(type="answer.completed"))
+        else:
+            raise GenerationValidationError(
+                "failed generation event cannot enter validated output"
+            )
+    return tuple(records)
+
+
+def _citation_identity_records(
+    answer: GroundedAnswer,
+    frozen: FrozenGenerationInputs,
+) -> tuple[_CitationIdentityRecord, ...]:
+    sources = {source.source_ref: source for source in frozen.sources}
+    records: list[_CitationIdentityRecord] = []
+    for citation in answer.citations:
+        source = sources[citation.source_ref]
+        records.append(
+            _CitationIdentityRecord(
+                marker=citation.marker,
+                source_ref=citation.source_ref,
+                chunk_id=source.chunk_id,
+                source_text_sha256=source.text_sha256,
+                evidence_quote_sha256=_sha256_bytes(
+                    citation.evidence_quote.encode("utf-8")
+                ),
+            )
+        )
+    return tuple(records)
+
+
+def _validated_case(
+    request: GenerationRequest,
+    events: Sequence[GenerationEvent],
+    completed: AnswerCompletedEvent,
+    frozen: FrozenGenerationInputs,
+) -> _ValidatedGenerationCase:
+    answer_payload = completed.answer.model_dump(mode="json")
+    return _ValidatedGenerationCase(
+        case_id=request.case_id,
+        kind=request.kind,
+        answer=completed.answer,
+        answer_sha256=_sha256_bytes(_canonical_json_bytes(answer_payload)),
+        events=_normalized_event_records(events),
+        delta_event_count=sum(event.type == "answer.delta" for event in events),
+        usage=completed.usage,
+        identity=completed.identity,
+        citation_identities=_citation_identity_records(completed.answer, frozen),
+    )
+
+
+async def _run_measured_requests(
+    *,
+    frozen: FrozenGenerationInputs,
+    assertion: GenerationConfigurationAssertion,
+    environ: Mapping[str, str],
+    transport: httpx.AsyncBaseTransport | None,
+) -> tuple[_ValidatedGenerationCase, ...]:
+    client = OpenAICompatibleGenerationClient.from_environment(
+        environ,
+        transport=transport,
+        expected_upstream_identity=assertion.upstream_identity,
+    )
+    cases: list[_ValidatedGenerationCase] = []
+    try:
+        golden_request = build_golden_request(frozen)
+        golden_events = await _collect_events(client, golden_request)
+        golden_completed = _completed_event(
+            golden_events,
+            label=golden_request.case_id,
+            expected_upstream_identity=assertion.upstream_identity,
+        )
+        cases.append(
+            _validated_case(
+                golden_request, golden_events, golden_completed, frozen
+            )
+        )
+
+        follow_up_request = build_follow_up_request(
+            frozen, golden_completed.answer
+        )
+        follow_up_events = await _collect_events(client, follow_up_request)
+        follow_up_completed = _completed_event(
+            follow_up_events,
+            label=follow_up_request.case_id,
+            expected_upstream_identity=assertion.upstream_identity,
+        )
+        cases.append(
+            _validated_case(
+                follow_up_request,
+                follow_up_events,
+                follow_up_completed,
+                frozen,
+            )
+        )
+
+        unanswerable_request = build_unanswerable_request(frozen)
+        unanswerable_events = await _collect_events(client, unanswerable_request)
+        unanswerable_completed = _completed_event(
+            unanswerable_events,
+            label=unanswerable_request.case_id,
+            expected_upstream_identity=assertion.upstream_identity,
+        )
+        cases.append(
+            _validated_case(
+                unanswerable_request,
+                unanswerable_events,
+                unanswerable_completed,
+                frozen,
+            )
+        )
+    finally:
+        await client.aclose()
+    return tuple(cases)
+
+
+def _assert_sanitized_durable_payload(
+    payload: GenerationResult,
+    *,
+    frozen: FrozenGenerationInputs,
+    api_key: str,
+) -> None:
+    serialized = json.dumps(
+        payload.model_dump(mode="json"),
+        sort_keys=True,
+        ensure_ascii=False,
+    )
+    forbidden_values = (
+        api_key,
+        SYSTEM_INSTRUCTIONS,
+        GOLDEN_QUESTION,
+        FOLLOW_UP_QUESTION,
+        UNANSWERABLE_QUESTION,
+        *(source.text for source in frozen.sources),
+    )
+    if any(value and value in serialized for value in forbidden_values):
+        raise GenerationValidationError(
+            "durable generation evidence contains forbidden request material"
+        )
+    if re.search(r"\bAIza[0-9A-Za-z_-]{20,}\b", serialized):
+        raise GenerationValidationError(
+            "durable generation evidence contains a Google credential signature"
+        )
+    if re.search(r"\bsk-[0-9A-Za-z_-]{16,}\b", serialized):
+        raise GenerationValidationError(
+            "durable generation evidence contains an API credential signature"
+        )
+    if re.search(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}", serialized):
+        raise GenerationValidationError(
+            "durable generation evidence contains an email address"
+        )
+
+
+def run_generation_preflight(
+    *,
+    root: Path,
+    run_id: str,
+    environ: Mapping[str, str] | None = None,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> dict[str, Any]:
+    root = root.resolve()
+    producer_revision = _require_clean_producer(root)
+    _load_environment(root, run_id)
+    frozen = load_frozen_generation_inputs(root=root, run_id=run_id)
+    assertion, assertion_sha256 = _load_configuration_assertion(root, run_id)
+    values = _environment_values(environ)
+    events, completed = asyncio.run(
+        _run_preflight_request(
+            frozen=frozen,
+            assertion=assertion,
+            environ=values,
+            transport=transport,
+        )
+    )
+    answer_payload = completed.answer.model_dump(mode="json")
+    state = _GenerationPreflightState(
+        run_id=run_id,
+        producer_git_revision=producer_revision,
+        frozen_input_sha256=frozen.frozen_input_sha256,
+        configuration_assertion_sha256=assertion_sha256,
+        gateway_version=PINNED_GATEWAY_VERSION,
+        route_present=True,
+        answer_sha256=_sha256_bytes(_canonical_json_bytes(answer_payload)),
+        event_types=tuple(event.type for event in events),
+        delta_event_count=sum(event.type == "answer.delta" for event in events),
+        usage=completed.usage,
+        identity=completed.identity,
+    )
+    path = _preflight_path(root, run_id)
+    write_json_atomic(path, state)
+    try:
+        _GenerationPreflightState.model_validate_json(path.read_text("utf-8"))
+    except (OSError, ValidationError) as error:
+        raise GenerationValidationError(
+            "persisted generation preflight state failed validation"
+        ) from error
+    serialized = path.read_text("utf-8")
+    if (
+        values["GENERATION_API_KEY"] in serialized
+        or GOLDEN_QUESTION in serialized
+        or any(source.text in serialized for source in frozen.sources)
+    ):
+        raise GenerationValidationError(
+            "private generation preflight contains forbidden request material"
+        )
+    return {
+        "run_id": run_id,
+        "producer_git_revision": producer_revision,
+        "gateway_version": PINNED_GATEWAY_VERSION,
+        "requested_model": completed.identity.requested_model,
+        "response_model": completed.identity.response_model,
+        "upstream_identity": completed.identity.upstream_identity,
+        "completed": True,
+    }
+
+
+def run_generation_measurement(
+    *,
+    root: Path,
+    run_id: str,
+    environ: Mapping[str, str] | None = None,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> dict[str, Any]:
+    root = root.resolve()
+    producer_revision = _require_clean_producer(root)
+    environment = _load_environment(root, run_id)
+    frozen = load_frozen_generation_inputs(root=root, run_id=run_id)
+    assertion, assertion_sha256 = _load_configuration_assertion(root, run_id)
+    preflight_path = _preflight_path(root, run_id)
+    try:
+        preflight_encoded = preflight_path.read_bytes()
+        preflight = _GenerationPreflightState.model_validate_json(preflight_encoded)
+    except FileNotFoundError as error:
+        raise GenerationConfigurationError(
+            "generation preflight must complete before measurement"
+        ) from error
+    except (OSError, ValidationError) as error:
+        raise GenerationConfigurationError(
+            "generation preflight state is invalid"
+        ) from error
+    if preflight.run_id != run_id:
+        raise GenerationConfigurationError("generation preflight run identity changed")
+    if preflight.producer_git_revision != producer_revision:
+        raise GenerationConfigurationError(
+            "generation preflight producer revision changed"
+        )
+    if preflight.frozen_input_sha256 != frozen.frozen_input_sha256:
+        raise GenerationConfigurationError(
+            "generation frozen input identity changed after preflight"
+        )
+    if preflight.configuration_assertion_sha256 != assertion_sha256:
+        raise GenerationConfigurationError(
+            "gateway configuration assertion changed after preflight"
+        )
+    values = _environment_values(environ)
+    cases = asyncio.run(
+        _run_measured_requests(
+            frozen=frozen,
+            assertion=assertion,
+            environ=values,
+            transport=transport,
+        )
+    )
+    if tuple(case.case_id for case in cases) != (
+        GOLDEN_CASE_ID,
+        FOLLOW_UP_CASE_ID,
+        UNANSWERABLE_CASE_ID,
+    ):
+        raise GenerationValidationError("measured generation case sequence changed")
+    validated = _ValidatedGenerationArtifact(
+        run_id=run_id,
+        producer_git_revision=producer_revision,
+        preflight_sha256=_sha256_bytes(preflight_encoded),
+        frozen_input_sha256=frozen.frozen_input_sha256,
+        source_set_sha256=frozen.source_set_sha256,
+        cases=cases,
+    )
+    private_path = _validated_generation_path(root, run_id)
+    write_json_atomic(private_path, validated)
+    try:
+        _ValidatedGenerationArtifact.model_validate_json(
+            private_path.read_text("utf-8")
+        )
+    except (OSError, ValidationError) as error:
+        raise GenerationValidationError(
+            "persisted validated generation output failed validation"
+        ) from error
+    private_sha256 = _sha256_bytes(private_path.read_bytes())
+
+    durable_cases: list[dict[str, Any]] = []
+    for case in cases:
+        coverage = (
+            None
+            if case.kind == "unanswerable"
+            else claim_marker_coverage(case.answer.answer)
+        )
+        durable_cases.append(
+            {
+                "case_id": case.case_id,
+                "kind": case.kind,
+                "answer_sha256": case.answer_sha256,
+                "citation_count": len(case.answer.citations),
+                "claim_marker_coverage": coverage,
+                "event_types": [event.type for event in case.events],
+                "delta_event_count": case.delta_event_count,
+                "terminal_event_count": case.terminal_event_count,
+                "usage": case.usage.model_dump(mode="json"),
+                "identity": case.identity.model_dump(mode="json"),
+                "citation_identities": [
+                    record.model_dump(mode="json")
+                    for record in case.citation_identities
+                ],
+            }
+        )
+    all_identities_stable = all(
+        case.identity.configured_model == PINNED_MODEL
+        and case.identity.requested_model == PINNED_MODEL
+        and case.identity.response_model == PINNED_MODEL
+        and case.identity.upstream_identity == assertion.upstream_identity
+        for case in cases
+    )
+    all_usage_present = all(
+        case.usage.input_tokens > 0
+        and case.usage.output_tokens > 0
+        and case.usage.total_tokens
+        >= case.usage.input_tokens + case.usage.output_tokens
+        for case in cases
+    )
+    all_streams_valid = all(
+        case.delta_event_count >= 1 and case.terminal_event_count == 1
+        for case in cases
+    )
+    thresholds = {
+        "pinned_gateway_version": ThresholdOutcome(
+            passed=preflight.gateway_version == PINNED_GATEWAY_VERSION,
+            requirement="9Router currentVersion is exactly 0.5.81",
+            observed=preflight.gateway_version,
+        ),
+        "direct_route": ThresholdOutcome(
+            passed=assertion.route == PINNED_MODEL
+            and assertion.route_kind == "direct"
+            and not assertion.fallback_candidates,
+            requirement="literal gc/gemini-2.5-flash route is direct with no alias, combo, or fallback",
+            observed={
+                "route": assertion.route,
+                "route_kind": assertion.route_kind,
+                "fallback_candidate_count": len(assertion.fallback_candidates),
+            },
+        ),
+        "single_connection_and_account": ThresholdOutcome(
+            passed=assertion.active_connection_ids == (PINNED_CONNECTION_ID,)
+            and assertion.selected_account_count == 1,
+            requirement="exactly the pinned connection and one selected account are active",
+            observed={
+                "active_connection_ids": list(assertion.active_connection_ids),
+                "selected_account_count": assertion.selected_account_count,
+            },
+        ),
+        "safe_gateway_features": ThresholdOutcome(
+            passed=not any(
+                (
+                    assertion.rtk_enabled,
+                    assertion.caveman_enabled,
+                    assertion.prompt_transforms_enabled,
+                    assertion.cloud_sync_enabled,
+                    assertion.tunnel_enabled,
+                    assertion.body_logging_enabled,
+                )
+            ),
+            requirement="RTK, Caveman, prompt transforms, cloud sync, tunnel, and body logging are disabled",
+            observed={
+                "rtk_enabled": assertion.rtk_enabled,
+                "caveman_enabled": assertion.caveman_enabled,
+                "prompt_transforms_enabled": assertion.prompt_transforms_enabled,
+                "cloud_sync_enabled": assertion.cloud_sync_enabled,
+                "tunnel_enabled": assertion.tunnel_enabled,
+                "body_logging_enabled": assertion.body_logging_enabled,
+            },
+        ),
+        "existing_quota": ThresholdOutcome(
+            passed=assertion.existing_quota_confirmed,
+            requirement="existing quota covers one preflight and exactly three cases without new paid spend",
+            observed=assertion.existing_quota_confirmed,
+        ),
+        "exact_request_scope": ThresholdOutcome(
+            passed=len(cases) == 3,
+            requirement="one preflight plus exactly three frozen measured cases",
+            observed={
+                "preflight_requests": 1,
+                "measured_requests": len(cases),
+                "total_requests": 1 + len(cases),
+            },
+        ),
+        "stream_integrity": ThresholdOutcome(
+            passed=all_streams_valid,
+            requirement="every call emits at least one delta and exactly one terminal event",
+            observed=all_streams_valid,
+        ),
+        "provider_usage": ThresholdOutcome(
+            passed=all_usage_present,
+            requirement="provider-reported positive input, output, and total token usage is present for every case",
+            observed=all_usage_present,
+        ),
+        "identity_stability": ThresholdOutcome(
+            passed=all_identities_stable,
+            requirement="configured, requested, response, and upstream identities stay pinned",
+            observed=all_identities_stable,
+        ),
+        "three_valid_cases": ThresholdOutcome(
+            passed=len(cases) == 3,
+            requirement="golden, bounded follow-up, and unanswerable outputs all pass strict validation on first attempt",
+            observed=[case.case_id for case in cases],
+        ),
+        "source_hash_consistency": ThresholdOutcome(
+            passed=True,
+            requirement="generation uses the frozen hybrid context, source set, and evidence gold hashes",
+            observed={
+                "hybrid_result_sha256": frozen.hybrid_result_sha256,
+                "golden_context_sha256": frozen.golden_context_sha256,
+                "evidence_gold_sha256": frozen.evidence_gold_sha256,
+                "source_set_sha256": frozen.source_set_sha256,
+            },
+        ),
+    }
+    failure_reasons = [
+        outcome.failure_reason or f"{name} failed"
+        for name, outcome in thresholds.items()
+        if not outcome.passed
+    ]
+    result = GenerationResult(
+        run_id=run_id,
+        provider="gemini-cli",
+        requested_model_id=PINNED_MODEL,
+        response_model_id=PINNED_MODEL if all_identities_stable else None,
+        identities={
+            "producer_git_revision": producer_revision,
+            "run_initialized_git_revision": environment.run_initialized_git_revision,
+            "gateway_version": PINNED_GATEWAY_VERSION,
+            "connection_id": PINNED_CONNECTION_ID,
+            "active_connection_ids": list(assertion.active_connection_ids),
+            "selected_account_count": assertion.selected_account_count,
+            "route": assertion.route,
+            "route_kind": assertion.route_kind,
+            "fallback_candidates": list(assertion.fallback_candidates),
+            "requested_model": PINNED_MODEL,
+            "response_model": PINNED_MODEL if all_identities_stable else None,
+            "upstream_identity": assertion.upstream_identity,
+            "tracked_tree_clean_before_traffic": True,
+        },
+        measurements={
+            "frozen_inputs": {
+                "hybrid_result_sha256": frozen.hybrid_result_sha256,
+                "golden_context_sha256": frozen.golden_context_sha256,
+                "evidence_gold_sha256": frozen.evidence_gold_sha256,
+                "source_set_sha256": frozen.source_set_sha256,
+                "frozen_input_sha256": frozen.frozen_input_sha256,
+                "response_schema_sha256": frozen.response_schema_sha256,
+                "system_instructions_sha256": frozen.system_instructions_sha256,
+            },
+            "preflight": {
+                "state_sha256": _sha256_bytes(preflight_encoded),
+                "event_types": list(preflight.event_types),
+                "delta_event_count": preflight.delta_event_count,
+                "terminal_event_count": preflight.terminal_event_count,
+                "usage": preflight.usage.model_dump(mode="json"),
+                "identity": preflight.identity.model_dump(mode="json"),
+            },
+            "cases": durable_cases,
+            "validated_generation": {
+                "relative_path": str(private_path.relative_to(root)),
+                "sha256": private_sha256,
+                "case_count": len(cases),
+            },
+            "live_request_count": 1 + len(cases),
+        },
+        threshold_outcomes=thresholds,
+        failure_reasons=failure_reasons,
+    )
+    _assert_sanitized_durable_payload(
+        result,
+        frozen=frozen,
+        api_key=values["GENERATION_API_KEY"],
+    )
+    result_path = (
+        root / "qualification" / "results" / run_id / "generation.json"
+    )
+    write_json_atomic(result_path, result)
+    try:
+        GenerationResult.model_validate_json(result_path.read_text("utf-8"))
+    except (OSError, ValidationError) as error:
+        raise GenerationValidationError(
+            "persisted durable generation result failed validation"
+        ) from error
+
+    generation_summary = {
+        "status": "qualified" if not failure_reasons else "failed",
+        "result_relative_path": str(result_path.relative_to(root)),
+        "live_request_count": 1 + len(cases),
+        "case_count": len(cases),
+        "validated_generation_sha256": private_sha256,
+    }
+    updated_environment = environment.model_copy(
+        update={
+            "producer_git_revision": producer_revision,
+            "identities": {
+                **environment.identities,
+                "producer_git_revision": producer_revision,
+                "generation": {
+                    "gateway_version": PINNED_GATEWAY_VERSION,
+                    "connection_id": PINNED_CONNECTION_ID,
+                    "route": PINNED_MODEL,
+                    "requested_model": PINNED_MODEL,
+                    "response_model": PINNED_MODEL if all_identities_stable else None,
+                    "upstream_identity": assertion.upstream_identity,
+                },
+            },
+            "measurements": {
+                **environment.measurements,
+                "generation": generation_summary,
+            },
+            "threshold_outcomes": {
+                **environment.threshold_outcomes,
+                **{
+                    f"generation_{name}": outcome
+                    for name, outcome in thresholds.items()
+                },
+            },
+            "failure_reasons": [
+                *environment.failure_reasons,
+                *failure_reasons,
+            ],
+        }
+    )
+    environment_path = (
+        root / "qualification" / "results" / run_id / "environment.json"
+    )
+    write_json_atomic(environment_path, updated_environment)
+    try:
+        EnvironmentResult.model_validate_json(environment_path.read_text("utf-8"))
+    except (OSError, ValidationError) as error:
+        raise GenerationValidationError(
+            "persisted updated environment failed validation"
+        ) from error
+    return {
+        "run_id": run_id,
+        "passed": not failure_reasons,
+        "case_count": len(cases),
+        "producer_git_revision": producer_revision,
+    }
+
+
 __all__ = [
     "AnswerCompletedEvent",
     "AnswerDeltaEvent",
@@ -1037,6 +1992,9 @@ __all__ = [
     "build_unanswerable_request",
     "claim_marker_coverage",
     "load_frozen_generation_inputs",
+    "load_generation_environment",
+    "run_generation_measurement",
+    "run_generation_preflight",
     "validate_follow_up",
     "validate_grounded_answer",
     "validate_refusal",

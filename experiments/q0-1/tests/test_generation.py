@@ -5,6 +5,7 @@ import hashlib
 import importlib
 import importlib.util
 import json
+import shutil
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -721,3 +722,346 @@ def test_sdk_types_do_not_cross_the_generation_boundary(successful_server):
             assert not event.identity.__class__.__module__.startswith("openai")
         if event.type == "answer.failed":
             assert not event.error.__class__.__module__.startswith("openai")
+
+
+@dataclass
+class LiveGatewayFixture:
+    chat_bodies: deque[bytes]
+    requests: list[httpx.Request] = field(default_factory=list)
+
+    def handle(self, request: httpx.Request) -> httpx.Response:
+        self.requests.append(request)
+        if request.url == httpx.URL("http://127.0.0.1:20128/api/version"):
+            return httpx.Response(
+                200,
+                json={"currentVersion": PINNED_VERSION},
+                request=request,
+            )
+        if request.url == httpx.URL(f"{PINNED_BASE_URL}/models"):
+            return httpx.Response(
+                200,
+                json={
+                    "object": "list",
+                    "data": [
+                        {
+                            "id": PINNED_MODEL,
+                            "object": "model",
+                            "created": 1,
+                            "owned_by": "gc",
+                        }
+                    ],
+                },
+                request=request,
+            )
+        if request.url == httpx.URL(f"{PINNED_BASE_URL}/chat/completions"):
+            assert self.chat_bodies, "fixture received an extra generation request"
+            return httpx.Response(
+                200,
+                headers={"content-type": "text/event-stream"},
+                content=self.chat_bodies.popleft(),
+                request=request,
+            )
+        pytest.fail(f"unexpected gateway request: {request.method} {request.url}")
+
+    @property
+    def transport(self) -> httpx.MockTransport:
+        return httpx.MockTransport(self.handle)
+
+    @property
+    def chat_requests(self) -> list[dict[str, Any]]:
+        return [
+            json.loads(request.content)
+            for request in self.requests
+            if request.url == httpx.URL(f"{PINNED_BASE_URL}/chat/completions")
+        ]
+
+
+def copy_frozen_generation_root(tmp_path: Path) -> Path:
+    source_root = Path(__file__).resolve().parents[3]
+    relative_paths = (
+        Path("qualification") / "results" / RUN_ID / "environment.json",
+        Path("qualification") / "results" / RUN_ID / "hybrid-retrieval.json",
+        Path("qualification")
+        / "private"
+        / RUN_ID
+        / "golden-retrieved-context.json",
+        Path("qualification") / "gold" / "evidence.jsonl",
+    )
+    for relative_path in relative_paths:
+        destination = tmp_path / relative_path
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source_root / relative_path, destination)
+    assertion = {
+        "gateway_version": PINNED_VERSION,
+        "connection_id": PINNED_CONNECTION_ID,
+        "active_connection_ids": [PINNED_CONNECTION_ID],
+        "selected_account_count": 1,
+        "route": PINNED_MODEL,
+        "route_kind": "direct",
+        "fallback_candidates": [],
+        "rtk_enabled": False,
+        "caveman_enabled": False,
+        "prompt_transforms_enabled": False,
+        "cloud_sync_enabled": False,
+        "tunnel_enabled": False,
+        "body_logging_enabled": False,
+        "existing_quota_confirmed": True,
+        "upstream_identity": UPSTREAM_IDENTITY,
+    }
+    assertion_path = (
+        tmp_path
+        / "qualification"
+        / "private"
+        / RUN_ID
+        / "generation-configuration-assertion.json"
+    )
+    assertion_path.write_text(
+        json.dumps(assertion, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return tmp_path
+
+
+def real_context_quote(root: Path) -> str:
+    context_path = (
+        root
+        / "qualification"
+        / "private"
+        / RUN_ID
+        / "golden-retrieved-context.json"
+    )
+    context = json.loads(context_path.read_text("utf-8"))
+    text = context["sources"][0]["text"]
+    return text[: min(120, len(text))].strip()
+
+
+def live_payloads(root: Path) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    quote = real_context_quote(root)
+    golden = {
+        "answer": "Scaling prevents attention logits from producing small gradients [1].",
+        "citations": [
+            {"marker": 1, "source_ref": "S1", "evidence_quote": quote}
+        ],
+    }
+    follow_up = {
+        "answer": (
+            "Without scaling, scaled dot-product attention would produce unstable "
+            "softmax behavior and small gradients [1]."
+        ),
+        "citations": [
+            {"marker": 1, "source_ref": "S1", "evidence_quote": quote}
+        ],
+    }
+    refusal = {
+        "answer": "The supplied paper context is insufficient to answer this question.",
+        "citations": [],
+    }
+    return golden, follow_up, refusal
+
+
+def pinned_environment() -> dict[str, str]:
+    return {
+        "GENERATION_BASE_URL": PINNED_BASE_URL,
+        "GENERATION_MODEL": PINNED_MODEL,
+        "Q0_9ROUTER_VERSION": PINNED_VERSION,
+        "Q0_9ROUTER_CONNECTION_ID": PINNED_CONNECTION_ID,
+        "GENERATION_API_KEY": "fixture-secret",
+    }
+
+
+def test_live_preflight_verifies_gateway_and_persists_only_sanitized_state(
+    monkeypatch, tmp_path
+):
+    g = generation_module()
+    root = copy_frozen_generation_root(tmp_path)
+    golden, _, _ = live_payloads(root)
+    gateway = LiveGatewayFixture(deque([completion_sse(golden)]))
+    revision = "a" * 40
+    monkeypatch.setattr(g, "_require_clean_producer", lambda root: revision)
+
+    summary = g.run_generation_preflight(
+        root=root,
+        run_id=RUN_ID,
+        environ=pinned_environment(),
+        transport=gateway.transport,
+    )
+
+    assert summary == {
+        "run_id": RUN_ID,
+        "producer_git_revision": revision,
+        "gateway_version": PINNED_VERSION,
+        "requested_model": PINNED_MODEL,
+        "response_model": PINNED_MODEL,
+        "upstream_identity": UPSTREAM_IDENTITY,
+        "completed": True,
+    }
+    assert [request.url.path for request in gateway.requests] == [
+        "/api/version",
+        "/v1/models",
+        "/v1/chat/completions",
+    ]
+    assert all(
+        request.headers["authorization"] == "Bearer fixture-secret"
+        for request in gateway.requests
+    )
+    state_path = (
+        root
+        / "qualification"
+        / "private"
+        / RUN_ID
+        / "generation-preflight.json"
+    )
+    serialized = state_path.read_text("utf-8")
+    state = json.loads(serialized)
+    assert state["answer_sha256"]
+    assert state["event_types"][-1] == "answer.completed"
+    assert "fixture-secret" not in serialized
+    assert real_context_quote(root) not in serialized
+    assert GOLDEN_QUESTION not in serialized
+
+
+def test_live_preflight_rejects_unsafe_configuration_before_any_request(
+    monkeypatch, tmp_path
+):
+    g = generation_module()
+    root = copy_frozen_generation_root(tmp_path)
+    assertion_path = (
+        root
+        / "qualification"
+        / "private"
+        / RUN_ID
+        / "generation-configuration-assertion.json"
+    )
+    assertion = json.loads(assertion_path.read_text("utf-8"))
+    assertion["selected_account_count"] = 2
+    assertion_path.write_text(json.dumps(assertion), encoding="utf-8")
+    gateway = LiveGatewayFixture(deque())
+    monkeypatch.setattr(g, "_require_clean_producer", lambda root: "a" * 40)
+
+    with pytest.raises(g.GenerationConfigurationError, match="selected account"):
+        g.run_generation_preflight(
+            root=root,
+            run_id=RUN_ID,
+            environ=pinned_environment(),
+            transport=gateway.transport,
+        )
+
+    assert gateway.requests == []
+
+
+def test_live_run_sends_exactly_three_cases_and_writes_sanitized_gate_result(
+    monkeypatch, tmp_path
+):
+    g = generation_module()
+    root = copy_frozen_generation_root(tmp_path)
+    golden, follow_up, refusal = live_payloads(root)
+    gateway = LiveGatewayFixture(
+        deque(
+            [
+                completion_sse(golden),
+                completion_sse(golden),
+                completion_sse(follow_up),
+                completion_sse(refusal),
+            ]
+        )
+    )
+    revision = "b" * 40
+    monkeypatch.setattr(g, "_require_clean_producer", lambda root: revision)
+    g.run_generation_preflight(
+        root=root,
+        run_id=RUN_ID,
+        environ=pinned_environment(),
+        transport=gateway.transport,
+    )
+
+    summary = g.run_generation_measurement(
+        root=root,
+        run_id=RUN_ID,
+        environ=pinned_environment(),
+        transport=gateway.transport,
+    )
+
+    assert summary == {
+        "run_id": RUN_ID,
+        "passed": True,
+        "case_count": 3,
+        "producer_git_revision": revision,
+    }
+    assert len(gateway.chat_requests) == 4
+    measured_requests = gateway.chat_requests[1:]
+    assert GOLDEN_QUESTION in measured_requests[0]["messages"][-1]["content"]
+    assert FOLLOW_UP_QUESTION in measured_requests[1]["messages"][-1]["content"]
+    assert UNANSWERABLE_QUESTION in measured_requests[2]["messages"][-1]["content"]
+    assert [message["role"] for message in measured_requests[1]["messages"]] == [
+        "system",
+        "user",
+        "assistant",
+        "user",
+    ]
+    result_path = root / "qualification" / "results" / RUN_ID / "generation.json"
+    serialized = result_path.read_text("utf-8")
+    result = json.loads(serialized)
+    assert result["failure_reasons"] == []
+    assert all(
+        outcome["passed"] for outcome in result["threshold_outcomes"].values()
+    )
+    assert [case["case_id"] for case in result["measurements"]["cases"]] == [
+        "1706.03762-answer-1",
+        "1706.03762-answer-1-follow-up",
+        "1706.03762-unanswerable",
+    ]
+    assert "fixture-secret" not in serialized
+    assert real_context_quote(root) not in serialized
+    assert GOLDEN_QUESTION not in serialized
+    private_path = (
+        root
+        / "qualification"
+        / "private"
+        / RUN_ID
+        / "validated-generation.json"
+    )
+    private = json.loads(private_path.read_text("utf-8"))
+    assert len(private["cases"]) == 3
+    assert private["cases"][0]["answer"] == golden
+    environment = json.loads(
+        (
+            root / "qualification" / "results" / RUN_ID / "environment.json"
+        ).read_text("utf-8")
+    )
+    assert environment["producer_git_revision"] == revision
+    assert environment["identities"]["generation"]["route"] == PINNED_MODEL
+
+
+def test_generation_run_cli_returns_nonzero_when_gate_fails(
+    monkeypatch, capsys, tmp_path
+):
+    from q0.cli import main as cli_main
+
+    def fail_gate(*, root, run_id, environ):
+        return {
+            "run_id": run_id,
+            "passed": False,
+            "failure_reasons": ["provider usage was missing"],
+        }
+
+    monkeypatch.setattr("q0.generation.run_generation_measurement", fail_gate)
+    environment_path = tmp_path / "experiments" / "q0-1" / ".env"
+    environment_path.parent.mkdir(parents=True)
+    environment_path.write_text(
+        "\n".join(f"{name}={value}" for name, value in pinned_environment().items())
+        + "\n",
+        encoding="utf-8",
+    )
+
+    exit_code = cli_main(
+        [
+            "generation",
+            "run",
+            "--run-id",
+            RUN_ID,
+            "--root",
+            str(tmp_path),
+        ]
+    )
+
+    assert exit_code == 2
+    assert "generation gate failed: provider usage was missing" in capsys.readouterr().err
