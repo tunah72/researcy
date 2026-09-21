@@ -49,6 +49,30 @@ def _handle_baseline_prepare(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_hybrid_preflight(args: argparse.Namespace) -> int:
+    from q0.hybrid import run_hybrid_preflight
+
+    summary = run_hybrid_preflight(root=args.root, run_id=args.run_id)
+    print(json.dumps(summary, sort_keys=True))
+    return 0
+
+
+def _handle_hybrid_run(args: argparse.Namespace) -> int:
+    from q0.hybrid import run_hybrid_measurement
+
+    summary = run_hybrid_measurement(root=args.root, run_id=args.run_id)
+    print(json.dumps(summary, sort_keys=True))
+    return 0
+
+
+def _handle_hybrid_evaluate(args: argparse.Namespace) -> int:
+    from q0.hybrid import evaluate_hybrid_measurement
+
+    summary = evaluate_hybrid_measurement(root=args.root, run_id=args.run_id)
+    print(json.dumps(summary, sort_keys=True))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="q01",
@@ -75,7 +99,21 @@ def build_parser() -> argparse.ArgumentParser:
     _add_root_argument(baseline_prepare)
     baseline_prepare.set_defaults(handler=_handle_baseline_prepare)
 
-    for name in ("hybrid", "generation", "proof"):
+    hybrid = commands.add_parser("hybrid", help="run hybrid retrieval qualification")
+    hybrid_commands = hybrid.add_subparsers(
+        dest="hybrid_command", metavar="COMMAND", required=True
+    )
+    for name, help_text, handler in (
+        ("preflight", "verify fixed BGE and Qdrant identities", _handle_hybrid_preflight),
+        ("run", "measure the fixed dense + BM25 + RRF configuration", _handle_hybrid_run),
+        ("evaluate", "apply the complete Track B-H gate", _handle_hybrid_evaluate),
+    ):
+        hybrid_command = hybrid_commands.add_parser(name, help=help_text)
+        hybrid_command.add_argument("--run-id", required=True)
+        _add_root_argument(hybrid_command)
+        hybrid_command.set_defaults(handler=handler)
+
+    for name in ("generation", "proof"):
         future = commands.add_parser(name, help=f"run the {name} qualification stage")
         future.set_defaults(handler=_not_implemented)
 
