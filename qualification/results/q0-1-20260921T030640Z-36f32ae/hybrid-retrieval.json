@@ -1,0 +1,1879 @@
+{
+  "artifact_version": "q0.1-hybrid-1",
+  "failure_reasons": [],
+  "identities": {
+    "baseline_run_id": "q0-20260920T124722Z-cd96df4",
+    "inherited_artifact_sha256": {
+      "qualification/corpus/manifest.json": "50e221e0a441607306ba0a6eb9adf517793660c720ca2f5facb41bf5f442b8f9",
+      "qualification/gold/evidence.jsonl": "858d2547c8dd515eaaad35e8dd73a1597a0dfa9147658128f159d7dab2d820bd",
+      "qualification/gold/reading-order.jsonl": "d1346420ee29220ebc6cb308fbcfb36a6b6cb680d49a9e01639e642ca3d647bb",
+      "qualification/results/q0-20260920T124722Z-cd96df4/embedding.json": "28536767095569d87f136fe848f9842a310deb649eb08b588ede156fd5c714c1",
+      "qualification/results/q0-20260920T124722Z-cd96df4/environment.json": "fbb995829a87a7eb8172fd0899de6280b2f597fbd9aa2ea9fe2906856eb4b93f",
+      "qualification/results/q0-20260920T124722Z-cd96df4/parser.json": "820fb2a71f075570bf89872cf468b4ac23e18c373009e06de109b8086c096c61"
+    },
+    "model": {
+      "architecture": "bert",
+      "batch_size": 8,
+      "concurrency": 1,
+      "context_length": 8192,
+      "digest": "7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab",
+      "dimension": 1024,
+      "distance_metric": "cosine",
+      "document_prefix": "",
+      "parameter_size": "566.70M",
+      "quantization": "F16",
+      "query_prefix": "",
+      "tag": "bge-m3:567m",
+      "truncate": false
+    },
+    "ollama": {
+      "loaded_models": [
+        "bge-m3:567m"
+      ],
+      "runtime_placement": "native ARM64 Ollama 0.18.2",
+      "server_process": {
+        "command_line": [
+          "/opt/homebrew/opt/ollama/bin/ollama",
+          "serve"
+        ],
+        "executable_architecture": "arm64",
+        "executable_file_identity": "Mach-O 64-bit executable arm64",
+        "executable_path": "/opt/homebrew/Cellar/ollama/0.18.2/bin/ollama",
+        "pid": 803,
+        "process_name": "ollama"
+      },
+      "version": "0.18.2"
+    },
+    "producer_git_revision": "aacf57e23bc4beb8e0b80e01d665b468e0ec750c",
+    "qdrant": {
+      "collection_name": "q0-1-q0-1-20260921T030640Z-36f32ae-bge-m3-567m",
+      "collection_new_before_measurement": true,
+      "commit": "74f3e85b9473c62560006c043e13737ce6b48412",
+      "container_id": "f63f4b2a125a0cb969a58c36a0655cde0e154e605427929991f6f1f72c8d89c5",
+      "distance_metric": "cosine",
+      "image_id": "sha256:057ee3a8da769fe7310dd3537b4dc7583bf87a95ce8ac43c0af5a46bc580d1fc",
+      "version": "1.19.0"
+    },
+    "regenerated_chunk_set_sha256": "0aa4bbf11729158948230963930520c2cb52b04e5a292f03ba97c64d7c572cde",
+    "regenerated_parser": {
+      "candidate": "pymupdf",
+      "coordinate_origin": "bottom-left",
+      "parsed_block_count": 914,
+      "parsed_block_counts_by_paper": {
+        "1706.03762": 526,
+        "2005.11401": 388
+      },
+      "stream_relative_path": "qualification/private/q0-1-20260921T030640Z-36f32ae/parsed-blocks-pymupdf.jsonl",
+      "stream_sha256": "11288709a377835c106cb99000c3deeafb3300f55b66520c609f08da2c55fa0e",
+      "validated_as_parsed_block": true,
+      "version": "1.28.2"
+    },
+    "run_initialized_git_revision": "36f32aea3f7946c58a4db61628d875a73a17cf47",
+    "total_chunks": 93,
+    "tracked_tree_clean_before_measurement": true
+  },
+  "measurements": {
+    "bm25": {
+      "b": 0.75,
+      "document_count": 93,
+      "formula": "ln(1 + (N - df + 0.5) / (df + 0.5)) * (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * dl / avgdl))",
+      "index_relative_path": "qualification/private/q0-1-20260921T030640Z-36f32ae/bm25-index.json",
+      "index_sha256": "205dad841a0af0208cac7fe79832ca12b454ffc7560ff4841b3318b73affcdf8",
+      "k1": 1.5,
+      "query_term_frequency": "deduplicated in first-occurrence order",
+      "tokenizer": "Unicode NFKC + casefold + maximal Unicode alphanumeric runs"
+    },
+    "cases": [
+      {
+        "bm25_first_relevant_rank": 1,
+        "bm25_top_10": [
+          {
+            "chunk_id": "1706.03762-chunk-0007",
+            "rank": 1,
+            "score": 25.558279856730213
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0006",
+            "rank": 2,
+            "score": 23.182943079575125
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0008",
+            "rank": 3,
+            "score": 14.009719051688322
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0009",
+            "rank": 4,
+            "score": 11.89896828947131
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0019",
+            "rank": 5,
+            "score": 11.51917339657909
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0001",
+            "rank": 6,
+            "score": 11.49825008953598
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0027",
+            "rank": 7,
+            "score": 11.416827413153145
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0013",
+            "rank": 8,
+            "score": 10.488476723006347
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0011",
+            "rank": 9,
+            "score": 7.881417194231868
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0005",
+            "rank": 10,
+            "score": 6.9085780369743635
+          }
+        ],
+        "case_id": "1706.03762-answer-1",
+        "dense_first_relevant_rank": 1,
+        "dense_top_10": [
+          {
+            "chunk_id": "1706.03762-chunk-0007",
+            "rank": 1,
+            "score": 0.6887241
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0008",
+            "rank": 2,
+            "score": 0.65704185
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0006",
+            "rank": 3,
+            "score": 0.6157502
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0027",
+            "rank": 4,
+            "score": 0.58864915
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0015",
+            "rank": 5,
+            "score": 0.53458536
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0003",
+            "rank": 6,
+            "score": 0.52296436
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0009",
+            "rank": 7,
+            "score": 0.52238023
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0013",
+            "rank": 8,
+            "score": 0.5077925
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0002",
+            "rank": 9,
+            "score": 0.49718922
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0012",
+            "rank": 10,
+            "score": 0.48175758
+          }
+        ],
+        "first_relevant_rank": 1,
+        "fused_top_10": [
+          {
+            "chunk_id": "1706.03762-chunk-0007",
+            "rank": 1,
+            "score": 0.03278688524590164
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0008",
+            "rank": 2,
+            "score": 0.03200204813108039
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0006",
+            "rank": 3,
+            "score": 0.03200204813108039
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0027",
+            "rank": 4,
+            "score": 0.03055037313432836
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0009",
+            "rank": 5,
+            "score": 0.03055037313432836
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0013",
+            "rank": 6,
+            "score": 0.029411764705882353
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0015",
+            "rank": 7,
+            "score": 0.015384615384615385
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0019",
+            "rank": 8,
+            "score": 0.015384615384615385
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0003",
+            "rank": 9,
+            "score": 0.015151515151515152
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0001",
+            "rank": 10,
+            "score": 0.015151515151515152
+          }
+        ],
+        "paper_id": "1706.03762",
+        "question": "Why does scaled dot-product attention divide by the square root of the key dimension?",
+        "relevant_chunk_ids": [
+          "1706.03762-chunk-0007"
+        ]
+      },
+      {
+        "bm25_first_relevant_rank": 1,
+        "bm25_top_10": [
+          {
+            "chunk_id": "1706.03762-chunk-0008",
+            "rank": 1,
+            "score": 18.428960149901435
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0006",
+            "rank": 2,
+            "score": 14.039713452353139
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0027",
+            "rank": 3,
+            "score": 11.016123862713306
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0035",
+            "rank": 4,
+            "score": 10.476438927468939
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0013",
+            "rank": 5,
+            "score": 10.413760773210479
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0005",
+            "rank": 6,
+            "score": 10.35392344204451
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0003",
+            "rank": 7,
+            "score": 9.66577728178191
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0015",
+            "rank": 8,
+            "score": 8.46230193795789
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0031",
+            "rank": 9,
+            "score": 7.695942457750398
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0001",
+            "rank": 10,
+            "score": 7.357958684332424
+          }
+        ],
+        "case_id": "1706.03762-answer-2",
+        "dense_first_relevant_rank": 1,
+        "dense_top_10": [
+          {
+            "chunk_id": "1706.03762-chunk-0008",
+            "rank": 1,
+            "score": 0.68191165
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0009",
+            "rank": 2,
+            "score": 0.6492356
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0006",
+            "rank": 3,
+            "score": 0.61511
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0003",
+            "rank": 4,
+            "score": 0.58625156
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0015",
+            "rank": 5,
+            "score": 0.5802252
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0027",
+            "rank": 6,
+            "score": 0.5748755
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0013",
+            "rank": 7,
+            "score": 0.5671235
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0030",
+            "rank": 8,
+            "score": 0.5568369
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0002",
+            "rank": 9,
+            "score": 0.53538847
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0007",
+            "rank": 10,
+            "score": 0.53170466
+          }
+        ],
+        "first_relevant_rank": 1,
+        "fused_top_10": [
+          {
+            "chunk_id": "1706.03762-chunk-0008",
+            "rank": 1,
+            "score": 0.03278688524590164
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0006",
+            "rank": 2,
+            "score": 0.03200204813108039
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0027",
+            "rank": 3,
+            "score": 0.031024531024531024
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0003",
+            "rank": 4,
+            "score": 0.03055037313432836
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0013",
+            "rank": 5,
+            "score": 0.030309988518943745
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0015",
+            "rank": 6,
+            "score": 0.030090497737556562
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0009",
+            "rank": 7,
+            "score": 0.016129032258064516
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0035",
+            "rank": 8,
+            "score": 0.015625
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0005",
+            "rank": 9,
+            "score": 0.015151515151515152
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0030",
+            "rank": 10,
+            "score": 0.014705882352941176
+          }
+        ],
+        "paper_id": "1706.03762",
+        "question": "Why does multi-head attention use several attention heads instead of one?",
+        "relevant_chunk_ids": [
+          "1706.03762-chunk-0008"
+        ]
+      },
+      {
+        "bm25_first_relevant_rank": 1,
+        "bm25_top_10": [
+          {
+            "chunk_id": "1706.03762-chunk-0012",
+            "rank": 1,
+            "score": 11.330181574603966
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0003",
+            "rank": 2,
+            "score": 11.24733780556111
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0032",
+            "rank": 3,
+            "score": 8.97310766543074
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0015",
+            "rank": 4,
+            "score": 8.392224312271004
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0022",
+            "rank": 5,
+            "score": 8.076315789730378
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0031",
+            "rank": 6,
+            "score": 7.717024078607087
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0011",
+            "rank": 7,
+            "score": 7.362054360690994
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0002",
+            "rank": 8,
+            "score": 6.088203208094786
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0010",
+            "rank": 9,
+            "score": 5.837506163731028
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0003",
+            "rank": 10,
+            "score": 5.7831387850871385
+          }
+        ],
+        "case_id": "1706.03762-answer-3",
+        "dense_first_relevant_rank": 1,
+        "dense_top_10": [
+          {
+            "chunk_id": "1706.03762-chunk-0012",
+            "rank": 1,
+            "score": 0.5702996
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0003",
+            "rank": 2,
+            "score": 0.5577752
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0002",
+            "rank": 3,
+            "score": 0.554288
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0000",
+            "rank": 4,
+            "score": 0.54557943
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0030",
+            "rank": 5,
+            "score": 0.54045355
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0004",
+            "rank": 6,
+            "score": 0.5375588
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0001",
+            "rank": 7,
+            "score": 0.50382775
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0002",
+            "rank": 8,
+            "score": 0.49071702
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0011",
+            "rank": 9,
+            "score": 0.4893277
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0003",
+            "rank": 10,
+            "score": 0.4818408
+          }
+        ],
+        "first_relevant_rank": 1,
+        "fused_top_10": [
+          {
+            "chunk_id": "1706.03762-chunk-0012",
+            "rank": 1,
+            "score": 0.03278688524590164
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0003",
+            "rank": 2,
+            "score": 0.03225806451612903
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0002",
+            "rank": 3,
+            "score": 0.03057889822595705
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0003",
+            "rank": 4,
+            "score": 0.02857142857142857
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0032",
+            "rank": 5,
+            "score": 0.015873015873015872
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0000",
+            "rank": 6,
+            "score": 0.015625
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0015",
+            "rank": 7,
+            "score": 0.015625
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0030",
+            "rank": 8,
+            "score": 0.015384615384615385
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0022",
+            "rank": 9,
+            "score": 0.015384615384615385
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0004",
+            "rank": 10,
+            "score": 0.015151515151515152
+          }
+        ],
+        "paper_id": "1706.03762",
+        "question": "How does the model represent token order without recurrence or convolution?",
+        "relevant_chunk_ids": [
+          "1706.03762-chunk-0012"
+        ]
+      },
+      {
+        "bm25_first_relevant_rank": 2,
+        "bm25_top_10": [
+          {
+            "chunk_id": "1706.03762-chunk-0009",
+            "rank": 1,
+            "score": 18.822198329081868
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0005",
+            "rank": 2,
+            "score": 17.065542374863472
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0013",
+            "rank": 3,
+            "score": 13.142632531528005
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0015",
+            "rank": 4,
+            "score": 13.073173274074643
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0003",
+            "rank": 5,
+            "score": 12.532847852596012
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0011",
+            "rank": 6,
+            "score": 9.604597428060766
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0004",
+            "rank": 7,
+            "score": 9.02154864248873
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0010",
+            "rank": 8,
+            "score": 8.776331866814045
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0002",
+            "rank": 9,
+            "score": 8.545721655566327
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0020",
+            "rank": 10,
+            "score": 7.419042278330178
+          }
+        ],
+        "case_id": "1706.03762-answer-4",
+        "dense_first_relevant_rank": 3,
+        "dense_top_10": [
+          {
+            "chunk_id": "1706.03762-chunk-0009",
+            "rank": 1,
+            "score": 0.65279174
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0003",
+            "rank": 2,
+            "score": 0.6124724
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0005",
+            "rank": 3,
+            "score": 0.5816984
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0013",
+            "rank": 4,
+            "score": 0.5772608
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0030",
+            "rank": 5,
+            "score": 0.5384024
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0008",
+            "rank": 6,
+            "score": 0.51228356
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0015",
+            "rank": 7,
+            "score": 0.51137805
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0010",
+            "rank": 8,
+            "score": 0.50708234
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0002",
+            "rank": 9,
+            "score": 0.49989063
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0027",
+            "rank": 10,
+            "score": 0.49490702
+          }
+        ],
+        "first_relevant_rank": 2,
+        "fused_top_10": [
+          {
+            "chunk_id": "1706.03762-chunk-0009",
+            "rank": 1,
+            "score": 0.03278688524590164
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0005",
+            "rank": 2,
+            "score": 0.03200204813108039
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0003",
+            "rank": 3,
+            "score": 0.0315136476426799
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0013",
+            "rank": 4,
+            "score": 0.03149801587301587
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0015",
+            "rank": 5,
+            "score": 0.03055037313432836
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0010",
+            "rank": 6,
+            "score": 0.029411764705882353
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0002",
+            "rank": 7,
+            "score": 0.028985507246376812
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0030",
+            "rank": 8,
+            "score": 0.015384615384615385
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0008",
+            "rank": 9,
+            "score": 0.015151515151515152
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0011",
+            "rank": 10,
+            "score": 0.015151515151515152
+          }
+        ],
+        "paper_id": "1706.03762",
+        "question": "How does decoder self-attention prevent access to later output positions?",
+        "relevant_chunk_ids": [
+          "1706.03762-chunk-0005"
+        ]
+      },
+      {
+        "bm25_first_relevant_rank": 2,
+        "bm25_top_10": [
+          {
+            "chunk_id": "2005.11401-chunk-0032",
+            "rank": 1,
+            "score": 16.29760493086649
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0003",
+            "rank": 2,
+            "score": 13.801398250884356
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0022",
+            "rank": 3,
+            "score": 13.738964343723818
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0001",
+            "rank": 4,
+            "score": 13.006664795227472
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0054",
+            "rank": 5,
+            "score": 12.689109381139225
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0002",
+            "rank": 6,
+            "score": 11.28014956964424
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0004",
+            "rank": 7,
+            "score": 9.374767766840323
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0009",
+            "rank": 8,
+            "score": 7.519140158378466
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0025",
+            "rank": 9,
+            "score": 6.817237953582484
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0013",
+            "rank": 10,
+            "score": 6.781604950362996
+          }
+        ],
+        "case_id": "2005.11401-answer-1",
+        "dense_first_relevant_rank": 1,
+        "dense_top_10": [
+          {
+            "chunk_id": "2005.11401-chunk-0003",
+            "rank": 1,
+            "score": 0.7041917
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0001",
+            "rank": 2,
+            "score": 0.67553765
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0032",
+            "rank": 3,
+            "score": 0.67384815
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0004",
+            "rank": 4,
+            "score": 0.65276575
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0022",
+            "rank": 5,
+            "score": 0.60616595
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0025",
+            "rank": 6,
+            "score": 0.59207547
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0054",
+            "rank": 7,
+            "score": 0.5643927
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0049",
+            "rank": 8,
+            "score": 0.55789715
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0012",
+            "rank": 9,
+            "score": 0.554321
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0018",
+            "rank": 10,
+            "score": 0.5323331
+          }
+        ],
+        "first_relevant_rank": 1,
+        "fused_top_10": [
+          {
+            "chunk_id": "2005.11401-chunk-0003",
+            "rank": 1,
+            "score": 0.03252247488101534
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0032",
+            "rank": 2,
+            "score": 0.032266458495966696
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0001",
+            "rank": 3,
+            "score": 0.031754032258064516
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0022",
+            "rank": 4,
+            "score": 0.03125763125763126
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0004",
+            "rank": 5,
+            "score": 0.03055037313432836
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0054",
+            "rank": 6,
+            "score": 0.030309988518943745
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0025",
+            "rank": 7,
+            "score": 0.02964426877470356
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0002",
+            "rank": 8,
+            "score": 0.015151515151515152
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0049",
+            "rank": 9,
+            "score": 0.014705882352941176
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0009",
+            "rank": 10,
+            "score": 0.014705882352941176
+          }
+        ],
+        "paper_id": "2005.11401",
+        "question": "How does RAG combine parametric and non-parametric memory?",
+        "relevant_chunk_ids": [
+          "2005.11401-chunk-0003"
+        ]
+      },
+      {
+        "bm25_first_relevant_rank": 8,
+        "bm25_top_10": [
+          {
+            "chunk_id": "2005.11401-chunk-0026",
+            "rank": 1,
+            "score": 11.641351676484895
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0023",
+            "rank": 2,
+            "score": 11.56442774129684
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0021",
+            "rank": 3,
+            "score": 9.418074184633152
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0047",
+            "rank": 4,
+            "score": 9.294688758261941
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0007",
+            "rank": 5,
+            "score": 8.712338337209776
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0014",
+            "rank": 6,
+            "score": 7.837656505244563
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0001",
+            "rank": 7,
+            "score": 7.7229269817644095
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0005",
+            "rank": 8,
+            "score": 7.7168022583532405
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0025",
+            "rank": 9,
+            "score": 7.493479964435408
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0003",
+            "rank": 10,
+            "score": 7.469730476521816
+          }
+        ],
+        "case_id": "2005.11401-answer-2",
+        "dense_first_relevant_rank": 6,
+        "dense_top_10": [
+          {
+            "chunk_id": "2005.11401-chunk-0011",
+            "rank": 1,
+            "score": 0.63027704
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0021",
+            "rank": 2,
+            "score": 0.6231991
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0007",
+            "rank": 3,
+            "score": 0.615151
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0025",
+            "rank": 4,
+            "score": 0.5983776
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0006",
+            "rank": 5,
+            "score": 0.5865271
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0005",
+            "rank": 6,
+            "score": 0.5817576
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0026",
+            "rank": 7,
+            "score": 0.57811135
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0022",
+            "rank": 8,
+            "score": 0.5555937
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0001",
+            "rank": 9,
+            "score": 0.5436716
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0003",
+            "rank": 10,
+            "score": 0.53341097
+          }
+        ],
+        "first_relevant_rank": 5,
+        "fused_top_10": [
+          {
+            "chunk_id": "2005.11401-chunk-0021",
+            "rank": 1,
+            "score": 0.03200204813108039
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0026",
+            "rank": 2,
+            "score": 0.03131881575727918
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0007",
+            "rank": 3,
+            "score": 0.03125763125763126
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0025",
+            "rank": 4,
+            "score": 0.030117753623188408
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0005",
+            "rank": 5,
+            "score": 0.029857397504456328
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0001",
+            "rank": 6,
+            "score": 0.029418126757516764
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0003",
+            "rank": 7,
+            "score": 0.02857142857142857
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0011",
+            "rank": 8,
+            "score": 0.01639344262295082
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0023",
+            "rank": 9,
+            "score": 0.016129032258064516
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0047",
+            "rank": 10,
+            "score": 0.015625
+          }
+        ],
+        "paper_id": "2005.11401",
+        "question": "What is the difference between RAG-Sequence and RAG-Token generation?",
+        "relevant_chunk_ids": [
+          "2005.11401-chunk-0005"
+        ]
+      },
+      {
+        "bm25_first_relevant_rank": null,
+        "bm25_top_10": [
+          {
+            "chunk_id": "2005.11401-chunk-0007",
+            "rank": 1,
+            "score": 13.667464464616842
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0006",
+            "rank": 2,
+            "score": 10.738973900806345
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0004",
+            "rank": 3,
+            "score": 10.607334822731548
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0022",
+            "rank": 4,
+            "score": 10.149366094336234
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0005",
+            "rank": 5,
+            "score": 10.116809363702291
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0019",
+            "rank": 6,
+            "score": 9.12078051013216
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0047",
+            "rank": 7,
+            "score": 8.65855673643786
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0023",
+            "rank": 8,
+            "score": 7.969529273696727
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0028",
+            "rank": 9,
+            "score": 7.815744748909953
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0053",
+            "rank": 10,
+            "score": 7.812703884154164
+          }
+        ],
+        "case_id": "2005.11401-answer-3",
+        "dense_first_relevant_rank": 6,
+        "dense_top_10": [
+          {
+            "chunk_id": "2005.11401-chunk-0006",
+            "rank": 1,
+            "score": 0.655707
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0030",
+            "rank": 2,
+            "score": 0.6352377
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0005",
+            "rank": 3,
+            "score": 0.6200015
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0008",
+            "rank": 4,
+            "score": 0.61744577
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0031",
+            "rank": 5,
+            "score": 0.60801315
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0003",
+            "rank": 6,
+            "score": 0.5886853
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0012",
+            "rank": 7,
+            "score": 0.5815942
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0047",
+            "rank": 8,
+            "score": 0.5742924
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0007",
+            "rank": 9,
+            "score": 0.57399017
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0055",
+            "rank": 10,
+            "score": 0.57124484
+          }
+        ],
+        "first_relevant_rank": 10,
+        "fused_top_10": [
+          {
+            "chunk_id": "2005.11401-chunk-0006",
+            "rank": 1,
+            "score": 0.03252247488101534
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0005",
+            "rank": 2,
+            "score": 0.03125763125763126
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0007",
+            "rank": 3,
+            "score": 0.030886196246139225
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0047",
+            "rank": 4,
+            "score": 0.029631255487269532
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0030",
+            "rank": 5,
+            "score": 0.016129032258064516
+          },
+          {
+            "chunk_id": "1706.03762-chunk-0004",
+            "rank": 6,
+            "score": 0.015873015873015872
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0008",
+            "rank": 7,
+            "score": 0.015625
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0022",
+            "rank": 8,
+            "score": 0.015625
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0031",
+            "rank": 9,
+            "score": 0.015384615384615385
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0003",
+            "rank": 10,
+            "score": 0.015151515151515152
+          }
+        ],
+        "paper_id": "2005.11401",
+        "question": "How are retrieved documents used when generating an output sequence?",
+        "relevant_chunk_ids": [
+          "2005.11401-chunk-0003"
+        ]
+      },
+      {
+        "bm25_first_relevant_rank": null,
+        "bm25_top_10": [
+          {
+            "chunk_id": "2005.11401-chunk-0001",
+            "rank": 1,
+            "score": 13.194109997650738
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0004",
+            "rank": 2,
+            "score": 11.446046606196118
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0013",
+            "rank": 3,
+            "score": 11.050521724129613
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0012",
+            "rank": 4,
+            "score": 8.48781307946056
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0015",
+            "rank": 5,
+            "score": 8.052689429462271
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0014",
+            "rank": 6,
+            "score": 7.844726404082422
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0046",
+            "rank": 7,
+            "score": 7.7959767378142075
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0003",
+            "rank": 8,
+            "score": 7.613461657358926
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0055",
+            "rank": 9,
+            "score": 7.353805878369748
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0000",
+            "rank": 10,
+            "score": 7.195068749643109
+          }
+        ],
+        "case_id": "2005.11401-answer-4",
+        "dense_first_relevant_rank": 6,
+        "dense_top_10": [
+          {
+            "chunk_id": "2005.11401-chunk-0004",
+            "rank": 1,
+            "score": 0.61591846
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0001",
+            "rank": 2,
+            "score": 0.60797167
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0025",
+            "rank": 3,
+            "score": 0.5893071
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0012",
+            "rank": 4,
+            "score": 0.5851059
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0014",
+            "rank": 5,
+            "score": 0.57222027
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0018",
+            "rank": 6,
+            "score": 0.56261295
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0032",
+            "rank": 7,
+            "score": 0.56123877
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0026",
+            "rank": 8,
+            "score": 0.55445224
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0047",
+            "rank": 9,
+            "score": 0.55150074
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0003",
+            "rank": 10,
+            "score": 0.54794025
+          }
+        ],
+        "first_relevant_rank": 9,
+        "fused_top_10": [
+          {
+            "chunk_id": "2005.11401-chunk-0004",
+            "rank": 1,
+            "score": 0.03252247488101534
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0001",
+            "rank": 2,
+            "score": 0.03252247488101534
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0012",
+            "rank": 3,
+            "score": 0.03125
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0014",
+            "rank": 4,
+            "score": 0.030536130536130537
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0003",
+            "rank": 5,
+            "score": 0.028991596638655463
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0025",
+            "rank": 6,
+            "score": 0.015873015873015872
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0013",
+            "rank": 7,
+            "score": 0.015873015873015872
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0015",
+            "rank": 8,
+            "score": 0.015384615384615385
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0018",
+            "rank": 9,
+            "score": 0.015151515151515152
+          },
+          {
+            "chunk_id": "2005.11401-chunk-0032",
+            "rank": 10,
+            "score": 0.014925373134328358
+          }
+        ],
+        "paper_id": "2005.11401",
+        "question": "On which kinds of knowledge-intensive tasks is RAG evaluated?",
+        "relevant_chunk_ids": [
+          "2005.11401-chunk-0018"
+        ]
+      }
+    ],
+    "channel_metrics": {
+      "bm25": {
+        "first_relevant_ranks": [
+          1,
+          1,
+          1,
+          2,
+          2,
+          8,
+          null,
+          null
+        ],
+        "hits_at_1": [
+          1.0,
+          1.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "hits_at_5": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mrr": 0.515625,
+        "recall_at_1": 0.375,
+        "recall_at_5": 0.625,
+        "reciprocal_ranks": [
+          1.0,
+          1.0,
+          1.0,
+          0.5,
+          0.5,
+          0.125,
+          0.0,
+          0.0
+        ]
+      },
+      "dense": {
+        "first_relevant_ranks": [
+          1,
+          1,
+          1,
+          3,
+          1,
+          6,
+          6,
+          6
+        ],
+        "hits_at_1": [
+          1.0,
+          1.0,
+          1.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "hits_at_5": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mrr": 0.6041666666666666,
+        "recall_at_1": 0.5,
+        "recall_at_5": 0.625,
+        "reciprocal_ranks": [
+          1.0,
+          1.0,
+          1.0,
+          0.3333333333333333,
+          1.0,
+          0.16666666666666666,
+          0.16666666666666666,
+          0.16666666666666666
+        ]
+      },
+      "fused": {
+        "first_relevant_ranks": [
+          1,
+          1,
+          1,
+          2,
+          1,
+          5,
+          10,
+          9
+        ],
+        "hits_at_1": [
+          1.0,
+          1.0,
+          1.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "hits_at_5": [
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          1.0,
+          0.0,
+          0.0
+        ],
+        "mrr": 0.6138888888888889,
+        "recall_at_1": 0.5,
+        "recall_at_5": 0.75,
+        "reciprocal_ranks": [
+          1.0,
+          1.0,
+          1.0,
+          0.5,
+          1.0,
+          0.2,
+          0.1,
+          0.1111111111111111
+        ]
+      }
+    },
+    "chunk_set": {
+      "count": 93,
+      "sha256": "0aa4bbf11729158948230963930520c2cb52b04e5a292f03ba97c64d7c572cde"
+    },
+    "collection": {
+      "distance": "Cosine",
+      "indexed_vectors_count": 0,
+      "points_count": 93,
+      "status": "green",
+      "vector_size": 1024
+    },
+    "configuration_under_test": "bge-m3:567m + BM25(k1=1.5,b=0.75) + RRF(k=60)",
+    "document_embedding_batches": [
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      5
+    ],
+    "error_analysis": [
+      {
+        "bm25_first_relevant_rank": 8,
+        "case_id": "2005.11401-answer-2",
+        "fused_first_relevant_rank": 5,
+        "fused_top_5_miss": false,
+        "inherited_bge_first_relevant_rank": 6,
+        "observation": "fixed lexical fusion recovered the prior dense rank-6 case into the fused top-5",
+        "relevant_chunk_ids": [
+          "2005.11401-chunk-0005"
+        ],
+        "same_run_dense_first_relevant_rank": 6
+      },
+      {
+        "bm25_first_relevant_rank": null,
+        "case_id": "2005.11401-answer-3",
+        "fused_first_relevant_rank": 10,
+        "fused_top_5_miss": true,
+        "inherited_bge_first_relevant_rank": 6,
+        "observation": "relevant evidence remained outside the fused top-5",
+        "relevant_chunk_ids": [
+          "2005.11401-chunk-0003"
+        ],
+        "same_run_dense_first_relevant_rank": 6
+      },
+      {
+        "bm25_first_relevant_rank": null,
+        "case_id": "2005.11401-answer-4",
+        "fused_first_relevant_rank": 9,
+        "fused_top_5_miss": true,
+        "inherited_bge_first_relevant_rank": 6,
+        "observation": "relevant evidence remained outside the fused top-5",
+        "relevant_chunk_ids": [
+          "2005.11401-chunk-0018"
+        ],
+        "same_run_dense_first_relevant_rank": 6
+      }
+    ],
+    "failures": [],
+    "gold_used_only_after_ranking": true,
+    "golden_context": {
+      "case_id": "1706.03762-answer-1",
+      "case_in_top_5": true,
+      "provenance_complete": true,
+      "relative_path": "qualification/private/q0-1-20260921T030640Z-36f32ae/golden-retrieved-context.json",
+      "sha256": "f7b392c5fcfadc6db7a83db8505acc62d5e9c2dda0f51261a80c133e95392013",
+      "source_ids": [
+        "1706.03762-chunk-0007",
+        "1706.03762-chunk-0008",
+        "1706.03762-chunk-0006",
+        "1706.03762-chunk-0027",
+        "1706.03762-chunk-0009"
+      ]
+    },
+    "indexing": {
+      "dense_seconds": 28.44616649998352,
+      "lexical_seconds": 0.016066625015810132,
+      "total_seconds": 28.46223312499933
+    },
+    "latency": {
+      "p50_seconds": 0.146057458492578,
+      "p95_seconds": 0.21154120882565622,
+      "percentile_method": "statistics.quantiles inclusive",
+      "sample_count": 24,
+      "samples": [
+        {
+          "case_id": "1706.03762-answer-1",
+          "repetition": 1,
+          "seconds": 0.2040824579889886
+        },
+        {
+          "case_id": "1706.03762-answer-1",
+          "repetition": 2,
+          "seconds": 0.1836596249777358
+        },
+        {
+          "case_id": "1706.03762-answer-1",
+          "repetition": 3,
+          "seconds": 0.1252926250163
+        },
+        {
+          "case_id": "1706.03762-answer-2",
+          "repetition": 1,
+          "seconds": 0.14550166699336842
+        },
+        {
+          "case_id": "1706.03762-answer-2",
+          "repetition": 2,
+          "seconds": 0.12076300001353957
+        },
+        {
+          "case_id": "1706.03762-answer-2",
+          "repetition": 3,
+          "seconds": 0.21285745897330344
+        },
+        {
+          "case_id": "1706.03762-answer-3",
+          "repetition": 1,
+          "seconds": 0.20088550000218675
+        },
+        {
+          "case_id": "1706.03762-answer-3",
+          "repetition": 2,
+          "seconds": 0.1532363330188673
+        },
+        {
+          "case_id": "1706.03762-answer-3",
+          "repetition": 3,
+          "seconds": 0.15141083297203295
+        },
+        {
+          "case_id": "1706.03762-answer-4",
+          "repetition": 1,
+          "seconds": 0.23076437501003966
+        },
+        {
+          "case_id": "1706.03762-answer-4",
+          "repetition": 2,
+          "seconds": 0.1311702920065727
+        },
+        {
+          "case_id": "1706.03762-answer-4",
+          "repetition": 3,
+          "seconds": 0.13643170800060034
+        },
+        {
+          "case_id": "2005.11401-answer-1",
+          "repetition": 1,
+          "seconds": 0.16664674997446127
+        },
+        {
+          "case_id": "2005.11401-answer-1",
+          "repetition": 2,
+          "seconds": 0.13568541599670425
+        },
+        {
+          "case_id": "2005.11401-answer-1",
+          "repetition": 3,
+          "seconds": 0.17702591698616743
+        },
+        {
+          "case_id": "2005.11401-answer-2",
+          "repetition": 1,
+          "seconds": 0.15561762498691678
+        },
+        {
+          "case_id": "2005.11401-answer-2",
+          "repetition": 2,
+          "seconds": 0.11846483399858698
+        },
+        {
+          "case_id": "2005.11401-answer-2",
+          "repetition": 3,
+          "seconds": 0.14142795800580643
+        },
+        {
+          "case_id": "2005.11401-answer-3",
+          "repetition": 1,
+          "seconds": 0.20332095798221417
+        },
+        {
+          "case_id": "2005.11401-answer-3",
+          "repetition": 2,
+          "seconds": 0.12962300001527183
+        },
+        {
+          "case_id": "2005.11401-answer-3",
+          "repetition": 3,
+          "seconds": 0.11897583300014958
+        },
+        {
+          "case_id": "2005.11401-answer-4",
+          "repetition": 1,
+          "seconds": 0.11379783399752341
+        },
+        {
+          "case_id": "2005.11401-answer-4",
+          "repetition": 2,
+          "seconds": 0.1466132499917876
+        },
+        {
+          "case_id": "2005.11401-answer-4",
+          "repetition": 3,
+          "seconds": 0.11628183300490491
+        }
+      ],
+      "scope": "query embedding + Qdrant dense top-10 + in-process BM25 top-10 + RRF"
+    },
+    "peak_memory": {
+      "bytes": 176308224,
+      "scope": "probe process RSS sampled at each index/query batch boundary"
+    },
+    "rankings_stable": true,
+    "rrf": {
+      "bm25_limit": 10,
+      "dense_limit": 10,
+      "final_limit": 5,
+      "fused_limit": 10,
+      "k": 60,
+      "one_based_ranks": true,
+      "tie_break": [
+        "fused_score_desc",
+        "dense_rank_asc",
+        "bm25_rank_asc",
+        "chunk_id_asc"
+      ]
+    },
+    "warm_up": {
+      "case_id": "1706.03762-answer-1",
+      "completed": true,
+      "measured": false
+    }
+  },
+  "run_id": "q0-1-20260921T030640Z-36f32ae",
+  "selected_configuration": "bge-m3:567m + BM25(k1=1.5,b=0.75) + RRF(k=60)",
+  "threshold_outcomes": {
+    "bge_vector_stability": {
+      "failure_reason": null,
+      "observed": true,
+      "passed": true,
+      "requirement": "BGE vectors are finite, non-zero, stable, dimension-consistent, and untruncated"
+    },
+    "chunk_identity": {
+      "failure_reason": null,
+      "observed": "0aa4bbf11729158948230963930520c2cb52b04e5a292f03ba97c64d7c572cde",
+      "passed": true,
+      "requirement": "regenerated 93-chunk SHA-256 matches the inherited identity"
+    },
+    "fused_recall_at_5": {
+      "failure_reason": null,
+      "observed": 0.75,
+      "passed": true,
+      "requirement": "fused Recall@5 is at least 0.75 (6/8)"
+    },
+    "golden_case": {
+      "failure_reason": null,
+      "observed": true,
+      "passed": true,
+      "requirement": "1706.03762-answer-1 is present in the fused top-5"
+    },
+    "golden_provenance": {
+      "failure_reason": null,
+      "observed": true,
+      "passed": true,
+      "requirement": "every frozen golden top-5 source has complete source-span provenance"
+    },
+    "no_dense_recall_regression": {
+      "failure_reason": null,
+      "observed": {
+        "dense_recall_at_5": 0.625,
+        "fused_recall_at_5": 0.75
+      },
+      "passed": true,
+      "requirement": "fused Recall@5 is not below same-run dense Recall@5"
+    },
+    "no_runtime_failures": {
+      "failure_reason": null,
+      "observed": [],
+      "passed": true,
+      "requirement": "no crash, OOM, identity drift, corpus drift, or provenance loss occurs"
+    },
+    "ranking_integrity": {
+      "failure_reason": null,
+      "observed": true,
+      "passed": true,
+      "requirement": "all eight cases have unique well-formed dense, BM25, and fused top-10 rankings"
+    },
+    "ranking_stability": {
+      "failure_reason": null,
+      "observed": true,
+      "passed": true,
+      "requirement": "all three measured repetitions preserve deterministic channel ordering"
+    },
+    "total_indexing_time": {
+      "failure_reason": null,
+      "observed": 28.46223312499933,
+      "passed": true,
+      "requirement": "total dense plus lexical indexing completes within five minutes"
+    },
+    "warm_p95_latency": {
+      "failure_reason": null,
+      "observed": 0.21154120882565622,
+      "passed": true,
+      "requirement": "fused end-to-end warm p95 latency is below one second"
+    },
+    "warm_sample_count": {
+      "failure_reason": null,
+      "observed": 24,
+      "passed": true,
+      "requirement": "exactly three measured fused repetitions for each of eight questions"
+    }
+  }
+}

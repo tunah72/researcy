@@ -64,17 +64,17 @@ The sequence is dependency-ordered for one developer. Only the active milestone 
 - exact evidence resolution demonstrated on the golden paper;
 - throwaway probe code is not treated as production foundation.
 
-**Status:** Blocked
+**Status:** Verified
 
 **Evidence & Decisions:**
-- Report: [`docs/superpowers/reports/2026-09-20-researcy-q0-technical-qualification-report.md`](../reports/2026-09-20-researcy-q0-technical-qualification-report.md)
-- Run ID: `q0-20260920T124722Z-cd96df4`
-- Environment: [`qualification/results/q0-20260920T124722Z-cd96df4/environment.json`](../../../qualification/results/q0-20260920T124722Z-cd96df4/environment.json)
-- Parser Decision: [`qualification/results/q0-20260920T124722Z-cd96df4/parser.json`](../../../qualification/results/q0-20260920T124722Z-cd96df4/parser.json) (selected: `pymupdf`)
-- Embedding Result: [`qualification/results/q0-20260920T124722Z-cd96df4/embedding.json`](../../../qualification/results/q0-20260920T124722Z-cd96df4/embedding.json) (both candidates failed Recall@5 >= 0.75; `bge-m3:567m` achieved 0.625, `nomic-embed-text` achieved 0.500)
-- Generation & Proof: `not_run` (stopped at Track B per spec §13)
-- Approved remediation: [`2026-09-21-researcy-q0-1-hybrid-qualification.md`](./2026-09-21-researcy-q0-1-hybrid-qualification.md), revision 1.0.
-- Q0.1 decision: accept `bge-m3:567m` as the dense component without retroactively passing dense-only retrieval; Q0 remains `Blocked` until hybrid retrieval, Track C, and Track D all pass.
+- Original report: [`docs/superpowers/reports/2026-09-20-researcy-q0-technical-qualification-report.md`](../reports/2026-09-20-researcy-q0-technical-qualification-report.md)
+- Original run: [`qualification/results/q0-20260920T124722Z-cd96df4`](../../../qualification/results/q0-20260920T124722Z-cd96df4)
+- Q0.1 technical report: [`docs/superpowers/reports/2026-09-22-researcy-q0-1-hybrid-qualification-report.md`](../reports/2026-09-22-researcy-q0-1-hybrid-qualification-report.md)
+- Q0.1 run: [`qualification/results/q0-1-20260921T030640Z-36f32ae`](../../../qualification/results/q0-1-20260921T030640Z-36f32ae)
+- Parser: PyMuPDF geometry-first parsing retained from the original Q0 decision.
+- Retrieval: `bge-m3:567m + BM25(k1=1.5,b=0.75) + RRF(k=60)` passed fused Recall@5 at 6/8 without retroactively passing dense-only retrieval.
+- Generation: the configured `ag/gemini-3.8-flash-low` route passed the answerable, bounded follow-up, and unanswerable refusal cases.
+- Display: the answerable Evidence/Model/Result view passed the recorded Chromium and accessibility checks.
 
 ### M1 — Identity and Personal Library
 
@@ -212,12 +212,12 @@ The sequence is dependency-ordered for one developer. Only the active milestone 
 | SEC-01 | Untrusted PDF validation and bounded parser execution | 4, 17 | M1, M2 | Not started | — |
 | JOB-01 | PostgreSQL durable jobs with claim leases and recovery | 8 | M2 | Not started | — |
 | DOC-01 | Canonical document model with reversible provenance | 6 | M2 | Not started | — |
-| PARSE-01 | Qualified scientific PDF parser | 7 | Q0, M2 | Designed | Q0 spec revision 1.2 |
-| EMB-01 | On-device self-hosted embedding within the M1 budget | 9, 10, 20 | Q0, M2 | Designed | Q0 spec revision 1.2; Q0.1 spec revision 1.0 |
+| PARSE-01 | Qualified scientific PDF parser | 7 | Q0, M2 | Designed | Q0 report; Q0.1 report; final delivery remains M2 |
+| EMB-01 | On-device self-hosted embedding within the M1 budget | 9, 10, 20 | Q0, M2 | Designed | Q0.1 report: `bge-m3:567m` selected as hybrid dense component; final delivery remains M2 |
 | IDX-01 | User- and paper-scoped Qdrant index | 5, 9 | M2 | Not started | — |
-| RET-01 | Lexical + dense retrieval with RRF | 9 | M3 | Designed | Q0.1 spec revision 1.0 |
-| GEN-01 | Vendor-hosted streaming grounded generation | 10 | Q0, M3 | Designed | Q0 spec revision 1.2; Q0.1 spec revision 1.0 |
-| CIT-01 | Citation validation and quote-to-geometry resolution | 10 | Q0, M3, M4 | Designed | Q0 spec revision 1.2; Q0.1 spec revision 1.0 |
+| RET-01 | Lexical + dense retrieval with RRF | 9 | M3 | Designed | Q0.1 report: hybrid Recall@5 6/8; final delivery remains M3 |
+| GEN-01 | Vendor-hosted streaming grounded generation | 10 | Q0, M3 | Designed | Q0.1 report: three generation cases passed; final delivery remains M3 |
+| CIT-01 | Citation validation and quote-to-geometry resolution | 10 | Q0, M3, M4 | Designed | Q0.1 report and one-case display evidence; final delivery remains M4 |
 | UX-01 | Simplified editorial Library experience | 12, 13 | M1 | Not started | — |
 | UX-02 | Evidence-linked PDF and Discussion workspace | 12–14 | M4 | Not started | — |
 | EVAL-01 | Fixed corpus and separated quality metrics | 11 | M5 | Not started | — |
@@ -237,4 +237,4 @@ A requirement with multiple milestones has one delivery owner and earlier qualif
 
 ## 7. Current control point
 
-The master specification remains approved at revision 1.1. Q0 Technical Qualification revision 1.2 completed with an evidence-backed `Blocked` result at dense-only retrieval. Q0.1 Hybrid Retrieval and Evidence Qualification revision 1.0 is approved to qualify `bge-m3:567m + BM25 + RRF`, then execute the deferred Track C and Track D gates. Q0 remains `Blocked`; no production M1 work is authorized until Q0.1 reaches its exit gate. Q0.1 execution must use a new isolated worktree and the separate-session execution workflow.
+The master specification remains approved at revision 1.1. Q0 Technical Qualification revision 1.2 selected the parser and established the original dense-only limitation. Q0.1 Hybrid Retrieval and Evidence Qualification qualified `bge-m3:567m + BM25 + RRF`, the three-case grounded generation path, and the one-case evidence display. Q0 is `Verified`; M1 brainstorming is authorized.

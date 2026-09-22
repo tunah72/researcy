@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Q0 Track C Qualification</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, sans-serif; color: #18202b; background: #f4f6f8; }
+    body { margin: 0; }
+    main { width: min(72rem, calc(100% - 2rem)); margin: 0 auto; padding: 2rem 0 3rem; }
+    h1 { margin: 0 0 1.5rem; font-size: clamp(1.75rem, 4vw, 2.5rem); }
+    section { margin-top: 1rem; padding: clamp(1rem, 3vw, 1.5rem); border: 1px solid #c8d0d9; border-radius: .5rem; background: #fff; }
+    h2 { margin: 0 0 1rem; font-size: 1.35rem; }
+    dl, p { margin: 0; }
+    dt { margin-top: 1rem; font-weight: 700; }
+    dt:first-child { margin-top: 0; }
+    dd { margin: .25rem 0 0; overflow-wrap: anywhere; }
+    details { border-top: 1px solid #d9dee5; padding: .8rem 0; }
+    details:first-of-type { border-top: 0; padding-top: 0; }
+    details:last-of-type { padding-bottom: 0; }
+    summary { cursor: pointer; font-weight: 700; }
+    .evidence-text { margin-top: .75rem; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+    code { padding: .15rem .35rem; border-radius: .25rem; background: #e9edf2; color: #151a20; white-space: normal; overflow-wrap: anywhere; }
+    .status { display: inline-block; padding: .3rem .55rem; border: 2px solid #1e6b37; border-radius: .3rem; background: #eef8f1; color: #16532b; font-weight: 800; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Q0 Track C Qualification</h1>
+
+    <section aria-labelledby="evidence-heading">
+      <h2 id="evidence-heading">Evidence</h2>
+      <details>
+        <summary>1. chunk-0007</summary>
+        <div class="evidence-text">3.2.1 Scaled Dot-Product Attention
+
+We call our particular attention "Scaled Dot-Product Attention" (Figure 2). The input consists of queries and keys of dimension dk, and values of dimension dv. We compute the dot products of the query with all keys, divide each by √dk, and apply a softmax function to obtain the weights on the values.
+
+In practice, we compute the attention function on a set of queries simultaneously, packed together into a matrix Q. The keys and values are also packed together into matrices K and V . We compute the matrix of outputs as:
+
+Attention(Q, K, V ) = softmax(QKT
+
+√dk
+
+)V (1)
+
+The two most commonly used attention functions are additive attention [2], and dot-product (multi-plicative) attention. Dot-product attention is identical to our algorithm, except for the scaling factor of 1 √dk . Additive attention computes the compatibility function using a feed-forward network with a single hidden layer. While the two are similar in theoretical complexity, dot-product attention is much faster and more space-efficient in practice, since it can be implemented using highly optimized matrix multiplication code.
+
+While for small values of dk the two mechanisms perform similarly, additive attention outperforms dot product attention without scaling for larger values of dk [3]. We suspect that for large values of dk, the dot products grow large in magnitude, pushing the softmax function into regions where it has extremely small gradients 4. To counteract this effect, we scale the dot products by 1 √dk .</div>
+      </details>
+      <details>
+        <summary>2. chunk-0008</summary>
+        <div class="evidence-text">3.2.2 Multi-Head Attention
+
+Instead of performing a single attention function with dmodel-dimensional keys, values and queries, we found it beneficial to linearly project the queries, keys and values h times with different, learned linear projections to dk, dk and dv dimensions, respectively. On each of these projected versions of queries, keys and values we then perform the attention function in parallel, yielding dv-dimensional
+
+4To illustrate why the dot products get large, assume that the components of q and k are independent random variables with mean 0 and variance 1. Then their dot product, q · k = Pdk
+
+i=1 qiki, has mean 0 and variance dk.
+
+output values. These are concatenated and once again projected, resulting in the final values, as depicted in Figure 2.
+
+Multi-head attention allows the model to jointly attend to information from different representation subspaces at different positions. With a single attention head, averaging inhibits this.
+
+MultiHead(Q, K, V ) = Concat(head1, ..., headh)W O
+
+where headi = Attention(QW Q
+
+i , KW K
+
+i , V W V
+
+i )
+
+Where the projections are parameter matrices W Q
+
+i ∈Rdmodel×dv and W O ∈Rhdv×dmodel.
+
+i ∈Rdmodel×dk, W V
+
+i ∈Rdmodel×dk, W K
+
+In this work we employ h = 8 parallel attention layers, or heads. For each of these we use dk = dv = dmodel/h = 64. Due to the reduced dimension of each head, the total computational cost is similar to that of single-head attention with full dimensionality.</div>
+      </details>
+      <details>
+        <summary>3. chunk-0006</summary>
+        <div class="evidence-text">3.2 Attention
+
+An attention function can be described as mapping a query and a set of key-value pairs to an output, where the query, keys, values, and output are all vectors. The output is computed as a weighted sum
+
+Scaled Dot-Product Attention
+
+Multi-Head Attention
+
+Figure 2: (left) Scaled Dot-Product Attention. (right) Multi-Head Attention consists of several attention layers running in parallel.
+
+of the values, where the weight assigned to each value is computed by a compatibility function of the query with the corresponding key.</div>
+      </details>
+      <details>
+        <summary>4. chunk-0027</summary>
+        <div class="evidence-text">0.0 5.77 24.6 0.2 4.95 25.5 0.0 4.67 25.3 0.2 5.47 25.7 (E) positional embedding instead of sinusoids 4.92 25.7 big 6 1024 4096 16 0.3 300K 4.33 26.4 213
+
+(D)
+
+development set, newstest2013. We used beam search as described in the previous section, but no checkpoint averaging. We present these results in Table 3.
+
+In Table 3 rows (A), we vary the number of attention heads and the attention key and value dimensions, keeping the amount of computation constant, as described in Section 3.2.2. While single-head attention is 0.9 BLEU worse than the best setting, quality also drops off with too many heads.
+
+In Table 3 rows (B), we observe that reducing the attention key size dk hurts model quality. This suggests that determining compatibility is not easy and that a more sophisticated compatibility function than dot product may be beneficial. We further observe in rows (C) and (D) that, as expected, bigger models are better, and dropout is very helpful in avoiding over-fitting. In row (E) we replace our sinusoidal positional encoding with learned positional embeddings [9], and observe nearly identical results to the base model.</div>
+      </details>
+      <details>
+        <summary>5. chunk-0009</summary>
+        <div class="evidence-text">3.2.3 Applications of Attention in our Model
+
+The Transformer uses multi-head attention in three different ways:
+
+• In "encoder-decoder attention" layers, the queries come from the previous decoder layer, and the memory keys and values come from the output of the encoder. This allows every position in the decoder to attend over all positions in the input sequence. This mimics the typical encoder-decoder attention mechanisms in sequence-to-sequence models such as [38, 2, 9].
+
+• The encoder contains self-attention layers. In a self-attention layer all of the keys, values and queries come from the same place, in this case, the output of the previous layer in the encoder. Each position in the encoder can attend to all positions in the previous layer of the encoder.
+
+• Similarly, self-attention layers in the decoder allow each position in the decoder to attend to all positions in the decoder up to and including that position. We need to prevent leftward information flow in the decoder to preserve the auto-regressive property. We implement this inside of scaled dot-product attention by masking out (setting to −∞) all values in the input of the softmax which correspond to illegal connections. See Figure 2.</div>
+      </details>
+    </section>
+
+    <section aria-labelledby="model-heading">
+      <h2 id="model-heading">Model</h2>
+      <p><code>ag/gemini-3.8-flash-low</code></p>
+    </section>
+
+    <section aria-labelledby="result-heading">
+      <h2 id="result-heading">Result</h2>
+      <dl>
+        <dt>Status</dt>
+        <dd><strong class="status">Qualified</strong></dd>
+        <dt>Question</dt>
+        <dd>Why does scaled dot-product attention divide by the square root of the key dimension?</dd>
+        <dt>Answer</dt>
+        <dd>Scaled dot-product attention divides by the square root of the key dimension ($\sqrt{d_k}$) because, for large values of $d_k$, the dot products are suspected to grow large in magnitude [chunk-0007]. When components of the queries and keys are independent random variables with mean 0 and variance 1, their dot product has a mean of 0 and a variance of $d_k$ [chunk-0008]. Large-magnitude dot products push the softmax function into regions with extremely small gradients; dividing by $\sqrt{d_k}$ counteracts this effect [chunk-0007].</dd>
+        <dt>Citations</dt>
+        <dd>chunk-0007, chunk-0008</dd>
+      </dl>
+    </section>
+  </main>
+</body>
+</html>
