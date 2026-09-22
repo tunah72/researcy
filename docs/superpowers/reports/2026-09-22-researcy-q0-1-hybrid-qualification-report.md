@@ -22,7 +22,7 @@ This records the configured route, not backend identity echoed by the response.
 
 ## Result
 
-- Track B: `Passed`
-- Track C: `Not qualified`; one authorized request produced no valid grounded answer, no retry was sent.
-- Track D: `Passed` for displaying the actual Evidence/Model/Result, including the failed Track C state. Browser verification across 375, 768, 1024, and 1440 viewport widths observed zero horizontal overflow, exactly one main landmark, one h1, exactly Evidence/Model/Result sections, first evidence disclosure opened, and axe-core 4.13.0 reported 0 violations and 0 incomplete checks.
-- Final Q0 status: `Not qualified` because Track C did not pass.
+- Track B: `Passed`.
+- Track C: `Passed` — one HTTP 200 generation request produced a grounded answer satisfying the semantic gate with citations `chunk-0007` and `chunk-0008`.
+- Track D: `Passed` — the corrected Evidence/Model/Result page passed the browser observations above.
+- Final Q0 status: `Qualified` because Tracks B, C, and D passed.
