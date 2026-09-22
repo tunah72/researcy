@@ -21,7 +21,7 @@
     summary { cursor: pointer; font-weight: 700; }
     .evidence-text { margin-top: .75rem; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
     code { padding: .15rem .35rem; border-radius: .25rem; background: #e9edf2; color: #151a20; white-space: normal; overflow-wrap: anywhere; }
-    .status { display: inline-block; padding: .3rem .55rem; border: 2px solid #8b1e1e; border-radius: .3rem; background: #fff1f1; color: #741818; font-weight: 800; }
+    .status { display: inline-block; padding: .3rem .55rem; border: 2px solid #1e6b37; border-radius: .3rem; background: #eef8f1; color: #16532b; font-weight: 800; }
   </style>
 </head>
 <body>
@@ -131,13 +131,15 @@ The Transformer uses multi-head attention in three different ways:
       <h2 id="result-heading">Result</h2>
       <dl>
         <dt>Status</dt>
-        <dd><strong class="status">Not qualified</strong></dd>
+        <dd><strong class="status">Qualified</strong></dd>
         <dt>Question</dt>
         <dd>Why does scaled dot-product attention divide by the square root of the key dimension?</dd>
         <dt>Answer</dt>
-        <dd>Generation request failed.</dd>
+        <dd>Scaled dot-product attention divides by $\sqrt{d_k}$ to counteract the effect of dot products growing large in magnitude for larger values of $d_k$ [chunk-0007]. 
+
+Increasing the key dimension increases the magnitude of the dot products because when query and key components are independent random variables with mean 0 and variance 1, their dot product has mean 0 and a variance equal to $d_k$ [chunk-0008]. These larger-magnitude dot products push the softmax function into regions where it has extremely small gradients [chunk-0007].</dd>
         <dt>Citations</dt>
-        <dd>None</dd>
+        <dd>chunk-0007, chunk-0008</dd>
       </dl>
     </section>
   </main>
