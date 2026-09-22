@@ -1,5 +1,3 @@
-# Researcy Q0.1 Hybrid Qualification Report
-
 ## Evidence
 
 Track B passed with selected `bge-m3:567m + BM25(k1=1.5,b=0.75) + RRF(k=60)`.
@@ -27,4 +25,4 @@ This records the configured route, not backend identity echoed by the response.
 - Track B: `Passed`
 - Track C: `Not qualified`; one authorized request produced no valid grounded answer, no retry was sent.
 - Track D: `Passed` for displaying the actual Evidence/Model/Result, including the failed Track C state. Browser verification across 375, 768, 1024, and 1440 viewport widths observed zero horizontal overflow, exactly one main landmark, one h1, exactly Evidence/Model/Result sections, first evidence disclosure opened, and axe-core 4.13.0 reported 0 violations and 0 incomplete checks.
-- Final Q0 status: `Not qualified`
+- Final Q0 status: `Not qualified` because Track C did not pass.
