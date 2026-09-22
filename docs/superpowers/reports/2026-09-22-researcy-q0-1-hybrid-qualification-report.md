@@ -24,5 +24,5 @@ This records the configured route, not backend identity echoed by the response.
 
 - Track B: `Passed`.
 - Track C: `Passed` — one HTTP 200 generation request produced a grounded answer satisfying the semantic gate with citations `chunk-0007` and `chunk-0008`.
-- Track D: `Passed` — the corrected Evidence/Model/Result page passed the browser observations above.
+- Track D: `Passed` — Chromium at 375/768/1024/1440 had zero horizontal overflow, one main and one h1, the exact Evidence/Model/Result sections, visible Qualified status/citations, and axe-core 4.13.0 found 0 violations.
 - Final Q0 status: `Qualified` because Tracks B, C, and D passed.
