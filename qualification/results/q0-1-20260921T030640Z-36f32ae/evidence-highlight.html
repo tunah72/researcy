@@ -135,9 +135,7 @@ The Transformer uses multi-head attention in three different ways:
         <dt>Question</dt>
         <dd>Why does scaled dot-product attention divide by the square root of the key dimension?</dd>
         <dt>Answer</dt>
-        <dd>Scaled dot-product attention divides by $\sqrt{d_k}$ to counteract the effect of dot products growing large in magnitude for larger values of $d_k$ [chunk-0007]. 
-
-Increasing the key dimension increases the magnitude of the dot products because when query and key components are independent random variables with mean 0 and variance 1, their dot product has mean 0 and a variance equal to $d_k$ [chunk-0008]. These larger-magnitude dot products push the softmax function into regions where it has extremely small gradients [chunk-0007].</dd>
+        <dd>Scaled dot-product attention divides by the square root of the key dimension ($\sqrt{d_k}$) because, for large values of $d_k$, the dot products are suspected to grow large in magnitude [chunk-0007]. When components of the queries and keys are independent random variables with mean 0 and variance 1, their dot product has a mean of 0 and a variance of $d_k$ [chunk-0008]. Large-magnitude dot products push the softmax function into regions with extremely small gradients; dividing by $\sqrt{d_k}$ counteracts this effect [chunk-0007].</dd>
         <dt>Citations</dt>
         <dd>chunk-0007, chunk-0008</dd>
       </dl>
