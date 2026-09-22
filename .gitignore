@@ -6,3 +6,9 @@ qualification/.cache/
 qualification/private/
 *.pdf
 .DS_Store
+
+# Agent scratch
+/.omp/
+
+# Local reference materials & UI screenshots
+/_references/
