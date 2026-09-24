@@ -214,7 +214,7 @@ def exchange_and_validate(
         return None
 
     return {
-        "issuer": issuer,
+        "issuer": GOOGLE_ISSUER,
         "sub": user["sub"],
         "email": user.get("email") if isinstance(user.get("email"), str) else None,
         "display_name": user.get("name") if isinstance(user.get("name"), str) else None,

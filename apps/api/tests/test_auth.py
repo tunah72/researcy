@@ -263,6 +263,23 @@ def test_expired_and_replayed_oauth_transactions_never_issue_another_session(cli
     assert pg_conn.execute("SELECT count(*) FROM sessions").fetchone()[0] == 1
 
 
+def test_google_issuer_aliases_share_the_same_subject_identity(client, pg_conn, local_google):
+    _, first = start_login(client, local_google)
+    local_google.claims = {"iss": "accounts.google.com"}
+    assert finish_login(client, first).headers["location"] == "/library"
+
+    _, second = start_login(client, local_google)
+    local_google.claims = {"iss": ISSUER}
+    assert finish_login(client, second).headers["location"] == "/library"
+
+    assert (
+        pg_conn.execute(
+            "SELECT count(*) FROM users WHERE sub = %s", ("google-subject-1",)
+        ).fetchone()[0]
+        == 1
+    )
+
+
 def test_google_subject_not_email_is_the_user_identity(client, pg_conn, local_google):
     _, first = start_login(client, local_google)
     local_google.claims = {"sub": "google-subject-a", "email": "same@example.test"}
