@@ -7,6 +7,8 @@ dependencies = [
   "authlib>=1.4,<2",
   "fastapi>=0.115.12,<1",
   "httpx2>=2.13.1",
+  "minio>=7.2.15,<8",
+  "pymupdf>=1.25.3,<2",
   "psycopg[binary]>=3.2.6,<4",
   "uvicorn[standard]>=0.34,<1",
 ]
