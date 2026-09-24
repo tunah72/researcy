@@ -267,6 +267,80 @@ def test_0002_upgrade_preserves_existing_m1_paper(pg_conn):
     ).fetchone()[0]
 
 
+def test_0002_normalizes_intermediate_0001_guard_objects(pg_conn):
+    config = alembic_config(pg_conn.info.dbname)
+    command.downgrade(config, "0001_m1")
+    pg_conn.execute("ALTER TABLE papers ALTER COLUMN active_version_id SET NOT NULL")
+
+    owner_id = insert_user(pg_conn, f"subject-{uuid4()}", "intermediate@example.test")
+    paper_id, version_id = insert_paper(pg_conn, owner_id, None)
+    second_version_id = insert_version(pg_conn, owner_id, paper_id)
+    pg_conn.execute(
+        """
+        CREATE FUNCTION m1_guard_document_versions() RETURNS trigger
+        LANGUAGE plpgsql
+        AS $$
+        BEGIN
+            IF NEW.sha256 IS DISTINCT FROM OLD.sha256 THEN
+                RAISE EXCEPTION 'source fact is immutable'
+                    USING ERRCODE = 'check_violation';
+            END IF;
+            RETURN NEW;
+        END;
+        $$
+        """
+    )
+    pg_conn.execute(
+        """
+        CREATE TRIGGER trg_document_versions_immutable
+        BEFORE UPDATE ON document_versions
+        FOR EACH ROW EXECUTE FUNCTION m1_guard_document_versions()
+        """
+    )
+    pg_conn.execute(
+        """
+        CREATE FUNCTION m1_guard_paper_active_version() RETURNS trigger
+        LANGUAGE plpgsql
+        AS $$
+        BEGIN
+            IF NEW.active_version_id IS DISTINCT FROM OLD.active_version_id THEN
+                RAISE EXCEPTION 'active version is immutable'
+                    USING ERRCODE = 'check_violation';
+            END IF;
+            RETURN NEW;
+        END;
+        $$
+        """
+    )
+    pg_conn.execute(
+        """
+        CREATE TRIGGER trg_papers_active_version_immutable
+        BEFORE UPDATE ON papers
+        FOR EACH ROW EXECUTE FUNCTION m1_guard_paper_active_version()
+        """
+    )
+    pg_conn.commit()
+
+    command.upgrade(config, "head")
+
+    assert (
+        pg_conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+        == M2_REVISION
+    )
+    expect_constraint(
+        pg_conn,
+        psycopg.errors.CheckViolation,
+        "UPDATE document_versions SET sha256 = %s WHERE id = %s",
+        (bytes([1]) * 32, version_id),
+    )
+    expect_constraint(
+        pg_conn,
+        psycopg.errors.CheckViolation,
+        "UPDATE papers SET active_version_id = %s WHERE id = %s",
+        (second_version_id, paper_id),
+    )
+
+
 def test_accepted_paper_requires_an_active_document_version(pg_conn):
     owner = insert_user(pg_conn, f"subject-{uuid4()}", "paper@example.test")
     with pytest.raises(psycopg.errors.NotNullViolation):

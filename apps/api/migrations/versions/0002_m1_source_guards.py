@@ -18,9 +18,10 @@ def upgrade() -> None:
         existing_nullable=True,
         nullable=False,
     )
+    op.execute("DROP TRIGGER IF EXISTS trg_document_versions_immutable ON document_versions")
     op.execute(
         """
-        CREATE FUNCTION m1_guard_document_versions() RETURNS trigger
+        CREATE OR REPLACE FUNCTION m1_guard_document_versions() RETURNS trigger
         LANGUAGE plpgsql
         AS $$
         BEGIN
@@ -49,9 +50,10 @@ def upgrade() -> None:
         FOR EACH ROW EXECUTE FUNCTION m1_guard_document_versions()
         """
     )
+    op.execute("DROP TRIGGER IF EXISTS trg_papers_active_version_immutable ON papers")
     op.execute(
         """
-        CREATE FUNCTION m1_guard_paper_active_version() RETURNS trigger
+        CREATE OR REPLACE FUNCTION m1_guard_paper_active_version() RETURNS trigger
         LANGUAGE plpgsql
         AS $$
         BEGIN
