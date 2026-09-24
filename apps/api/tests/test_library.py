@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 
 from conftest import _database_url
 from researcy.auth.sessions import SESSION_COOKIE, session_lookup
+from researcy.config import Settings
 from researcy.errors import APIError
 from researcy.main import api_error_handler, app
 
@@ -272,7 +273,12 @@ def test_library_requires_an_authenticated_session(client):
     assert response.json()["code"] == "UNAUTHENTICATED"
 
 
-def test_import_quota_persists_across_new_process_and_is_per_user(pg_conn):
+def test_import_quota_persists_across_new_process_and_is_per_user(
+    monkeypatch, pg_conn
+):
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("IMPORT_QUOTA_LIMIT", "2")
+    settings = Settings.from_env()
     repository = _quota_repository()
     owner = _insert_user(pg_conn, "quota-persisted-owner")
     other_owner = _insert_user(pg_conn, "quota-independent-owner")
@@ -280,10 +286,14 @@ def test_import_quota_persists_across_new_process_and_is_per_user(pg_conn):
     database_url = _database_url(pg_conn.info.dbname)
 
     with psycopg.connect(database_url) as conn:
-        for _ in range(repository.IMPORT_QUOTA_LIMIT):
-            repository.take_import_slot(conn, owner)
+        for _ in range(settings.import_quota_limit):
+            repository.take_import_slot(
+                conn, owner, import_limit=settings.import_quota_limit
+            )
     with psycopg.connect(database_url) as conn:
-        repository.take_import_slot(conn, other_owner)
+        repository.take_import_slot(
+            conn, other_owner, import_limit=settings.import_quota_limit
+        )
 
     code = """
 import os
@@ -302,7 +312,11 @@ else:
     process = subprocess.run(
         [sys.executable, "-c", code, str(owner)],
         cwd=Path(__file__).resolve().parents[1],
-        env={"DATABASE_URL": database_url},
+        env={
+            "APP_ENV": "test",
+            "DATABASE_URL": database_url,
+            "IMPORT_QUOTA_LIMIT": str(settings.import_quota_limit),
+        },
         capture_output=True,
         text=True,
         timeout=30,
@@ -313,29 +327,41 @@ else:
     assert pg_conn.execute(
         "SELECT request_count FROM import_rate_limits WHERE owner_id = %s",
         (owner,),
-    ).fetchone()[0] == repository.IMPORT_QUOTA_LIMIT
+    ).fetchone()[0] == settings.import_quota_limit
     assert pg_conn.execute(
         "SELECT request_count FROM import_rate_limits WHERE owner_id = %s",
         (other_owner,),
     ).fetchone()[0] == 1
 
 
-def test_import_quota_error_returns_safe_429_with_retry_after():
+def test_import_quota_error_returns_safe_429_with_retry_after(monkeypatch, pg_conn):
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("APP_ORIGINS", BASE_URL)
+    monkeypatch.setenv("IMPORT_QUOTA_LIMIT", "2")
+    settings = Settings.from_env()
     repository = _quota_repository()
+    owner = _insert_user(pg_conn, "quota-http-owner")
+    pg_conn.commit()
+    database_url = _database_url(pg_conn.info.dbname)
     test_app = FastAPI()
     test_app.add_exception_handler(APIError, api_error_handler)
 
-    @test_app.get("/quota")
+    @test_app.post("/quota")
     def quota(request: Request):
         request.state.request_id = "task3-test-request"
-        raise repository.ImportQuotaExceeded(17)
+        with psycopg.connect(database_url) as conn:
+            repository.take_import_slot(
+                conn, owner, import_limit=settings.import_quota_limit
+            )
+        return {"request_id": request.state.request_id}
 
     with TestClient(test_app) as test_client:
-        response = test_client.get("/quota")
+        responses = [test_client.post("/quota") for _ in range(3)]
 
-    assert response.status_code == 429
-    assert response.headers["Retry-After"] == "17"
-    assert response.json() == {
+    limited = responses[-1]
+    assert [response.status_code for response in responses] == [200, 200, 429]
+    assert int(limited.headers["Retry-After"]) > 0
+    assert limited.json() == {
         "code": "IMPORT_RATE_LIMITED",
         "message": "The import limit was reached. Try again after the indicated interval.",
         "request_id": "task3-test-request",
@@ -343,8 +369,10 @@ def test_import_quota_error_returns_safe_429_with_retry_after():
 
 
 def test_import_quota_is_atomic_under_concurrent_requests(monkeypatch, pg_conn):
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("IMPORT_QUOTA_LIMIT", "3")
+    settings = Settings.from_env()
     repository = _quota_repository()
-    monkeypatch.setattr(repository, "IMPORT_QUOTA_LIMIT", 3)
     owner = _insert_user(pg_conn, "quota-concurrent-owner")
     pg_conn.commit()
     database_url = _database_url(pg_conn.info.dbname)
@@ -355,7 +383,9 @@ def test_import_quota_is_atomic_under_concurrent_requests(monkeypatch, pg_conn):
         barrier.wait(timeout=10)
         try:
             with psycopg.connect(database_url) as conn:
-                repository.take_import_slot(conn, owner)
+                repository.take_import_slot(
+                    conn, owner, import_limit=settings.import_quota_limit
+                )
         except repository.ImportQuotaExceeded as error:
             return "limited", error.retry_after
         return "accepted", None
@@ -365,11 +395,11 @@ def test_import_quota_is_atomic_under_concurrent_requests(monkeypatch, pg_conn):
 
     accepted = [result for result in results if result[0] == "accepted"]
     limited = [result for result in results if result[0] == "limited"]
-    assert len(accepted) == 3
-    assert len(limited) == request_count - 3
+    assert len(accepted) == settings.import_quota_limit
+    assert len(limited) == request_count - settings.import_quota_limit
     assert all(retry_after > 0 for _, retry_after in limited)
     count = pg_conn.execute(
         "SELECT request_count FROM import_rate_limits WHERE owner_id = %s",
         (owner,),
     ).fetchone()[0]
-    assert count == 3
+    assert count == settings.import_quota_limit

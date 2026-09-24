@@ -50,3 +50,24 @@ def test_origin_rejects_wildcards_and_non_origin_urls(monkeypatch):
     monkeypatch.setenv("APP_ORIGINS", "https://*.example.test/path")
     with pytest.raises(ValueError, match="exact origin"):
         Settings.from_env()
+
+
+def test_import_quota_limit_defaults_and_accepts_positive_config(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("APP_ORIGINS", "http://localhost:3000")
+    monkeypatch.delenv("IMPORT_QUOTA_LIMIT", raising=False)
+
+    assert Settings.from_env().import_quota_limit == 10
+
+    monkeypatch.setenv("IMPORT_QUOTA_LIMIT", "3")
+    assert Settings.from_env().import_quota_limit == 3
+
+
+@pytest.mark.parametrize("value", ["0", "-1"])
+def test_import_quota_limit_must_be_positive(monkeypatch, value):
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("APP_ORIGINS", "http://localhost:3000")
+    monkeypatch.setenv("IMPORT_QUOTA_LIMIT", value)
+
+    with pytest.raises(ValueError, match="IMPORT_QUOTA_LIMIT"):
+        Settings.from_env()

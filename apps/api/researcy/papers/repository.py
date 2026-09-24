@@ -1,8 +1,6 @@
+from ..config import get_settings
 from ..errors import APIError
 from .models import MAX_SEARCH_LENGTH
-
-
-IMPORT_QUOTA_LIMIT = 10  # Per user per fixed one-hour window.
 
 
 class ImportQuotaExceeded(APIError):
@@ -77,7 +75,11 @@ def list_papers(conn, owner_id, search) -> list[dict]:
     return [_paper(row) for row in conn.execute(query, params).fetchall()]
 
 
-def take_import_slot(conn, owner_id) -> None:
+def take_import_slot(conn, owner_id, *, import_limit: int | None = None) -> None:
+    if import_limit is None:
+        import_limit = get_settings().import_quota_limit
+    if import_limit <= 0:
+        raise ValueError("import_limit must be a positive integer")
     window_start, retry_after = conn.execute(
         """
         SELECT date_trunc('hour', statement_timestamp()),
@@ -107,7 +109,7 @@ def take_import_slot(conn, owner_id) -> None:
         """,
         (owner_id, window_start),
     ).fetchone()
-    if row[0] >= IMPORT_QUOTA_LIMIT:
+    if row[0] >= import_limit:
         raise ImportQuotaExceeded(retry_after)
     conn.execute(
         """

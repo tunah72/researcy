@@ -51,6 +51,7 @@ class Settings:
     cookie_secure: bool
     max_upload_bytes: int
     max_pdf_pages: int
+    import_quota_limit: int
     session_lookup_key: bytes
     google_client_id: str
     google_client_secret: str
@@ -69,6 +70,9 @@ class Settings:
         )
         max_upload_bytes = int(environ.get("MAX_UPLOAD_BYTES", str(25 * 1024 * 1024)))
         max_pdf_pages = int(environ.get("MAX_PDF_PAGES", "100"))
+        import_quota_limit = int(environ.get("IMPORT_QUOTA_LIMIT", "10"))
+        if import_quota_limit <= 0:
+            raise ValueError("IMPORT_QUOTA_LIMIT must be a positive integer")
         if max_upload_bytes <= 0 or max_pdf_pages <= 0:
             raise ValueError("MAX_UPLOAD_BYTES and MAX_PDF_PAGES must be positive integers")
 
@@ -100,6 +104,7 @@ class Settings:
             cookie_secure=cookie_secure,
             max_upload_bytes=max_upload_bytes,
             max_pdf_pages=max_pdf_pages,
+            import_quota_limit=import_quota_limit,
             session_lookup_key=session_lookup_key,
             google_client_id=environ.get("GOOGLE_CLIENT_ID", "").strip(),
             google_client_secret=environ.get("GOOGLE_CLIENT_SECRET", "").strip(),
