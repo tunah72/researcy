@@ -98,10 +98,10 @@ The sequence follows the reader-first product dependency: identity and a ready o
 - Library states are backed by real database state;
 - logout revokes the server-side session.
 
-**Status:** Planned
+**Status:** Implemented
 
 **Approved child specification:** [`2026-09-24-researcy-m1-sign-in-library-import-design.md`](./2026-09-24-researcy-m1-sign-in-library-import-design.md) — owner-approved on 2026-09-24.
-**Approved implementation plan:** [`2026-09-24-researcy-m1-sign-in-library-import.md`](../plans/2026-09-24-researcy-m1-sign-in-library-import.md) — owner-approved on 2026-09-24; implementation and all four exit-gate evidence pending.
+**Approved implementation plan:** [`2026-09-24-researcy-m1-sign-in-library-import.md`](../plans/2026-09-24-researcy-m1-sign-in-library-import.md) — owner-approved on 2026-09-24; implementation completed and focused validation recorded in the [M1 acceptance report](../reports/2026-09-24-researcy-m1-acceptance.md). All four real two-user exit gates remain pending.
 
 ### M2 — Durable PDF Processing and Owner-Scoped Index
 
@@ -213,10 +213,10 @@ The sequence follows the reader-first product dependency: identity and a ready o
 
 | ID | Master requirement | Master section | Delivery owner | Status | Verification evidence |
 |---|---|---:|---|---|---|
-| SYS-01 | Next.js + FastAPI modular monolith with one worker | 5 | M1 | Planned | [Approved M1 plan](../plans/2026-09-24-researcy-m1-sign-in-library-import.md); implementation pending |
-| AUTH-01 | Google OAuth followed by opaque server-side sessions | 16 | M1 | Planned | [Approved M1 plan](../plans/2026-09-24-researcy-m1-sign-in-library-import.md); implementation pending |
-| AUTH-02 | CSRF protection and user-scoped resource access | 16 | M1 | Planned | [Approved M1 plan](../plans/2026-09-24-researcy-m1-sign-in-library-import.md); implementation pending |
-| LIB-01 | User library with arXiv import and supported PDF upload | 3, 12 | M1 | Planned | [Approved M1 plan](../plans/2026-09-24-researcy-m1-sign-in-library-import.md); implementation pending |
+| SYS-01 | Next.js + FastAPI modular monolith with one worker | 5 | M1 | Implemented | [M1 acceptance report](../reports/2026-09-24-researcy-m1-acceptance.md); full-stack build and focused validation passed; real two-user gates pending |
+| AUTH-01 | Google OAuth followed by opaque server-side sessions | 16 | M1 | Implemented | [M1 acceptance report](../reports/2026-09-24-researcy-m1-acceptance.md); implementation/tests passed; two-real-Google-user journey pending |
+| AUTH-02 | CSRF protection and user-scoped resource access | 16 | M1 | Implemented | [M1 acceptance report](../reports/2026-09-24-researcy-m1-acceptance.md); implementation/tests passed; two-user ownership gate pending |
+| LIB-01 | User library with arXiv import and supported PDF upload | 3, 12 | M1 | Implemented | [M1 acceptance report](../reports/2026-09-24-researcy-m1-acceptance.md); real local-session arXiv/PDF persistence passed; real OAuth gate pending |
 | SEC-01 | Untrusted PDF validation and bounded parser execution | 4, 17 | M2 | Not started | M1 provides validated-import prerequisites; M2 owns parser bounds and final security acceptance |
 | JOB-01 | PostgreSQL durable jobs with claim leases and recovery | 8 | M2 | Not started | — |
 | DOC-01 | Canonical document model with reversible provenance | 6 | M2 | Not started | — |
@@ -229,7 +229,7 @@ The sequence follows the reader-first product dependency: identity and a ready o
 | AGENT-01 | ReaderAgent — `POST /api/conversations/:conversationId/messages:stream` | 15 | M3 | Not started | Real-route structured next-action qualification, exact-PDF reader journey, agent trace, cost, and latency |
 | AGENT-02 | DiscoveryAgent — `POST /api/papers/:paperId/related:search` | 15 | M4 | Not started | Real-route structured next-action qualification, metadata-only rationales, explicit add, agent trace, cost, and latency |
 | AGENT-03 | ResearchAgent — `POST /api/papers/:paperId/research-directions:stream` | 15 | M5 | Not started | Selected-ready-paper citation journey, hypothesis labeling, agent trace, cost, latency, and evaluation |
-| UX-01 | Simplified editorial Library experience | 12, 13 | M1 | Planned | [Approved M1 plan](../plans/2026-09-24-researcy-m1-sign-in-library-import.md); implementation pending |
+| UX-01 | Simplified editorial Library experience | 12, 13 | M1 | Implemented | [M1 acceptance report](../reports/2026-09-24-researcy-m1-acceptance.md); Chromium responsive/state checks passed; real OAuth gate pending |
 | UX-02 | Evidence-linked PDF and Discussion workspace | 12–14 | M3 | Not started | Reader UI and exact PDF citation acceptance remain M3 |
 | EVAL-01 | Fixed corpus and separated quality metrics | 11 | M5 | Not started | — |
 | OPS-01 | Reproducible interview deployment and health checks | 19–21 | M5 | Not started | — |
@@ -248,4 +248,4 @@ A requirement has one delivery owner. Any earlier milestone is a prerequisite or
 
 ## 7. Current control point
 
-Master specification revision 2.0 and this delivery map were approved on 2026-09-24. Q0 remains `Verified` with its original and Q0.1 report/run links above. Q0.1 measured fused Recall@5 at 6/8, passed the three recorded generation cases, and browser-checked only one answerable case on Track D; it is not evidence of generalized multi-paper or production-agent quality. The M1 child specification and implementation plan were owner-approved on 2026-09-24: M1 and its M1-owned requirements are `Planned`, with no implementation or four-gate verification evidence yet; M2–M5 retain their previous statuses. The configured product-runtime route remains `ag/gemini-3.8-flash-low` through 9Router; development-agent model selection is separate and does not change the product route. M3 and M4 cannot become `Verified` without real-route structured next-action qualification and recorded agent trace, cost, latency, and required edge-case evidence.
+Master specification revision 2.0 and this delivery map were approved on 2026-09-24. Q0 remains `Verified` with its original and Q0.1 report/run links above. Q0.1 measured fused Recall@5 at 6/8, passed the three recorded generation cases, and browser-checked only one answerable case on Track D; it is not evidence of generalized multi-paper or production-agent quality. M1 and its M1-owned requirements are `Implemented`: planned code, focused suites, full-stack build, real arXiv/PDF local-session smoke, private-object integrity, responsive Chromium checks and local logout revocation are recorded in the M1 acceptance report. M1 is not `Verified` because the required two-real-Google-user four-gate journey has not run; M2–M5 retain their previous statuses. The configured product-runtime route remains `ag/gemini-3.8-flash-low` through 9Router; development-agent model selection is separate and does not change the product contract.
