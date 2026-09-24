@@ -12,3 +12,16 @@ qualification/private/
 
 # Local reference materials & UI screenshots
 /_references/
+
+# Local credentials and generated application artifacts
+.env.*
+!.env.example
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/*.py[cod]
+apps/web/node_modules/
+apps/web/.next/
+apps/api/private/
+apps/api/test-artifacts/
+evidence/private/
