@@ -51,6 +51,10 @@ class Settings:
     cookie_secure: bool
     max_upload_bytes: int
     max_pdf_pages: int
+    session_lookup_key: bytes
+    google_client_id: str
+    google_client_secret: str
+    google_redirect_uri: str
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -69,6 +73,7 @@ class Settings:
             raise ValueError("MAX_UPLOAD_BYTES and MAX_PDF_PAGES must be positive integers")
 
         database_url = environ.get("DATABASE_URL", "").strip()
+        session_lookup_key = environ.get("SESSION_LOOKUP_KEY", "").encode()
         if production:
             required = (
                 "DATABASE_URL",
@@ -95,6 +100,10 @@ class Settings:
             cookie_secure=cookie_secure,
             max_upload_bytes=max_upload_bytes,
             max_pdf_pages=max_pdf_pages,
+            session_lookup_key=session_lookup_key,
+            google_client_id=environ.get("GOOGLE_CLIENT_ID", "").strip(),
+            google_client_secret=environ.get("GOOGLE_CLIENT_SECRET", "").strip(),
+            google_redirect_uri=environ.get("GOOGLE_REDIRECT_URI", "").strip(),
         )
 
 
