@@ -4,6 +4,7 @@ import os
 import secrets
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from uuid import UUID, uuid4
@@ -588,4 +589,98 @@ def test_unauthenticated_request_rejected(client, tmp_path):
         files={"file": ("unauth.pdf", io.BytesIO(pdf_path.read_bytes()), "application/pdf")},
     )
     assert res.status_code == 401
+
+
+def test_unauthenticated_upload_is_rejected_before_multipart_parsing(client):
+    res = client.post(
+        "/api/papers/upload",
+        headers={
+            "Content-Type": "multipart/form-data; boundary=missing",
+            "Idempotency-Key": "unauth-malformed-key",
+        },
+        content=b"not-a-valid-multipart-body",
+    )
+
+    assert res.status_code == 401
+    assert res.json()["code"] == "UNAUTHENTICATED"
+
+
+def test_upload_request_body_is_bounded_before_spooling(client, pg_conn):
+    owner = _insert_user(pg_conn, "bounded-body-owner")
+    headers = _auth_headers(client, pg_conn, owner)
+    headers.update(
+        {
+            "Content-Type": "multipart/form-data; boundary=bounded",
+            "Content-Length": "100",
+            "Idempotency-Key": "bounded-body-key",
+        }
+    )
+    body = (
+        b"--bounded\r\n"
+        b'Content-Disposition: form-data; name="file"; filename="large.pdf"\r\n'
+        b"Content-Type: application/pdf\r\n\r\n"
+        + b"x" * (70 * 1024)
+        + b"\r\n--bounded--\r\n"
+    )
+    original = client.app.state.settings
+    client.app.state.settings = replace(original, max_upload_bytes=500)
+    try:
+        res = client.post("/api/papers/upload", headers=headers, content=body)
+    finally:
+        client.app.state.settings = original
+
+    assert res.status_code == 413
+    assert res.json()["code"] == "PDF_TOO_LARGE"
+    assert pg_conn.execute(
+        "SELECT count(*) FROM papers WHERE owner_id = %s", (owner,)
+    ).fetchone()[0] == 0
+
+
+def test_unversioned_arxiv_race_returns_already_stored_version(
+    pg_conn, private_bucket, tmp_path
+):
+    from researcy.papers import intake
+
+    owner = _insert_user(pg_conn, "arxiv-unversioned-race-owner")
+    first_pdf = _make_pdf(tmp_path / "race-v1.pdf", title="Stored v1")
+    competing_pdf = _make_pdf(tmp_path / "race-v2.pdf", title="Resolved v2")
+
+    first = intake.accept_pdf(
+        conn=pg_conn,
+        owner_id=owner,
+        key="race-v1-key",
+        operation="arxiv",
+        request_digest=hashlib.sha256(b"1706.03762v1").digest(),
+        source="arxiv",
+        metadata=intake.IntakeMetadata(
+            title="Stored v1",
+            source_version="v1",
+            requested_version=1,
+            canonical_arxiv_id="1706.03762",
+            source_url="https://arxiv.org/pdf/1706.03762v1",
+        ),
+        screened_path=first_pdf,
+    )
+    pg_conn.commit()
+
+    raced = intake.accept_pdf(
+        conn=pg_conn,
+        owner_id=owner,
+        key="race-unversioned-key",
+        operation="arxiv",
+        request_digest=hashlib.sha256(b"1706.03762").digest(),
+        source="arxiv",
+        metadata=intake.IntakeMetadata(
+            title="Resolved v2",
+            source_version="v2",
+            requested_version=None,
+            canonical_arxiv_id="1706.03762",
+            source_url="https://arxiv.org/pdf/1706.03762v2",
+        ),
+        screened_path=competing_pdf,
+    )
+
+    assert raced.paper_id == first.paper_id
+    assert raced.source_version == "v1"
+    assert len(list(private_bucket[0].list_objects(private_bucket[1], recursive=True))) == 1
 

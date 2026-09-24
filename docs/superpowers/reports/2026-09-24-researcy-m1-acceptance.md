@@ -9,15 +9,16 @@ M1 implementation is complete. M1 remains **Implemented, not Verified** because 
 | Check | Observed |
 |---|---|
 | Schema upgrade twice | Passed in the running API container |
-| API suite | `161 passed, 1 skipped` |
-| Web consumer suite | `8 passed` |
-| Web production build | Next.js 16.3.6 build passed, including `/api/papers/arxiv` |
+| API suite | `170 passed, 1 skipped` |
+| Web consumer suite | `9 passed` |
+| Web production build | Next.js 16.3.6 build passed, including bounded `/api/papers/arxiv` |
 | Dependency audit | `npm audit`: zero vulnerabilities |
 | Complete image build | `docker compose --profile web up -d --build`: API and web built and started healthy |
 | Unauthenticated API | `/api/me` returns `401` in focused auth coverage |
 | Private bucket | Anonymous HTTP access returned `403` |
 | Real arXiv | Same-origin `POST /api/papers/arxiv` for `1706.03762` returned `202`, `queued`, resolved `v7`; object was 2,215,244 bytes with PDF magic and DB-matching SHA-256 |
 | Real PDF through UI | Chromium upload returned `202`; one paper/version/queued job and one private object; byte count, PDF magic and binary SHA-256 matched DB |
+| Final review remediation | Upload auth now precedes multipart parsing; the authenticated request body is capped before spooling; synchronous PDF/MinIO/PostgreSQL acceptance runs in Starlette's thread pool; the arXiv proxy caps JSON requests at 16 KiB; unversioned canonical races retain unversioned semantics; production startup requires a trusted HTTPS Google callback and all OAuth settings. Scoped re-review: CLEAN. |
 
 Temporary smoke users, sessions, database rows, MinIO objects, browser cookies and generated PDFs were removed after observation. No credentials, cookies, tokens, full PDFs or private text are recorded here.
 

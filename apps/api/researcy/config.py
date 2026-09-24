@@ -16,7 +16,9 @@ def _parse_bool(name: str, default: str) -> bool:
 
 
 def _parse_origins(value: str, production: bool) -> tuple[str, ...]:
-    origins = tuple(dict.fromkeys(part.strip() for part in value.split(",") if part.strip()))
+    origins = tuple(
+        dict.fromkeys(part.strip() for part in value.split(",") if part.strip())
+    )
     if not origins:
         raise ValueError("APP_ORIGINS must contain at least one exact origin")
 
@@ -33,14 +35,41 @@ def _parse_origins(value: str, production: bool) -> tuple[str, ...]:
                 and not parts.query
                 and not parts.fragment
             )
-            parts.port  # Access validates the port syntax and range.
+            _ = parts.port  # Access validates the port syntax and range.
         except ValueError:
             valid = False
         if not valid:
-            raise ValueError("APP_ORIGINS must contain exact origins without paths or wildcards")
+            raise ValueError(
+                "APP_ORIGINS must contain exact origins without paths or wildcards"
+            )
         if production and parts.scheme != "https":
             raise ValueError("production APP_ORIGINS must use HTTPS")
     return origins
+
+
+def _validate_production_google_redirect(
+    redirect_uri: str, trusted_origins: tuple[str, ...]
+) -> None:
+    try:
+        parts = urlsplit(redirect_uri)
+        origin = f"{parts.scheme}://{parts.netloc}"
+        valid = (
+            parts.scheme == "https"
+            and bool(parts.hostname)
+            and parts.username is None
+            and parts.password is None
+            and parts.path == "/auth/google/callback"
+            and not parts.query
+            and not parts.fragment
+            and origin in trusted_origins
+        )
+        _ = parts.port
+    except ValueError:
+        valid = False
+    if not valid:
+        raise ValueError(
+            "production GOOGLE_REDIRECT_URI must be the trusted HTTPS /auth/google/callback"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,6 +85,10 @@ class Settings:
     google_client_id: str
     google_client_secret: str
     google_redirect_uri: str
+
+    @property
+    def max_upload_request_bytes(self) -> int:
+        return self.max_upload_bytes + 64 * 1024
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -74,7 +107,9 @@ class Settings:
         if import_quota_limit <= 0:
             raise ValueError("IMPORT_QUOTA_LIMIT must be a positive integer")
         if max_upload_bytes <= 0 or max_pdf_pages <= 0:
-            raise ValueError("MAX_UPLOAD_BYTES and MAX_PDF_PAGES must be positive integers")
+            raise ValueError(
+                "MAX_UPLOAD_BYTES and MAX_PDF_PAGES must be positive integers"
+            )
 
         database_url = environ.get("DATABASE_URL", "").strip()
         session_lookup_key = environ.get("SESSION_LOOKUP_KEY", "").encode()
@@ -85,15 +120,25 @@ class Settings:
                 "SESSION_LOOKUP_KEY",
                 "MINIO_ROOT_USER",
                 "MINIO_ROOT_PASSWORD",
+                "GOOGLE_CLIENT_ID",
+                "GOOGLE_CLIENT_SECRET",
+                "GOOGLE_REDIRECT_URI",
             )
             missing = [name for name in required if not environ.get(name, "").strip()]
             if missing:
                 raise ValueError(f"missing production settings: {', '.join(missing)}")
-            for name in ("POSTGRES_PASSWORD", "SESSION_LOOKUP_KEY", "MINIO_ROOT_PASSWORD"):
+            for name in (
+                "POSTGRES_PASSWORD",
+                "SESSION_LOOKUP_KEY",
+                "MINIO_ROOT_PASSWORD",
+            ):
                 if len(environ[name].encode()) < 32:
                     raise ValueError(f"production {name} must be at least 32 bytes")
             if not cookie_secure:
                 raise ValueError("production COOKIE_SECURE must be true")
+            _validate_production_google_redirect(
+                environ["GOOGLE_REDIRECT_URI"].strip(), origins
+            )
         elif not database_url:
             database_url = DEFAULT_DATABASE_URL
 

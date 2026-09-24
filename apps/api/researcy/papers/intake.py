@@ -109,6 +109,7 @@ class IntakeMetadata:
     authors: list[str] | None = None
     year: int | None = None
     source_version: str | None = None
+    requested_version: int | None = None
     canonical_arxiv_id: str | None = None
     source_url: str | None = None
     source_media_type: str | None = None
@@ -292,13 +293,11 @@ def accept_pdf(
             if existing is not None:
                 return existing
         elif "uq_papers_owner_canonical_arxiv_id" in constraint and metadata.canonical_arxiv_id:
-            explicit_version = (
-                int(metadata.source_version[1:])
-                if metadata.source_version and re.fullmatch(r"v[1-9]\d*", metadata.source_version)
-                else None
-            )
             owned = check_owned_arxiv(
-                conn, owner_id, metadata.canonical_arxiv_id, explicit_version
+                conn,
+                owner_id,
+                metadata.canonical_arxiv_id,
+                metadata.requested_version,
             )
             if owned is not None:
                 return owned

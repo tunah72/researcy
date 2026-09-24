@@ -12,6 +12,11 @@ def set_production_env(monkeypatch):
     monkeypatch.setenv("SESSION_LOOKUP_KEY", "s" * 64)
     monkeypatch.setenv("MINIO_ROOT_USER", "minio-api")
     monkeypatch.setenv("MINIO_ROOT_PASSWORD", "m" * 32)
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "production-client-id")
+    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "production-client-secret")
+    monkeypatch.setenv(
+        "GOOGLE_REDIRECT_URI", "https://research.example/auth/google/callback"
+    )
 
 
 def test_development_defaults_keep_pdf_limits_and_exact_local_origin(monkeypatch):
@@ -42,6 +47,34 @@ def test_production_requires_secrets_secure_cookies_and_https_origins(monkeypatc
     set_production_env(monkeypatch)
     monkeypatch.setenv("APP_ORIGINS", "http://research.example")
     with pytest.raises(ValueError, match="HTTPS"):
+        Settings.from_env()
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI"],
+)
+def test_production_requires_google_oauth_settings(monkeypatch, name):
+    set_production_env(monkeypatch)
+    monkeypatch.delenv(name)
+
+    with pytest.raises(ValueError, match=name):
+        Settings.from_env()
+
+
+@pytest.mark.parametrize(
+    "redirect_uri",
+    [
+        "http://research.example/auth/google/callback",
+        "https://other.example/auth/google/callback",
+        "https://research.example/not-the-callback",
+    ],
+)
+def test_production_requires_trusted_https_google_callback(monkeypatch, redirect_uri):
+    set_production_env(monkeypatch)
+    monkeypatch.setenv("GOOGLE_REDIRECT_URI", redirect_uri)
+
+    with pytest.raises(ValueError, match="GOOGLE_REDIRECT_URI"):
         Settings.from_env()
 
 

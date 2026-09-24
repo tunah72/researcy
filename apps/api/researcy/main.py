@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from typing import Any
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
@@ -12,6 +13,37 @@ from .errors import APIError, error_payload
 from .papers.routes import router as papers_router
 
 
+class UploadBodyTooLarge(Exception):
+    pass
+
+
+class UploadBodyLimitMiddleware:
+    def __init__(self, app: Any):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if (
+            scope["type"] != "http"
+            or scope["method"] != "POST"
+            or scope["path"] != "/api/papers/upload"
+        ):
+            await self.app(scope, receive, send)
+            return
+        limit = scope["app"].state.settings.max_upload_request_bytes
+        received = 0
+
+        async def limited_receive():
+            nonlocal received
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > limit:
+                    raise UploadBodyTooLarge()
+            return message
+
+        await self.app(scope, limited_receive, send)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.settings = get_settings()
@@ -19,6 +51,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+app.add_middleware(UploadBodyLimitMiddleware)
 app.include_router(auth_router)
 app.include_router(papers_router)
 
@@ -29,6 +62,15 @@ async def request_id_middleware(request: Request, call_next):
     request.state.request_id = request_id
     try:
         response = await call_next(request)
+    except UploadBodyTooLarge:
+        response = JSONResponse(
+            status_code=413,
+            content=error_payload(
+                "PDF_TOO_LARGE",
+                "The PDF exceeds the configured size limit.",
+                request_id,
+            ),
+        )
     except Exception:
         response = JSONResponse(
             status_code=500,
