@@ -1,6 +1,7 @@
 from uuid import uuid4
 
 import psycopg
+from psycopg import sql
 import pytest
 from alembic import command
 
@@ -59,7 +60,19 @@ def schema_snapshot(conn):
             "SELECT indexname, indexdef FROM pg_indexes WHERE schemaname = 'public' ORDER BY indexname"
         ).fetchall()
     )
-    return tables, columns, constraints, indexes
+    triggers = tuple(
+        conn.execute(
+            """
+            SELECT c.relname, t.tgname, pg_get_triggerdef(t.oid)
+              FROM pg_trigger t
+              JOIN pg_class c ON c.oid = t.tgrelid
+              JOIN pg_namespace n ON n.oid = c.relnamespace
+             WHERE n.nspname = 'public' AND NOT t.tgisinternal
+             ORDER BY c.relname, t.tgname
+            """
+        ).fetchall()
+    )
+    return tables, columns, constraints, indexes, triggers
 
 
 def expect_constraint(conn, error_type, statement, params):
@@ -76,17 +89,27 @@ def insert_user(conn, sub, email):
 
 
 def insert_paper(conn, owner_id, canonical_arxiv_id):
-    return conn.execute(
+    paper_id, version_id = uuid4(), uuid4()
+    conn.execute(
         """
-        INSERT INTO papers (owner_id, source, canonical_arxiv_id)
-        VALUES (%s, %s, %s) RETURNING id
+        INSERT INTO papers
+          (id, owner_id, source, canonical_arxiv_id, active_version_id)
+        VALUES (%s, %s, %s, %s, %s)
         """,
-        (owner_id, "arxiv" if canonical_arxiv_id else "upload", canonical_arxiv_id),
-    ).fetchone()[0]
+        (
+            paper_id,
+            owner_id,
+            "arxiv" if canonical_arxiv_id else "upload",
+            canonical_arxiv_id,
+            version_id,
+        ),
+    )
+    insert_version(conn, owner_id, paper_id, version_id)
+    return paper_id, version_id
 
 
-def insert_version(conn, owner_id, paper_id):
-    version_id = uuid4()
+def insert_version(conn, owner_id, paper_id, version_id=None):
+    version_id = version_id or uuid4()
     conn.execute(
         """
         INSERT INTO document_versions
@@ -98,6 +121,7 @@ def insert_version(conn, owner_id, paper_id):
     return version_id
 
 
+
 def insert_job(conn, owner_id, version_id, stage="queued"):
     return conn.execute(
         """
@@ -106,6 +130,21 @@ def insert_job(conn, owner_id, version_id, stage="queued"):
         """,
         (owner_id, version_id, stage),
     ).fetchone()[0]
+
+
+def expect_active_version_reference_rejected(conn, owner_id, version_id):
+    with pytest.raises(psycopg.errors.ForeignKeyViolation):
+        with conn.transaction():
+            conn.execute(
+                """
+                INSERT INTO papers
+                  (owner_id, source, canonical_arxiv_id, active_version_id)
+                VALUES (%s, 'upload', NULL, %s)
+                """,
+                (owner_id, version_id),
+            )
+            conn.execute("SET CONSTRAINTS papers_active_version_fk IMMEDIATE")
+
 
 
 def test_m1_migration_is_rerunnable_and_enforces_owner_constraints(pg_conn):
@@ -119,7 +158,7 @@ def test_m1_migration_is_rerunnable_and_enforces_owner_constraints(pg_conn):
     assert not missing, f"M1 migration is missing tables: {sorted(missing)}"
 
     before = schema_snapshot(pg_conn)
-    command.upgrade(alembic_config(), "head")
+    command.upgrade(alembic_config(pg_conn.info.dbname), "head")
     after = schema_snapshot(pg_conn)
     assert after == before, "re-running the M1 migration changed the schema"
 
@@ -136,17 +175,22 @@ def test_m1_migration_is_rerunnable_and_enforces_owner_constraints(pg_conn):
     # The same email with distinct provider subjects is intentionally allowed.
     assert owner_a != owner_b
 
-    paper_a = insert_paper(pg_conn, owner_a, "1706.03762")
-    paper_b = insert_paper(pg_conn, owner_b, "1706.03762")
+    paper_a, version_a = insert_paper(pg_conn, owner_a, "1706.03762")
+    paper_b, version_b = insert_paper(pg_conn, owner_b, "1706.03762")
     expect_constraint(
         pg_conn,
         psycopg.errors.UniqueViolation,
-        "INSERT INTO papers (owner_id, source, canonical_arxiv_id) VALUES (%s, 'arxiv', %s)",
-        (owner_a, "1706.03762"),
+        """
+        INSERT INTO papers
+          (id, owner_id, source, canonical_arxiv_id, active_version_id)
+        VALUES (%s, %s, 'arxiv', %s, %s)
+        """,
+        (uuid4(), owner_a, "1706.03762", uuid4()),
     )
 
-    version_a = insert_version(pg_conn, owner_a, paper_a)
-    version_b = insert_version(pg_conn, owner_b, paper_b)
+    _, sibling_version_a = insert_paper(pg_conn, owner_a, "2501.00001")
+    expect_active_version_reference_rejected(pg_conn, owner_b, version_a)
+    expect_active_version_reference_rejected(pg_conn, owner_a, sibling_version_a)
     expect_constraint(
         pg_conn,
         psycopg.errors.ForeignKeyViolation,
@@ -168,14 +212,6 @@ def test_m1_migration_is_rerunnable_and_enforces_owner_constraints(pg_conn):
         (owner_b, version_b),
     )
 
-    with pytest.raises(psycopg.errors.ForeignKeyViolation):
-        with pg_conn.transaction():
-            pg_conn.execute(
-                "UPDATE papers SET active_version_id = %s WHERE id = %s",
-                (version_a, paper_b),
-            )
-            pg_conn.execute("SET CONSTRAINTS papers_active_version_fk IMMEDIATE")
-
     key = f"same-key-{uuid4()}"
     idempotency = """
         INSERT INTO import_idempotency
@@ -193,3 +229,48 @@ def test_m1_migration_is_rerunnable_and_enforces_owner_constraints(pg_conn):
     )
     # Idempotency keys are scoped to an owner, not globally reserved.
     pg_conn.execute(idempotency, (owner_b, key, digest, paper_b, version_b, job_b))
+
+
+def test_accepted_paper_requires_an_active_document_version(pg_conn):
+    owner = insert_user(pg_conn, f"subject-{uuid4()}", "paper@example.test")
+    with pytest.raises(psycopg.errors.NotNullViolation):
+        with pg_conn.transaction():
+            pg_conn.execute(
+                "INSERT INTO papers (owner_id, source, canonical_arxiv_id) "
+                "VALUES (%s, 'upload', NULL)",
+                (owner,),
+            )
+
+
+def test_m1_source_facts_and_active_version_pointer_are_immutable(pg_conn):
+    owner = insert_user(pg_conn, f"subject-{uuid4()}", "paper@example.test")
+    paper_id, version_id = insert_paper(pg_conn, owner, None)
+    sibling_paper_id, _ = insert_paper(pg_conn, owner, None)
+    updates = (
+        ("paper_id", sibling_paper_id),
+        ("sha256", bytes([1]) * 32),
+        ("byte_count", 2),
+        ("object_key", "test/replacement"),
+        ("source_url", "https://example.test/other.pdf"),
+        ("source_version", "v2"),
+        ("screening_warning", "LOW_TEXT"),
+    )
+    for column, value in updates:
+        statement = sql.SQL(
+            "UPDATE document_versions SET {} = %s WHERE id = %s"
+        ).format(sql.Identifier(column))
+        with pytest.raises(psycopg.errors.CheckViolation):
+            with pg_conn.transaction():
+                pg_conn.execute(statement, (value, version_id))
+    pg_conn.execute(
+        "UPDATE document_versions SET pending_config = '{}'::jsonb WHERE id = %s",
+        (version_id,),
+    )
+
+    second_version = insert_version(pg_conn, owner, paper_id)
+    with pytest.raises(psycopg.errors.CheckViolation):
+        with pg_conn.transaction():
+            pg_conn.execute(
+                "UPDATE papers SET active_version_id = %s WHERE id = %s",
+                (second_version, paper_id),
+            )
