@@ -9,6 +9,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from .auth.routes import router as auth_router
 from .config import get_settings
 from .errors import APIError, error_payload
+from .papers.routes import router as papers_router
 
 
 @asynccontextmanager
@@ -19,6 +20,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.include_router(auth_router)
+app.include_router(papers_router)
 
 
 @app.middleware("http")
@@ -40,9 +42,14 @@ async def request_id_middleware(request: Request, call_next):
 
 @app.exception_handler(APIError)
 async def api_error_handler(request: Request, exc: APIError):
+    headers = {}
+    retry_after = getattr(exc, "retry_after", None)
+    if retry_after is not None:
+        headers["Retry-After"] = str(retry_after)
     return JSONResponse(
         status_code=exc.status_code,
         content=error_payload(exc.code, exc.message, request.state.request_id),
+        headers=headers or None,
     )
 
 
