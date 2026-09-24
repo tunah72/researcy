@@ -77,6 +77,13 @@ def _remove_or_log(client: Minio, bucket: str, key: str) -> None:
     except Exception:
         logger.error("private_original_orphan_cleanup_failed")
 
+def remove_original(key: str) -> None:
+    """Best-effort cleanup of an orphaned original object."""
+    try:
+        _client().remove_object(_bucket(), key)
+    except Exception:
+        logger.error("private_original_orphan_cleanup_failed")
+
 
 def _stream_original(key: str) -> Iterator[bytes]:
     response = None
