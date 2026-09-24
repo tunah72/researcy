@@ -12,9 +12,10 @@ import {
 interface AddPaperProps {
   onPaperAdded?: (paperId: string) => void;
   onClose?: () => void;
+  onUnauthorized?: () => void;
 }
 
-export function AddPaper({ onPaperAdded, onClose }: AddPaperProps) {
+export function AddPaper({ onPaperAdded, onClose, onUnauthorized }: AddPaperProps) {
   const [activeTab, setActiveTab] = useState<'arxiv' | 'upload'>('arxiv');
 
   // arXiv form state
@@ -31,7 +32,7 @@ export function AddPaper({ onPaperAdded, onClose }: AddPaperProps) {
   // PDF upload form state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadKey, setUploadKey] = useState('');
-  const [lastUploadPayload, setLastUploadPayload] = useState<string | null>(null);
+  const [lastUploadFile, setLastUploadFile] = useState<File | null>(null);
   const [uploadSubmitting, setUploadSubmitting] = useState(false);
   const [uploadError, setUploadError] = useState<{
     code?: string;
@@ -44,6 +45,14 @@ export function AddPaper({ onPaperAdded, onClose }: AddPaperProps) {
 
   const arxivInputId = useId();
   const fileInputId = useId();
+  function handleUnauthorized() {
+    if (onUnauthorized) {
+      onUnauthorized();
+      return;
+    }
+    window.location.href = '/sign-in?expired=1';
+  }
+
 
   async function handleArxivSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -70,7 +79,7 @@ export function AddPaper({ onPaperAdded, onClose }: AddPaperProps) {
     } catch (err: unknown) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
-          window.location.href = '/sign-in';
+          handleUnauthorized();
           return;
         }
         setArxivError({
@@ -95,13 +104,12 @@ export function AddPaper({ onPaperAdded, onClose }: AddPaperProps) {
     setUploadSubmitting(true);
     setUploadError(null);
 
-    const payload = `${selectedFile.name}:${selectedFile.size}:${selectedFile.lastModified}`;
     let key = uploadKey;
-    if (payload !== lastUploadPayload || !key) {
+    if (selectedFile !== lastUploadFile || !key) {
       key = generateIdempotencyKey();
       setUploadKey(key);
     }
-    setLastUploadPayload(payload);
+    setLastUploadFile(selectedFile);
 
     try {
       const result = await uploadPdf(selectedFile, key);
@@ -112,7 +120,7 @@ export function AddPaper({ onPaperAdded, onClose }: AddPaperProps) {
     } catch (err: unknown) {
       if (err instanceof ApiError) {
         if (err.status === 401) {
-          window.location.href = '/sign-in';
+          handleUnauthorized();
           return;
         }
         setUploadError({
@@ -160,7 +168,7 @@ export function AddPaper({ onPaperAdded, onClose }: AddPaperProps) {
             onClick={onClose}
             className="btn btn-secondary"
             aria-label="Close add paper panel"
-            style={{ minHeight: '36px', padding: '0.25rem 0.75rem', fontSize: '0.875rem' }}
+            style={{ padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}
           >
             Close
           </button>
@@ -205,7 +213,7 @@ export function AddPaper({ onPaperAdded, onClose }: AddPaperProps) {
               <strong>Screening Notice:</strong> {acceptedResult.screening_warning}. M2 processing may fail.
             </div>
           )}
-          <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem' }}>
+          <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <a
               href={`/library/${acceptedResult.paper_id}`}
               className="btn btn-primary"
@@ -333,8 +341,7 @@ export function AddPaper({ onPaperAdded, onClose }: AddPaperProps) {
                     disabled={arxivSubmitting}
                     style={{
                       marginTop: '0.5rem',
-                      minHeight: '36px',
-                      padding: '0.25rem 0.75rem',
+                      padding: '0.5rem 0.75rem',
                       fontSize: '0.875rem',
                       borderColor: 'var(--color-error-border)',
                     }}
@@ -427,8 +434,7 @@ export function AddPaper({ onPaperAdded, onClose }: AddPaperProps) {
                     disabled={uploadSubmitting}
                     style={{
                       marginTop: '0.5rem',
-                      minHeight: '36px',
-                      padding: '0.25rem 0.75rem',
+                      padding: '0.5rem 0.75rem',
                       fontSize: '0.875rem',
                       borderColor: 'var(--color-error-border)',
                     }}

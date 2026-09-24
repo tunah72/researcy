@@ -25,7 +25,10 @@ describe('Library UI Consumer Interaction Tests', () => {
   });
 
   afterEach(() => {
-    window.location = originalLocation;
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: originalLocation,
+    });
   });
 
   it('empty Library offers Add paper', async () => {
@@ -163,6 +166,46 @@ describe('Library UI Consumer Interaction Tests', () => {
     const secondHeaders = new Headers(secondInit && typeof secondInit === 'object' && 'headers' in secondInit ? secondInit.headers : undefined);
     const secondKey = secondHeaders.get('Idempotency-Key');
     expect(secondKey).toBe(firstKey);
+  });
+
+  it('uses a fresh idempotency key when a replacement file has changed bytes', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 422,
+      headers: new Headers({ 'x-request-id': 'req-upload-err' }),
+      json: async () => ({
+        code: 'PDF_INVALID',
+        message: 'The PDF could not be accepted.',
+        request_id: 'req-upload-err',
+      }),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+    render(<AddPaper />);
+
+    await userEvent.click(screen.getByRole('tab', { name: /pdf upload/i }));
+    const fileInput = screen.getByLabelText(/select pdf document/i);
+    const firstFile = new File(['first'], 'paper.pdf', {
+      type: 'application/pdf',
+      lastModified: 1,
+    });
+    const replacementFile = new File(['other'], 'paper.pdf', {
+      type: 'application/pdf',
+      lastModified: 1,
+    });
+
+    await userEvent.upload(fileInput, firstFile);
+    await userEvent.click(screen.getByRole('button', { name: /^upload pdf$/i }));
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1));
+
+    fireEvent.change(fileInput, { target: { files: [replacementFile] } });
+    await userEvent.click(screen.getByRole('button', { name: /^upload pdf$/i }));
+    await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(2));
+
+    const firstHeaders = new Headers(mockFetch.mock.calls[0]?.[1]?.headers);
+    const secondHeaders = new Headers(mockFetch.mock.calls[1]?.[1]?.headers);
+    expect(secondHeaders.get('Idempotency-Key')).not.toBe(
+      firstHeaders.get('Idempotency-Key')
+    );
   });
 
   it('logout failure never claims signed-out', async () => {

@@ -17,6 +17,8 @@ export default function LandingPage() {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
+            gap: '1rem',
+            flexWrap: 'wrap',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -137,8 +139,9 @@ export default function LandingPage() {
               Owner Isolation
             </h2>
             <p style={{ color: 'var(--color-ink-muted)', fontSize: '0.9375rem', lineHeight: 1.6 }}>
-              Every document, metadata record, and ingestion job is cryptographically scoped to your
-              authenticated identity. Private objects are strictly protected against unauthorized access.
+              Every document, metadata record, and ingestion job is scoped to your authenticated
+              account through server-enforced ownership checks. Private originals are never exposed
+              through a public object-store URL.
             </p>
           </div>
 

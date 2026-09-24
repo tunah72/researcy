@@ -196,6 +196,7 @@ export function LibraryList({
                 >
                   <Link
                     href={`/library/${paper.paper_id}`}
+                    className="paper-title-link"
                     style={{
                       color: 'var(--color-navy)',
                       textDecoration: 'none',

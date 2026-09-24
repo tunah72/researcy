@@ -147,6 +147,7 @@ export default function SignInPage() {
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <Link
             href="/"
+            className="brand-link"
             style={{
               fontFamily: 'var(--font-serif)',
               fontSize: '1.25rem',

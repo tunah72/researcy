@@ -42,11 +42,8 @@ export default function LibraryPage() {
     setError(null);
 
     try {
-      // 1. Ensure user is authenticated
       const profile = await fetchCurrentUser();
       setUser(profile);
-
-      // 2. Fetch owner's papers
       const data = await fetchPapers(queryParam);
       setPapers(data.papers);
     } catch (err: unknown) {
@@ -130,6 +127,7 @@ export default function LibraryPage() {
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem' }}>
             <Link
               href="/library"
+              className="brand-link"
               style={{
                 fontFamily: 'var(--font-serif)',
                 fontSize: '1.5rem',
@@ -177,7 +175,7 @@ export default function LibraryPage() {
               onClick={handleLogout}
               disabled={isLoggingOut}
               className="btn btn-secondary"
-              style={{ minHeight: '40px', padding: '0.375rem 0.875rem', fontSize: '0.875rem' }}
+              style={{ padding: '0.5rem 0.875rem', fontSize: '0.875rem' }}
             >
               {isLoggingOut ? 'Signing out...' : 'Sign Out'}
             </button>
@@ -254,6 +252,7 @@ export default function LibraryPage() {
               loadLibraryData(activeSearch);
             }}
             onClose={() => setShowAddPaper(false)}
+            onUnauthorized={handleUnauthorized}
           />
         )}
 
@@ -278,7 +277,7 @@ export default function LibraryPage() {
             }}
           >
             <div style={{ flex: '1 1 280px' }}>
-              <label htmlFor={searchInputId} style={{ display: 'none' }}>
+              <label htmlFor={searchInputId} className="visually-hidden">
                 Search papers by title or author
               </label>
               <input

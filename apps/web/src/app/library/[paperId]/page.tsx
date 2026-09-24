@@ -79,11 +79,14 @@ export default function PaperDetailPage() {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
+            gap: '1rem',
+            flexWrap: 'wrap',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.75rem' }}>
             <Link
               href="/library"
+              className="brand-link"
               style={{
                 fontFamily: 'var(--font-serif)',
                 fontSize: '1.5rem',

@@ -138,6 +138,25 @@ html, body {
   outline: 3px solid var(--color-gold);
   outline-offset: 2px;
 }
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.brand-link,
+.paper-title-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
 
 /* Accessible focus visible rings */
 :focus-visible {
@@ -226,6 +245,10 @@ h1, h2, h3, h4, h5, h6 {
 p, span, li, dt, dd {
   overflow-wrap: break-word;
   word-break: break-word;
+}
+
+code {
+  overflow-wrap: anywhere;
 }
 
 /* Reduced Motion */
