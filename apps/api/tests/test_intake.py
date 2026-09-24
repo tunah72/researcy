@@ -269,11 +269,14 @@ def test_arxiv_accepted_creates_paper_version_job_and_object(client, pg_conn, pr
         source_url="https://arxiv.org/pdf/1706.03762v1",
     )
     import researcy.papers.intake as intake_mod
-    monkeypatch.setattr(
-        intake_mod,
-        "fetch_official_arxiv",
-        lambda *args, **kwargs: fake_acquisition,
-    )
+
+    def strict_fetch(canonical_id, requested_version=None, *, max_bytes=None):
+        assert canonical_id == "1706.03762"
+        assert requested_version is None
+        assert max_bytes == 25 * 1024 * 1024
+        return fake_acquisition
+
+    monkeypatch.setattr(intake_mod, "fetch_official_arxiv", strict_fetch)
 
     res = client.post(
         "/api/papers/arxiv",

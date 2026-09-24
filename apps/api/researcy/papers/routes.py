@@ -186,8 +186,8 @@ def import_arxiv(
 
         acquisition = intake.fetch_official_arxiv(
             canonical_id,
-            explicit_version=explicit_version,
-            byte_limit=request.app.state.settings.max_upload_bytes,
+            requested_version=explicit_version,
+            max_bytes=request.app.state.settings.max_upload_bytes,
         )
         try:
             with get_conn() as conn:

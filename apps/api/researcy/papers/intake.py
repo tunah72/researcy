@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 import re
 import tempfile
-import threading
 import unicodedata
 from uuid import UUID, uuid4
 
@@ -14,6 +13,7 @@ from fastapi import UploadFile
 import psycopg.errors
 
 from ..errors import APIError
+from ..db import get_conn
 from .arxiv import fetch_official_arxiv, parse_arxiv_reference
 from .models import MAX_SEARCH_LENGTH
 from .objects import put_original, remove_original
@@ -22,23 +22,22 @@ from .screening import screen_pdf
 
 logger = logging.getLogger(__name__)
 
-_key_locks_lock = threading.Lock()
-_key_locks: dict[tuple[UUID, str], threading.Lock] = {}
+def _advisory_lock_id(owner_id: UUID, key: str) -> int:
+    digest = hashlib.sha256(owner_id.bytes + b"\0" + key.encode("utf-8")).digest()
+    return int.from_bytes(digest[:8], byteorder="big", signed=True)
 
 
 @contextmanager
 def serialize_key(owner_id: UUID, key: str):
-    """Serialize concurrent intake requests for the same owner and idempotency key."""
-    with _key_locks_lock:
-        lock = _key_locks.setdefault((owner_id, key), threading.Lock())
-    lock.acquire()
-    try:
-        yield
-    finally:
-        lock.release()
-        with _key_locks_lock:
-            if not lock.locked():
-                _key_locks.pop((owner_id, key), None)
+    """Serialize an owner/key across every API process without an open transaction."""
+    lock_id = _advisory_lock_id(owner_id, key)
+    with get_conn() as lock_conn:
+        lock_conn.autocommit = True
+        lock_conn.execute("SELECT pg_advisory_lock(%s)", (lock_id,))
+        try:
+            yield
+        finally:
+            lock_conn.execute("SELECT pg_advisory_unlock(%s)", (lock_id,))
 
 
 def validate_idempotency_key(key: str | None) -> str:
@@ -293,7 +292,14 @@ def accept_pdf(
             if existing is not None:
                 return existing
         elif "uq_papers_owner_canonical_arxiv_id" in constraint and metadata.canonical_arxiv_id:
-            owned = check_owned_arxiv(conn, owner_id, metadata.canonical_arxiv_id, None)
+            explicit_version = (
+                int(metadata.source_version[1:])
+                if metadata.source_version and re.fullmatch(r"v[1-9]\d*", metadata.source_version)
+                else None
+            )
+            owned = check_owned_arxiv(
+                conn, owner_id, metadata.canonical_arxiv_id, explicit_version
+            )
             if owned is not None:
                 return owned
         raise
