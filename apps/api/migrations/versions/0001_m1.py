@@ -82,7 +82,7 @@ def upgrade() -> None:
         sa.Column("title", sa.Text(), nullable=True),
         sa.Column("authors", postgresql.ARRAY(sa.Text()), nullable=True),
         sa.Column("year", sa.Integer(), nullable=True),
-        sa.Column("active_version_id", _UUID, nullable=False),
+        sa.Column("active_version_id", _UUID, nullable=True),
         sa.Column(
             "acceptance_state", sa.Text(), nullable=False, server_default=sa.text("'accepted'")
         ),
@@ -149,61 +149,6 @@ def upgrade() -> None:
         ["owner_id", "paper_id", "id"],
         deferrable=True,
         initially="DEFERRED",
-    )
-
-    op.execute(
-        """
-        CREATE FUNCTION m1_guard_document_versions() RETURNS trigger
-        LANGUAGE plpgsql
-        AS $$
-        BEGIN
-            IF ROW(
-                NEW.id, NEW.owner_id, NEW.paper_id, NEW.sha256, NEW.byte_count,
-                NEW.object_key, NEW.source_url, NEW.source_version,
-                NEW.screening_warning, NEW.created_at
-            ) IS DISTINCT FROM ROW(
-                OLD.id, OLD.owner_id, OLD.paper_id, OLD.sha256, OLD.byte_count,
-                OLD.object_key, OLD.source_url, OLD.source_version,
-                OLD.screening_warning, OLD.created_at
-            ) THEN
-                RAISE EXCEPTION 'document version source facts are immutable'
-                    USING ERRCODE = 'check_violation',
-                          CONSTRAINT = 'ck_document_versions_source_immutable';
-            END IF;
-            RETURN NEW;
-        END;
-        $$
-        """
-    )
-    op.execute(
-        """
-        CREATE TRIGGER trg_document_versions_immutable
-        BEFORE UPDATE ON document_versions
-        FOR EACH ROW EXECUTE FUNCTION m1_guard_document_versions()
-        """
-    )
-    op.execute(
-        """
-        CREATE FUNCTION m1_guard_paper_active_version() RETURNS trigger
-        LANGUAGE plpgsql
-        AS $$
-        BEGIN
-            IF NEW.active_version_id IS DISTINCT FROM OLD.active_version_id THEN
-                RAISE EXCEPTION 'paper active version is immutable in M1'
-                    USING ERRCODE = 'check_violation',
-                          CONSTRAINT = 'ck_papers_active_version_immutable';
-            END IF;
-            RETURN NEW;
-        END;
-        $$
-        """
-    )
-    op.execute(
-        """
-        CREATE TRIGGER trg_papers_active_version_immutable
-        BEFORE UPDATE ON papers
-        FOR EACH ROW EXECUTE FUNCTION m1_guard_paper_active_version()
-        """
     )
 
     op.create_table(
@@ -288,10 +233,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute("DROP TRIGGER trg_papers_active_version_immutable ON papers")
-    op.execute("DROP FUNCTION m1_guard_paper_active_version()")
-    op.execute("DROP TRIGGER trg_document_versions_immutable ON document_versions")
-    op.execute("DROP FUNCTION m1_guard_document_versions()")
     op.drop_table("import_rate_limits")
     op.drop_index("ix_import_idempotency_owner_created_at", table_name="import_idempotency")
     op.drop_table("import_idempotency")

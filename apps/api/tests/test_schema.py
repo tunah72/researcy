@@ -20,6 +20,8 @@ M1_TABLES = {
     "alembic_version",
 }
 
+M2_REVISION = "0002_m1_source_guards"
+
 
 def schema_snapshot(conn):
     tables = tuple(
@@ -157,6 +159,11 @@ def test_m1_migration_is_rerunnable_and_enforces_owner_constraints(pg_conn):
     missing = M1_TABLES - existing
     assert not missing, f"M1 migration is missing tables: {sorted(missing)}"
 
+    assert (
+        pg_conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+        == M2_REVISION
+    )
+
     before = schema_snapshot(pg_conn)
     command.upgrade(alembic_config(pg_conn.info.dbname), "head")
     after = schema_snapshot(pg_conn)
@@ -229,6 +236,35 @@ def test_m1_migration_is_rerunnable_and_enforces_owner_constraints(pg_conn):
     )
     # Idempotency keys are scoped to an owner, not globally reserved.
     pg_conn.execute(idempotency, (owner_b, key, digest, paper_b, version_b, job_b))
+
+
+def test_0002_upgrade_preserves_existing_m1_paper(pg_conn):
+    config = alembic_config(pg_conn.info.dbname)
+    command.downgrade(config, "0001_m1")
+
+    owner_id = insert_user(pg_conn, f"subject-{uuid4()}", "upgrade@example.test")
+    paper_id, version_id = insert_paper(pg_conn, owner_id, None)
+    pg_conn.commit()
+
+    command.upgrade(config, "head")
+
+    revision = pg_conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
+    assert revision == M2_REVISION
+    assert (
+        pg_conn.execute(
+            "SELECT active_version_id FROM papers WHERE id = %s", (paper_id,)
+        ).fetchone()[0]
+        == version_id
+    )
+    assert pg_conn.execute(
+        """
+        SELECT attnotnull
+          FROM pg_attribute
+         WHERE attrelid = 'papers'::regclass
+           AND attname = 'active_version_id'
+           AND NOT attisdropped
+        """
+    ).fetchone()[0]
 
 
 def test_accepted_paper_requires_an_active_document_version(pg_conn):
