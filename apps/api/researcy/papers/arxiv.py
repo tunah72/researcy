@@ -22,6 +22,7 @@ _PDF_MAGIC = b"%PDF-"
 _MAX_REDIRECTS = 3
 _DEFAULT_TIMEOUT = 15.0
 _READ_SIZE = 64 * 1024
+_MAX_METADATA_BYTES = 1024 * 1024
 _USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 (Researcy/0.1)"
@@ -193,46 +194,54 @@ def _fetch_metadata(client: httpx2.Client, canonical_id: str) -> tuple[ArxivMeta
     while True:
         _validate_destination_url(current_url)
         req_headers = {"User-Agent": _USER_AGENT}
-        response = client.get(current_url, follow_redirects=False, headers=req_headers)
+        with client.stream(
+            "GET", current_url, follow_redirects=False, headers=req_headers
+        ) as response:
+            if response.status_code in {301, 302, 303, 307, 308}:
+                redirect_count += 1
+                if redirect_count > _MAX_REDIRECTS:
+                    raise ArxivUpstreamError(
+                        "Too many redirects from official arXiv metadata service.",
+                        status_code=502,
+                    )
+                location = response.headers.get("Location")
+                if not location:
+                    raise ArxivUpstreamError(
+                        "Redirect missing Location header from official arXiv service.",
+                        status_code=502,
+                    )
+                current_url = urljoin(current_url, location)
+                continue
 
-        if response.status_code in {301, 302, 303, 307, 308}:
-            redirect_count += 1
-            if redirect_count > _MAX_REDIRECTS:
+            if response.status_code == 429:
+                retry_after = _parse_retry_after(response.headers.get("Retry-After"))
                 raise ArxivUpstreamError(
-                    "Too many redirects from official arXiv metadata service.",
+                    "The official arXiv service is currently rate-limited.",
+                    status_code=503,
+                    retry_after=retry_after or 60,
+                )
+            if response.status_code == 404:
+                raise ArxivNotFound(f"The arXiv paper {canonical_id} was not found.")
+            if response.status_code >= 500:
+                raise ArxivUpstreamError(
+                    "The official arXiv metadata service returned a server error.",
                     status_code=502,
                 )
-            location = response.headers.get("Location")
-            if not location:
+            if response.status_code != 200:
                 raise ArxivUpstreamError(
-                    "Redirect missing Location header from official arXiv service.",
+                    f"The official arXiv metadata service returned HTTP {response.status_code}.",
                     status_code=502,
                 )
-            current_url = urljoin(current_url, location)
-            continue
 
-        if response.status_code == 429:
-            retry_after = _parse_retry_after(response.headers.get("Retry-After"))
-            raise ArxivUpstreamError(
-                "The official arXiv service is currently rate-limited.",
-                status_code=503,
-                retry_after=retry_after or 60,
-            )
-        if response.status_code == 404:
-            raise ArxivNotFound(f"The arXiv paper {canonical_id} was not found.")
-        if response.status_code >= 500:
-            raise ArxivUpstreamError(
-                "The official arXiv metadata service returned a server error.",
-                status_code=502,
-            )
-        if response.status_code != 200:
-            raise ArxivUpstreamError(
-                f"The official arXiv metadata service returned HTTP {response.status_code}.",
-                status_code=502,
-            )
-
-        xml_content = response.text
-        break
+            xml_content = bytearray()
+            for chunk in response.iter_bytes(chunk_size=_READ_SIZE):
+                if len(xml_content) + len(chunk) > _MAX_METADATA_BYTES:
+                    raise ArxivUpstreamError(
+                        "The official arXiv metadata response exceeded the safe size limit.",
+                        status_code=502,
+                    )
+                xml_content.extend(chunk)
+            break
 
     try:
         root = ET.fromstring(xml_content)

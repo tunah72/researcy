@@ -216,6 +216,30 @@ def test_fetch_official_arxiv_rejects_version_beyond_metadata_history(tmp_path):
     assert not list(tmp_path.glob("*.pdf"))
 
 
+
+def test_fetch_official_arxiv_stops_reading_oversized_metadata(tmp_path):
+    class OversizedMetadataStream(httpx2.SyncByteStream):
+        def __init__(self):
+            self.chunks_read = 0
+
+        def __iter__(self):
+            for _ in range(40):
+                self.chunks_read += 1
+                yield b"x" * (64 * 1024)
+
+    stream = OversizedMetadataStream()
+
+    def handler(_request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(200, stream=stream)
+
+    client = httpx2.Client(transport=httpx2.MockTransport(handler))
+    with pytest.raises(ArxivUpstreamError) as raised:
+        fetch_official_arxiv("1706.03762", client=client, temp_dir=tmp_path)
+
+    assert raised.value.status_code == 502
+    assert stream.chunks_read < 40
+    assert not list(tmp_path.glob("*.pdf"))
+
 def test_fetch_official_arxiv_rejects_empty_or_mismatched_metadata(tmp_path):
     empty_feed = """<?xml version='1.0' encoding='UTF-8'?>
 <feed xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns="http://www.w3.org/2005/Atom">
