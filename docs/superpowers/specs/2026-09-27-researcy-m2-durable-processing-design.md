@@ -1,10 +1,10 @@
 # Researcy M2 — Durable PDF Processing and Owner-Scoped Index
 
-- **Status:** Draft for owner review; not approved, not implementation evidence.
+- **Status:** Approved child specification — owner-approved on 2026-09-27; design authority, not implementation evidence.
 - **Date:** 2026-09-27.
 - **Authority:** [Master revision 2.0](./2026-09-18-researcy-system-design.md), including the approved reader-facing presentation amendment; [delivery map](./2026-09-18-researcy-delivery-map.md) controls status.
 - **Baseline:** `c39cd1725ceed662612c1fb7c7d76ea83747818b`; branch `feat-m2-durable-processing`, worktree `.omp/worktrees/m2-durable-processing`.
-- **Approval sequence:** approve this specification → write and approve a separate implementation plan → implement → collect all exit-gate evidence. A draft leaves M2 `Not started`.
+- **Approval sequence:** specification approved → write and approve a separate implementation plan → implement → collect all exit-gate evidence. M2 is `Designed`; plan approval and the M1 prerequisite decision remain separate.
 
 ## 1. Outcome, scope and prerequisites
 
@@ -289,10 +289,8 @@ Implementation completion requires affected backend/frontend suites, production 
 
 **Draft self-review:** reconciled the existing immutable-source/active-version triggers, pre-queue screening exposure, at-least-once external stale-write race, ready-only retrieval versus private publication verification, and the presentation amendment's distinction between API diagnostics and visible UI. All six required gates have dedicated procedures and requirement mappings. Sandbox feasibility and full-stack resource fit remain unverified execution prerequisites, not passing claims. No implementation tests or owner-confirmed journeys were rerun during design.
 
-### Owner review requested
+### Owner approval — 2026-09-27
 
-1. Approve or revise the recommended design: immutable stage manifests and fenced ledger; strict parser sandbox; native pinned BGE-M3; same-version retry; no M3 surface.
-2. Approve the provisional bounds and narrow gold-query gate, with real-machine verification required before any fit/quality claim.
-3. Resolve the M1 prerequisite by supplying the missing per-gate owner observations/retained evidence, or explicitly approving a changed acceptance/prerequisite contract. Until then, M1 promotion and M2 implementation remain pending; draft/spec review can continue.
+The owner explicitly approved this M2 child specification and authorized implementation planning: “Tôi phê duyệt child spec M2 hãy bắt đầu lập implementation plan.”
 
-No detailed task plan or production code is authorized by writing this document.
+This accepts the design and provisional operating bounds, with real-machine qualification still required. It does not approve an implementation plan, authorize production implementation, waive the M1 prerequisite record, or claim any M2 gate has passed. The [implementation plan draft](../plans/2026-09-27-researcy-m2-durable-processing.md) is subject to its own review gate.

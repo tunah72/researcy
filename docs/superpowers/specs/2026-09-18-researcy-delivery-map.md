@@ -133,9 +133,9 @@ The sequence follows the reader-first product dependency: identity and a ready o
 - a gold query retrieves evidence that maps back to page geometry;
 - parser resource-bound and invalid-input cases have recorded security evidence.
 
-**Status:** Not started
+**Status:** Designed
 
-**Design in review — 2026-09-27:** [M2 child specification draft](./2026-09-27-researcy-m2-durable-processing-design.md). A draft is not approval and does not promote M2 or its requirement statuses. Detailed implementation planning waits for specification approval; implementation additionally requires plan approval and an explicit resolution of the M1 prerequisite record.
+**Approved child specification — 2026-09-27:** [M2 child specification](./2026-09-27-researcy-m2-durable-processing-design.md), explicitly owner-approved. The owner authorized [implementation planning](../plans/2026-09-27-researcy-m2-durable-processing.md); that plan remains a draft until separately approved. Implementation additionally requires an explicit resolution of the M1 prerequisite record. No M2 exit gate is claimed passed.
 
 ### M3 — ReaderAgent and Evidence-Linked PDF Reader
 
@@ -225,12 +225,12 @@ The sequence follows the reader-first product dependency: identity and a ready o
 | AUTH-01 | Google OAuth followed by opaque server-side sessions | 16 | M1 | Implemented | [M1 acceptance report](../reports/2026-09-24-researcy-m1-acceptance.md); implementation/tests passed; two-real-Google-user journey pending |
 | AUTH-02 | CSRF protection and user-scoped resource access | 16 | M1 | Implemented | [M1 acceptance report](../reports/2026-09-24-researcy-m1-acceptance.md); implementation/tests passed; two-user ownership gate pending |
 | LIB-01 | User library with arXiv import and supported PDF upload | 3, 12 | M1 | Implemented | [M1 acceptance report](../reports/2026-09-24-researcy-m1-acceptance.md); real local-session arXiv/PDF persistence passed; real OAuth gate pending |
-| SEC-01 | Untrusted PDF validation and bounded parser execution | 4, 17 | M2 | Not started | M1 provides validated-import prerequisites; M2 owns parser bounds and final security acceptance |
-| JOB-01 | PostgreSQL durable jobs with claim leases and recovery | 8 | M2 | Not started | — |
-| DOC-01 | Canonical document model with reversible provenance | 6 | M2 | Not started | — |
-| PARSE-01 | Qualified scientific PDF parser | 7 | M2 | Designed | Q0 report; Q0.1 report; final delivery remains M2 |
-| EMB-01 | On-device self-hosted embedding within the M1 budget | 9, 10, 20 | M2 | Designed | Q0.1 report: `bge-m3:567m` selected as hybrid dense component; final delivery remains M2 |
-| IDX-01 | User- and paper-scoped Qdrant index | 5, 9 | M2 | Not started | — |
+| SEC-01 | Untrusted PDF validation and bounded parser execution | 4, 17 | M2 | Designed | [Approved M2 spec](./2026-09-27-researcy-m2-durable-processing-design.md), §§3,7,11–12; real sandbox/resource gates pending |
+| JOB-01 | PostgreSQL durable jobs with claim leases and recovery | 8 | M2 | Designed | [Approved M2 spec](./2026-09-27-researcy-m2-durable-processing-design.md), §§4–6,12; implementation and crash/retry gates pending |
+| DOC-01 | Canonical document model with reversible provenance | 6 | M2 | Designed | [Approved M2 spec](./2026-09-27-researcy-m2-durable-processing-design.md), §§4,7–8,12; canonical/provenance gates pending |
+| PARSE-01 | Qualified scientific PDF parser | 7 | M2 | Designed | Q0/Q0.1 retained; [approved M2 spec](./2026-09-27-researcy-m2-durable-processing-design.md), §§7–8,12; production qualification pending |
+| EMB-01 | On-device self-hosted embedding within the M1 budget | 9, 10, 20 | M2 | Designed | Q0.1 retained; [approved M2 spec](./2026-09-27-researcy-m2-durable-processing-design.md), §§9,11–12; native full-stack qualification pending |
+| IDX-01 | User- and paper-scoped Qdrant index | 5, 9 | M2 | Designed | [Approved M2 spec](./2026-09-27-researcy-m2-durable-processing-design.md), §§6,9,12; exact-set/ownership gates pending |
 | RET-01 | Lexical + dense retrieval with RRF | 9 | M3 | Designed | Q0.1 report: hybrid Recall@5 6/8; final delivery remains M3 |
 | GEN-01 | Vendor-hosted streaming grounded generation | 10 | M3 | Designed | Q0.1 report: three generation cases passed; final delivery remains M3 |
 | CIT-01 | Citation validation and quote-to-geometry resolution | 10 | M3 | Designed | Q0.1 report and one-case display evidence; final exact-PDF delivery remains M3 |
@@ -257,3 +257,5 @@ A requirement has one delivery owner. Any earlier milestone is a prerequisite or
 ## 7. Current control point
 
 Master specification revision 2.0 and this delivery map were approved on 2026-09-24. Q0 remains `Verified` with its original and Q0.1 report/run links above. Q0.1 measured fused Recall@5 at 6/8, passed the three recorded generation cases, and browser-checked only one answerable case on Track D; it is not evidence of generalized multi-paper or production-agent quality. M1 and SYS-01/AUTH-01/AUTH-02/LIB-01/UX-01 remain `Implemented`. The M1 acceptance report separates historical evidence from the 2026-09-27 arXiv pacing/406 and UI remediation, real `2303.09833v1` acceptance with DB/MinIO hash/size equality, four-width Chromium checks, and local A/B isolation/revocation probes. M1 is not `Verified`: the owner's gate-pass attestation has no recoverable detailed two-real-Google-user four-gate record, and synthetic sessions cannot establish that missing OAuth journey. SEC-01/JOB-01 remain M2-owned; M2–M5 retain their previous statuses. The configured product-runtime route remains `ag/gemini-3.8-flash-low` through 9Router; development-agent model selection is separate and does not change the product contract.
+
+**Current M2 control update — 2026-09-27:** The owner approved the M2 child specification and authorized planning. M2 and its six owned requirements are `Designed`, superseding the M2 status in the preceding historical control narrative. M1 remains `Implemented` pending its recorded prerequisite resolution; M3–M5 and historical Q0 evidence are unchanged. A draft plan does not advance M2 to `Planned`.
