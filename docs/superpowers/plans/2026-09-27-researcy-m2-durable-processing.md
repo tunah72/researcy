@@ -10,12 +10,13 @@
 
 **Spec:** [Owner-approved M2 child specification](../specs/2026-09-27-researcy-m2-durable-processing-design.md), approved 2026-09-27, subordinate to [master revision 2.0](../specs/2026-09-18-researcy-system-design.md). [Delivery map](../specs/2026-09-18-researcy-delivery-map.md) is authoritative.
 
-**Plan status:** Draft for owner approval. Specification approval authorizes this plan, not implementation. No task below has been executed. M2 remains `Designed` until this plan is approved.
+**Plan status:** Approved by owner on 2026-09-28. The owner explicitly permits M2 implementation while the M1 acceptance record is completed separately. M2 is `Planned`; no implementation task or exit gate is yet complete. This permission does not promote M1 to `Verified`.
 
 ## Global constraints
 
 - Stay in `.omp/worktrees/m2-durable-processing`, branch `feat-m2-durable-processing`; base implementation `c39cd17`, design draft commit `c72282b`. Preserve all owner data, root local files and existing worktrees. No push, merge, prune, reset, stash, `down -v`, or restoration of the deleted workflow guideline.
 - Before Task 1 implementation: obtain plan approval and close the M1 prerequisite record or record an explicit owner exception. Owner confirmation of two Google accounts is accepted evidence; do not rerun it merely to confirm. An exception permits work, not fabricated `Verified` evidence.
+- **Prerequisite decision — 2026-09-28:** “Tôi duyệt plan và cho phép triển khai M2 trong khi bổ sung hồ sơ M1.” This satisfies the execution entry gate by explicit exception; no need to repeat the approval question. All security and milestone verification gates remain binding.
 - No Reader, PDF serving, conversations, citations from generated answers, agents, product hybrid search/RRF, discovery/import automation, deletion or new-source-version UI. No Redis/broker, hosted embedding fallback, universal model-provider abstraction or change to `ag/gemini-3.8-flash-low`/shared 9Router.
 - Preserve existing source/version/job IDs and import-idempotency outcomes. Retain `0002_m1_source_guards` source and active-version triggers; retry reuses the same version/profile/job.
 - One worker, one document, one native model, one embedding request at a time. No SQL transaction across parsing, embedding, object storage or Qdrant I/O. Use `get_conn()` for application connections; composite owner/paper/version constraints and predicates throughout.

@@ -10,6 +10,8 @@ This resolves the previously unknown availability/use of two real identities. Th
 
 Handoff inspection: `git fetch origin` succeeded; `main`, `origin/main`, `fix-m1-remediation`, and `origin/fix-m1-remediation` were at `c39cd1725ceed662612c1fb7c7d76ea83747818b`. `docker compose ps -a` showed the Researcy services stopped. No owner data, service, M1 worktree, or unrelated local file was changed. The deleted worktree guideline was not restored.
 
+**Owner prerequisite exception — 2026-09-28:** The owner approved the M2 plan and explicitly permitted M2 implementation while supplementing the M1 record separately. The M1 documentation gap no longer blocks M2 execution. This is not a claim of new M1 probe results and does not change M1's technical status.
+
 ## Current owner acceptance — 2026-09-27
 
 **Owner acceptance: PASSED.** After testing the remediated UI and successfully importing `2603.09689`, the owner explicitly requested marking M1 passed, committing by work item, merging into `main`, and synchronizing local/remote branches. The owner explicitly required preserving the remediation worktree. This records the owner's acceptance, not an invented agent-observed Google journey.

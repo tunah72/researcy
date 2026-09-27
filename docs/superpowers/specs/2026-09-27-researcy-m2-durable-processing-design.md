@@ -4,7 +4,7 @@
 - **Date:** 2026-09-27.
 - **Authority:** [Master revision 2.0](./2026-09-18-researcy-system-design.md), including the approved reader-facing presentation amendment; [delivery map](./2026-09-18-researcy-delivery-map.md) controls status.
 - **Baseline:** `c39cd1725ceed662612c1fb7c7d76ea83747818b`; branch `feat-m2-durable-processing`, worktree `.omp/worktrees/m2-durable-processing`.
-- **Approval sequence:** specification approved → write and approve a separate implementation plan → implement → collect all exit-gate evidence. M2 is `Designed`; plan approval and the M1 prerequisite decision remain separate.
+- **Approval sequence:** specification approved 2026-09-27 → implementation plan approved 2026-09-28 → implement → collect all exit-gate evidence. M2 is `Planned`; the owner permits implementation while the M1 record is supplemented separately.
 
 ## 1. Outcome, scope and prerequisites
 
@@ -294,3 +294,7 @@ Implementation completion requires affected backend/frontend suites, production 
 The owner explicitly approved this M2 child specification and authorized implementation planning: “Tôi phê duyệt child spec M2 hãy bắt đầu lập implementation plan.”
 
 This accepts the design and provisional operating bounds, with real-machine qualification still required. It does not approve an implementation plan, authorize production implementation, waive the M1 prerequisite record, or claim any M2 gate has passed. The [implementation plan draft](../plans/2026-09-27-researcy-m2-durable-processing.md) is subject to its own review gate.
+
+### Implementation authorization — 2026-09-28
+
+The owner separately approved the implementation plan and explicitly authorized M2 execution while completing M1 documentation in parallel. This satisfies the prerequisite decision for implementation; it does not waive either milestone's technical verification evidence.

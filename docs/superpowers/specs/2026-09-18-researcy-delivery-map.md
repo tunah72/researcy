@@ -133,9 +133,9 @@ The sequence follows the reader-first product dependency: identity and a ready o
 - a gold query retrieves evidence that maps back to page geometry;
 - parser resource-bound and invalid-input cases have recorded security evidence.
 
-**Status:** Designed
+**Status:** Planned
 
-**Approved child specification — 2026-09-27:** [M2 child specification](./2026-09-27-researcy-m2-durable-processing-design.md), explicitly owner-approved. The owner authorized [implementation planning](../plans/2026-09-27-researcy-m2-durable-processing.md); that plan remains a draft until separately approved. Implementation additionally requires an explicit resolution of the M1 prerequisite record. No M2 exit gate is claimed passed.
+**Approved specification and plan:** [M2 child specification](./2026-09-27-researcy-m2-durable-processing-design.md) approved 2026-09-27; [implementation plan](../plans/2026-09-27-researcy-m2-durable-processing.md) approved 2026-09-28. The owner explicitly authorizes implementation while completing the M1 record separately. This is a prerequisite exception, not M1 verification or a passing M2 exit gate.
 
 ### M3 — ReaderAgent and Evidence-Linked PDF Reader
 
@@ -259,3 +259,5 @@ A requirement has one delivery owner. Any earlier milestone is a prerequisite or
 Master specification revision 2.0 and this delivery map were approved on 2026-09-24. Q0 remains `Verified` with its original and Q0.1 report/run links above. Q0.1 measured fused Recall@5 at 6/8, passed the three recorded generation cases, and browser-checked only one answerable case on Track D; it is not evidence of generalized multi-paper or production-agent quality. M1 and SYS-01/AUTH-01/AUTH-02/LIB-01/UX-01 remain `Implemented`. The M1 acceptance report separates historical evidence from the 2026-09-27 arXiv pacing/406 and UI remediation, real `2303.09833v1` acceptance with DB/MinIO hash/size equality, four-width Chromium checks, and local A/B isolation/revocation probes. M1 is not `Verified`: the owner's gate-pass attestation has no recoverable detailed two-real-Google-user four-gate record, and synthetic sessions cannot establish that missing OAuth journey. SEC-01/JOB-01 remain M2-owned; M2–M5 retain their previous statuses. The configured product-runtime route remains `ag/gemini-3.8-flash-low` through 9Router; development-agent model selection is separate and does not change the product contract.
 
 **Current M2 control update — 2026-09-27:** The owner approved the M2 child specification and authorized planning. M2 and its six owned requirements are `Designed`, superseding the M2 status in the preceding historical control narrative. M1 remains `Implemented` pending its recorded prerequisite resolution; M3–M5 and historical Q0 evidence are unchanged. A draft plan does not advance M2 to `Planned`.
+
+**Execution authorization — 2026-09-28:** The owner approved the M2 implementation plan and explicitly permits implementation while the M1 record is supplemented separately. M2 is `Planned`; its requirement rows retain design evidence until implementation/verification evidence exists. The prior prerequisite documentation gap no longer blocks starting M2. M1 technical status and all M2 exit gates remain unchanged.
