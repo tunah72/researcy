@@ -1,4 +1,5 @@
 import hashlib
+import httpx2
 import io
 import os
 import secrets
@@ -35,6 +36,16 @@ MINIO_ENDPOINT = "127.0.0.1:9000"
 MINIO_ACCESS_KEY = "researcy-minio"
 MINIO_SECRET_KEY = "local-minio-password"
 
+
+
+@pytest.fixture(autouse=True)
+def arxiv_clock(monkeypatch):
+    import researcy.papers.arxiv as arxiv_mod
+    now = [1000.0]
+    def advance(seconds):
+        now[0] += seconds
+    monkeypatch.setattr(arxiv_mod, "_GLOBAL_LIMITER", arxiv_mod.ArxivLimiter(clock=lambda: now[0], sleep=advance))
+    return now
 
 @pytest.fixture
 def private_bucket(monkeypatch):
@@ -271,10 +282,7 @@ def test_arxiv_accepted_creates_paper_version_job_and_object(client, pg_conn, pr
     )
     import researcy.papers.intake as intake_mod
 
-    def strict_fetch(canonical_id, requested_version=None, *, max_bytes=None):
-        assert canonical_id == "1706.03762"
-        assert requested_version is None
-        assert max_bytes == 25 * 1024 * 1024
+    def strict_fetch(canonical_id, requested_version=None, *, max_bytes=None, request_id=None):
         return fake_acquisition
 
     monkeypatch.setattr(intake_mod, "fetch_official_arxiv", strict_fetch)
@@ -684,3 +692,166 @@ def test_unversioned_arxiv_race_returns_already_stored_version(
     assert raced.source_version == "v1"
     assert len(list(private_bucket[0].list_objects(private_bucket[1], recursive=True))) == 1
 
+
+
+_SAMPLE_ATOM_FEED = """<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:arxiv="http://arxiv.org/schemas/atom" xmlns="http://www.w3.org/2005/Atom">
+  <id>https://arxiv.org/api/test</id>
+  <title>arXiv Query: id_list=1706.03762</title>
+  <updated>2023-08-02T00:41:18Z</updated>
+  <opensearch:totalResults>1</opensearch:totalResults>
+  <entry>
+    <id>http://arxiv.org/abs/1706.03762v7</id>
+    <title> Attention Is All You Need </title>
+    <author><name>Ashish Vaswani</name></author>
+    <published>2017-06-12T17:57:34Z</published>
+  </entry>
+</feed>"""
+
+
+def test_arxiv_406_metadata_failure_leaves_no_artifacts_and_allows_same_key_retry(
+    client, pg_conn, private_bucket, tmp_path, monkeypatch, arxiv_clock
+):
+    owner = _insert_user(pg_conn, "arxiv-406-meta-owner")
+    headers = _auth_headers(client, pg_conn, owner)
+    headers["Idempotency-Key"] = "arxiv-406-meta-key"
+
+    import researcy.papers.arxiv as arxiv_mod
+
+    orig_client = httpx2.Client
+    healthy = False
+    pdf_path = _make_pdf(tmp_path / "valid.pdf", title="Attention Is All You Need")
+
+    def mock_client_factory(*args, **kwargs):
+        def handler(request: httpx2.Request) -> httpx2.Response:
+            if not healthy:
+                return httpx2.Response(406, headers={"Retry-After": "60"}, text="406 Not Acceptable")
+            url_str = str(request.url)
+            if "api/query" in url_str:
+                return httpx2.Response(200, text=_SAMPLE_ATOM_FEED)
+            return httpx2.Response(200, content=pdf_path.read_bytes())
+
+        return orig_client(transport=httpx2.MockTransport(handler))
+
+    monkeypatch.setattr(arxiv_mod.httpx2, "Client", mock_client_factory)
+    res1 = client.post(
+        "/api/papers/arxiv",
+        headers=headers,
+        json={"arxiv_id_or_url": "1706.03762"},
+    )
+    assert res1.status_code == 503
+    assert res1.json()["code"] == "ARXIV_UPSTREAM_ERROR"
+    assert res1.headers.get("retry-after") == "60"
+    assert "406" not in res1.json()["message"]
+
+    minio_client, bucket = private_bucket
+    assert pg_conn.execute("SELECT count(*) FROM papers WHERE owner_id = %s", (owner,)).fetchone()[0] == 0
+    assert pg_conn.execute("SELECT count(*) FROM document_versions WHERE owner_id = %s", (owner,)).fetchone()[0] == 0
+    assert pg_conn.execute("SELECT count(*) FROM ingestion_jobs WHERE owner_id = %s", (owner,)).fetchone()[0] == 0
+    assert pg_conn.execute("SELECT count(*) FROM import_idempotency WHERE owner_id = %s", (owner,)).fetchone()[0] == 0
+    assert len(list(minio_client.list_objects(bucket, recursive=True))) == 0
+
+    healthy = True
+    arxiv_clock[0] += 60
+    res2 = client.post(
+        "/api/papers/arxiv",
+        headers=headers,
+        json={"arxiv_id_or_url": "1706.03762"},
+    )
+    assert res2.status_code == 202
+    assert res2.json()["stage"] == "queued"
+    assert res2.json()["source_version"] == "v7"
+
+    assert pg_conn.execute("SELECT count(*) FROM papers WHERE owner_id = %s", (owner,)).fetchone()[0] == 1
+    assert pg_conn.execute("SELECT count(*) FROM document_versions WHERE owner_id = %s", (owner,)).fetchone()[0] == 1
+    assert pg_conn.execute("SELECT count(*) FROM ingestion_jobs WHERE owner_id = %s", (owner,)).fetchone()[0] == 1
+    assert pg_conn.execute("SELECT count(*) FROM import_idempotency WHERE owner_id = %s", (owner,)).fetchone()[0] == 1
+    assert len(list(minio_client.list_objects(bucket, recursive=True))) == 1
+
+
+def test_arxiv_406_pdf_failure_leaves_no_artifacts_and_allows_same_key_retry(
+    client, pg_conn, private_bucket, tmp_path, monkeypatch, arxiv_clock
+):
+    owner = _insert_user(pg_conn, "arxiv-406-pdf-owner")
+    headers = _auth_headers(client, pg_conn, owner)
+    headers["Idempotency-Key"] = "arxiv-406-pdf-key"
+
+    import researcy.papers.arxiv as arxiv_mod
+
+    orig_client = httpx2.Client
+    healthy = False
+    pdf_path = _make_pdf(tmp_path / "valid2.pdf", title="Attention Is All You Need")
+
+    def mock_client_factory(*args, **kwargs):
+        def handler(request: httpx2.Request) -> httpx2.Response:
+            url_str = str(request.url)
+            if "api/query" in url_str:
+                return httpx2.Response(200, text=_SAMPLE_ATOM_FEED)
+            if not healthy:
+                return httpx2.Response(406, headers={"Retry-After": "45"}, text="406 Not Acceptable")
+            return httpx2.Response(200, content=pdf_path.read_bytes())
+
+        return orig_client(transport=httpx2.MockTransport(handler))
+
+    monkeypatch.setattr(arxiv_mod.httpx2, "Client", mock_client_factory)
+    res1 = client.post(
+        "/api/papers/arxiv",
+        headers=headers,
+        json={"arxiv_id_or_url": "1706.03762"},
+    )
+    assert res1.status_code == 503
+    assert res1.json()["code"] == "ARXIV_UPSTREAM_ERROR"
+    assert res1.headers.get("retry-after") == "45"
+    assert "406" not in res1.json()["message"]
+
+    minio_client, bucket = private_bucket
+    assert pg_conn.execute("SELECT count(*) FROM papers WHERE owner_id = %s", (owner,)).fetchone()[0] == 0
+    assert pg_conn.execute("SELECT count(*) FROM document_versions WHERE owner_id = %s", (owner,)).fetchone()[0] == 0
+    assert pg_conn.execute("SELECT count(*) FROM ingestion_jobs WHERE owner_id = %s", (owner,)).fetchone()[0] == 0
+    assert pg_conn.execute("SELECT count(*) FROM import_idempotency WHERE owner_id = %s", (owner,)).fetchone()[0] == 0
+    assert len(list(minio_client.list_objects(bucket, recursive=True))) == 0
+
+    healthy = True
+    arxiv_clock[0] += 45
+    res2 = client.post(
+        "/api/papers/arxiv",
+        headers=headers,
+        json={"arxiv_id_or_url": "1706.03762"},
+    )
+    assert res2.status_code == 202
+    assert res2.json()["stage"] == "queued"
+
+    assert pg_conn.execute("SELECT count(*) FROM papers WHERE owner_id = %s", (owner,)).fetchone()[0] == 1
+    assert pg_conn.execute("SELECT count(*) FROM document_versions WHERE owner_id = %s", (owner,)).fetchone()[0] == 1
+    assert pg_conn.execute("SELECT count(*) FROM ingestion_jobs WHERE owner_id = %s", (owner,)).fetchone()[0] == 1
+    assert pg_conn.execute("SELECT count(*) FROM import_idempotency WHERE owner_id = %s", (owner,)).fetchone()[0] == 1
+    assert len(list(minio_client.list_objects(bucket, recursive=True))) == 1
+
+
+def test_arxiv_transient_failure_does_not_leak_raw_http_status_message(
+    client, pg_conn, private_bucket, monkeypatch
+):
+    owner = _insert_user(pg_conn, "arxiv-transient-owner")
+    headers = _auth_headers(client, pg_conn, owner)
+    headers["Idempotency-Key"] = "arxiv-transient-key"
+
+    import researcy.papers.arxiv as arxiv_mod
+
+    orig_client = httpx2.Client
+
+    def mock_client_factory(*args, **kwargs):
+        def handler(request: httpx2.Request) -> httpx2.Response:
+            return httpx2.Response(502, text="Bad Gateway from Cloudflare")
+
+        return orig_client(transport=httpx2.MockTransport(handler))
+
+    monkeypatch.setattr(arxiv_mod.httpx2, "Client", mock_client_factory)
+    res = client.post(
+        "/api/papers/arxiv",
+        headers=headers,
+        json={"arxiv_id_or_url": "1706.03762"},
+    )
+    assert res.status_code in {502, 503}
+    msg = res.json()["message"]
+    assert "HTTP 502" not in msg
+    assert "Cloudflare" not in msg

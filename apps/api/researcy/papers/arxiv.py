@@ -1,8 +1,15 @@
+from collections.abc import Callable
+from contextlib import contextmanager
+from dataclasses import dataclass
+from email.utils import parsedate_to_datetime
+import logging
+import math
 import os
 from pathlib import Path
 import re
 import tempfile
-from dataclasses import dataclass
+import threading
+import time
 from urllib.parse import urljoin, urlsplit
 import xml.etree.ElementTree as ET
 
@@ -10,7 +17,6 @@ import httpx2
 
 from ..config import get_settings
 from ..errors import APIError
-
 
 _CURRENT_RE = re.compile(r"^(\d{2}(?:0[1-9]|1[0-2])\.\d{4,5})(?:v([1-9]\d*))?$")
 _LEGACY_RE = re.compile(
@@ -21,13 +27,87 @@ _OFFICIAL_DESTINATION_HOSTS = frozenset({"arxiv.org", "export.arxiv.org", "www.a
 _PDF_MAGIC = b"%PDF-"
 _MAX_REDIRECTS = 3
 _DEFAULT_TIMEOUT = 15.0
-_READ_SIZE = 64 * 1024
+_MAX_RESPONSE_SECONDS = 60.0
 _MAX_METADATA_BYTES = 1024 * 1024
-_USER_AGENT = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 (Researcy/0.1)"
-)
+_USER_AGENT = "Researcy/0.1 (https://github.com/tunah72/researcy)"
 _DEFAULT_HEADERS = {"User-Agent": _USER_AGENT}
+
+logger = logging.getLogger(__name__)
+
+
+def _log_upstream(host: str, status: int | None, request_id: str | None) -> None:
+    if status is not None and 200 <= status < 400:
+        logger.info(
+            "arxiv_upstream host=%s status=%s request_id=%s",
+            host,
+            status,
+            request_id,
+            extra={"upstream_host": host, "upstream_status": status, "request_id": request_id},
+        )
+    else:
+        logger.warning(
+            "arxiv_upstream host=%s status=%s request_id=%s",
+            host,
+            status,
+            request_id,
+            extra={"upstream_host": host, "upstream_status": status, "request_id": request_id},
+        )
+
+
+class ArxivLimiter:
+    """Process-wide rate limiter and cooldown coordinator for official arXiv requests."""
+
+    def __init__(
+        self,
+        min_interval: float = 3.0,
+        clock: Callable[[], float] | None = None,
+        sleep: Callable[[float], None] | None = None,
+    ):
+        self._min_interval = min_interval
+        self._clock = clock or time.monotonic
+        self._sleep = sleep or time.sleep
+        # A response can establish cooldown while holding the request lease.
+        self._lock = threading.RLock()
+        self._last_request_started_at: float = 0.0
+        self._cooldown_until: float = 0.0
+
+
+    def set_cooldown(self, seconds: float) -> None:
+        with self._lock:
+            clock_fn = self._clock
+            expiry = clock_fn() + max(0.0, float(seconds))
+            if expiry > self._cooldown_until:
+                self._cooldown_until = expiry
+
+    @contextmanager
+    def acquire(self):
+        if not self._lock.acquire(timeout=_MAX_RESPONSE_SECONDS):
+            raise ArxivUpstreamError("arXiv is busy. Please wait before trying again.")
+        try:
+            clock_fn = self._clock
+            sleep_fn = self._sleep
+            now = clock_fn()
+            if now < self._cooldown_until:
+                remaining = max(1, math.ceil(self._cooldown_until - now))
+                raise ArxivUpstreamError(
+                    "arXiv is temporarily unavailable. Please try again after the indicated interval.",
+                    status_code=503,
+                    retry_after=remaining,
+                )
+            if self._last_request_started_at > 0.0:
+                elapsed = now - self._last_request_started_at
+                if elapsed < self._min_interval:
+                    delay = self._min_interval - elapsed
+                    sleep_fn(delay)
+            self._last_request_started_at = clock_fn()
+            yield
+        finally:
+            self._lock.release()
+
+
+_GLOBAL_LIMITER = ArxivLimiter()
+
+
 
 class InvalidArxivReference(APIError):
     def __init__(self, message: str = "Invalid arXiv reference."):
@@ -53,7 +133,7 @@ class ArxivUpstreamError(APIError):
         *,
         status_code: int = 503,
         code: str = "ARXIV_UPSTREAM_ERROR",
-        retry_after: int | None = None,
+        retry_after: int | None = 60,
     ):
         super().__init__(status_code, code, message)
         self.retry_after = retry_after
@@ -179,69 +259,100 @@ def _validate_destination_url(url_str: str) -> None:
 def _parse_retry_after(value: str | None) -> int | None:
     if not value:
         return None
+    value = value.strip()
     try:
-        val = int(value.strip())
-        return val if val > 0 else None
-    except (ValueError, TypeError):
+        if value.isascii() and value.isdigit():
+            # Reject unrepresentable provider values without disabling cooldown.
+            seconds = int(value)
+            if not math.isfinite(float(seconds)):
+                return None
+            return seconds if seconds > 0 else None
+        date = parsedate_to_datetime(value)
+        if date.tzinfo is None:
+            return None
+        return max(1, math.ceil(date.timestamp() - time.time()))
+    except (ValueError, TypeError, OverflowError):
         return None
 
 
-def _fetch_metadata(client: httpx2.Client, canonical_id: str) -> tuple[ArxivMetadata, int]:
+def _fetch_metadata(
+    client: httpx2.Client,
+    canonical_id: str,
+    *,
+    limiter: ArxivLimiter | None = None,
+    request_id: str | None = None,
+) -> tuple[ArxivMetadata, int]:
     metadata_url = f"https://export.arxiv.org/api/query?id_list={canonical_id}"
     current_url = metadata_url
     redirect_count = 0
+    active_limiter = limiter or _GLOBAL_LIMITER
 
     while True:
         _validate_destination_url(current_url)
-        req_headers = {"User-Agent": _USER_AGENT}
-        with client.stream(
-            "GET", current_url, follow_redirects=False, headers=req_headers
-        ) as response:
-            if response.status_code in {301, 302, 303, 307, 308}:
-                redirect_count += 1
-                if redirect_count > _MAX_REDIRECTS:
-                    raise ArxivUpstreamError(
-                        "Too many redirects from official arXiv metadata service.",
-                        status_code=502,
-                    )
-                location = response.headers.get("Location")
-                if not location:
-                    raise ArxivUpstreamError(
-                        "Redirect missing Location header from official arXiv service.",
-                        status_code=502,
-                    )
-                current_url = urljoin(current_url, location)
-                continue
+        host = urlsplit(current_url).netloc
+        try:
+            with active_limiter.acquire():
+                deadline = time.monotonic() + _MAX_RESPONSE_SECONDS
+                req_headers = {"User-Agent": _USER_AGENT}
+                with client.stream(
+                    "GET", current_url, follow_redirects=False, headers=req_headers
+                ) as response:
+                    _log_upstream(host, response.status_code, request_id)
+                    if response.status_code in {301, 302, 303, 307, 308}:
+                        redirect_count += 1
+                        if redirect_count > _MAX_REDIRECTS:
+                            raise ArxivUpstreamError(
+                                "Too many redirects from official arXiv metadata service.",
+                                status_code=502,
+                            )
+                        location = response.headers.get("Location")
+                        if not location:
+                            raise ArxivUpstreamError(
+                                "Redirect missing Location header from official arXiv service.",
+                                status_code=502,
+                            )
+                        current_url = urljoin(current_url, location)
+                        continue
 
-            if response.status_code == 429:
-                retry_after = _parse_retry_after(response.headers.get("Retry-After"))
-                raise ArxivUpstreamError(
-                    "The official arXiv service is currently rate-limited.",
-                    status_code=503,
-                    retry_after=retry_after or 60,
-                )
-            if response.status_code == 404:
-                raise ArxivNotFound(f"The arXiv paper {canonical_id} was not found.")
-            if response.status_code >= 500:
-                raise ArxivUpstreamError(
-                    "The official arXiv metadata service returned a server error.",
-                    status_code=502,
-                )
-            if response.status_code != 200:
-                raise ArxivUpstreamError(
-                    f"The official arXiv metadata service returned HTTP {response.status_code}.",
-                    status_code=502,
-                )
+                    # 406 is a rejection, not proof of rate limiting. Back off rather than probe again.
+                    if response.status_code in {406, 429, 503}:
+                        retry_after = _parse_retry_after(response.headers.get("Retry-After"))
+                        cooldown = retry_after or 60
+                        active_limiter.set_cooldown(cooldown)
+                        raise ArxivUpstreamError(
+                            "arXiv could not complete this request. Please wait before trying again.",
+                            status_code=503,
+                            retry_after=cooldown,
+                        )
+                    if response.status_code == 404:
+                        raise ArxivNotFound(f"The arXiv paper {canonical_id} was not found.")
+                    if response.status_code >= 500:
+                        raise ArxivUpstreamError(
+                            "The official arXiv metadata service is temporarily unavailable. Please try again later.",
+                            status_code=502,
+                        )
+                    if response.status_code != 200:
+                        raise ArxivUpstreamError(
+                            "The official arXiv metadata service is temporarily unavailable. Please try again later.",
+                            status_code=502,
+                        )
 
-            xml_content = bytearray()
-            for chunk in response.iter_bytes(chunk_size=_READ_SIZE):
-                if len(xml_content) + len(chunk) > _MAX_METADATA_BYTES:
-                    raise ArxivUpstreamError(
-                        "The official arXiv metadata response exceeded the safe size limit.",
-                        status_code=502,
-                    )
-                xml_content.extend(chunk)
-            break
+                    xml_content = bytearray()
+                    for chunk in response.iter_bytes():
+                        if time.monotonic() >= deadline:
+                            raise httpx2.ReadTimeout("arXiv metadata response deadline exceeded")
+                        if len(xml_content) + len(chunk) > _MAX_METADATA_BYTES:
+                            raise ArxivUpstreamError(
+                                "The official arXiv metadata response exceeded the safe size limit.",
+                                status_code=502,
+                            )
+                        xml_content.extend(chunk)
+                    break
+        except (APIError, httpx2.HTTPError):
+            raise
+        except Exception:
+            _log_upstream(host, None, request_id)
+            raise
 
     try:
         root = ET.fromstring(xml_content)
@@ -321,9 +432,13 @@ def _stream_pdf_to_sink(
     pdf_url: str,
     max_bytes: int,
     temp_dir: str | Path | None,
+    *,
+    limiter: ArxivLimiter | None = None,
+    request_id: str | None = None,
 ) -> Path:
     current_url = pdf_url
     redirect_count = 0
+    active_limiter = limiter or _GLOBAL_LIMITER
 
     fd, temp_file_path = tempfile.mkstemp(prefix="arxiv_", suffix=".pdf", dir=temp_dir)
     os.close(fd)
@@ -333,57 +448,66 @@ def _stream_pdf_to_sink(
     try:
         while True:
             _validate_destination_url(current_url)
-            req_headers = {"User-Agent": _USER_AGENT}
-            with client.stream(
-                "GET", current_url, follow_redirects=False, headers=req_headers
-            ) as response:
-                if response.status_code in {301, 302, 303, 307, 308}:
-                    redirect_count += 1
-                    if redirect_count > _MAX_REDIRECTS:
+            host = urlsplit(current_url).netloc
+            with active_limiter.acquire():
+                deadline = time.monotonic() + _MAX_RESPONSE_SECONDS
+                req_headers = {"User-Agent": _USER_AGENT}
+                with client.stream(
+                    "GET", current_url, follow_redirects=False, headers=req_headers
+                ) as response:
+                    _log_upstream(host, response.status_code, request_id)
+                    if response.status_code in {301, 302, 303, 307, 308}:
+                        redirect_count += 1
+                        if redirect_count > _MAX_REDIRECTS:
+                            raise ArxivUpstreamError(
+                                "Too many redirects from official arXiv PDF service.",
+                                status_code=502,
+                            )
+                        location = response.headers.get("Location")
+                        if not location:
+                            raise ArxivUpstreamError(
+                                "Redirect missing Location header from official arXiv service.",
+                                status_code=502,
+                            )
+                        current_url = urljoin(current_url, location)
+                        continue
+
+                    if response.status_code in {406, 429, 503}:
+                        retry_after = _parse_retry_after(response.headers.get("Retry-After"))
+                        cooldown = retry_after or 60
+                        active_limiter.set_cooldown(cooldown)
                         raise ArxivUpstreamError(
-                            "Too many redirects from official arXiv PDF service.",
+                            "arXiv could not complete this request. Please wait before trying again.",
+                            status_code=503,
+                            retry_after=cooldown,
+                        )
+                    if response.status_code == 404:
+                        raise ArxivVersionNotFound("The requested arXiv PDF version was not found.")
+                    if response.status_code >= 500:
+                        raise ArxivUpstreamError(
+                            "The official arXiv PDF service is temporarily unavailable. Please try again later.",
                             status_code=502,
                         )
-                    location = response.headers.get("Location")
-                    if not location:
+                    if response.status_code != 200:
                         raise ArxivUpstreamError(
-                            "Redirect missing Location header from official arXiv service.",
+                            "The official arXiv PDF service is temporarily unavailable. Please try again later.",
                             status_code=502,
                         )
-                    current_url = urljoin(current_url, location)
-                    continue
 
-                if response.status_code == 429:
-                    retry_after = _parse_retry_after(response.headers.get("Retry-After"))
-                    raise ArxivUpstreamError(
-                        "The official arXiv service is currently rate-limited.",
-                        status_code=503,
-                        retry_after=retry_after or 60,
-                    )
-                if response.status_code == 404:
-                    raise ArxivVersionNotFound("The requested arXiv PDF version was not found.")
-                if response.status_code >= 500:
-                    raise ArxivUpstreamError(
-                        "The official arXiv PDF service returned a server error.",
-                        status_code=502,
-                    )
-                if response.status_code != 200:
-                    raise ArxivUpstreamError(
-                        f"The official arXiv PDF service returned HTTP {response.status_code}.",
-                        status_code=502,
-                    )
-
-                total_bytes = 0
-                with open(path, "wb") as sink:
-                    for chunk in response.iter_bytes(chunk_size=_READ_SIZE):
-                        if chunk:
-                            total_bytes += len(chunk)
-                            if total_bytes > max_bytes:
-                                raise ArxivPdfTooLarge(
-                                    "The PDF exceeds the configured size limit."
-                                )
-                            sink.write(chunk)
-                break
+                    total_bytes = 0
+                    with open(path, "wb") as sink:
+                        # Do not buffer to a fixed chunk size: trickles must reach the deadline check.
+                        for chunk in response.iter_bytes():
+                            if time.monotonic() >= deadline:
+                                raise httpx2.ReadTimeout("arXiv PDF response deadline exceeded")
+                            if chunk:
+                                total_bytes += len(chunk)
+                                if total_bytes > max_bytes:
+                                    raise ArxivPdfTooLarge(
+                                        "The PDF exceeds the configured size limit."
+                                    )
+                                sink.write(chunk)
+                    break
 
         if total_bytes == 0:
             raise ArxivInvalidPdf("The downloaded PDF is empty.")
@@ -412,6 +536,8 @@ def fetch_official_arxiv(
     max_bytes: int | None = None,
     timeout: float = _DEFAULT_TIMEOUT,
     temp_dir: str | Path | None = None,
+    limiter: ArxivLimiter | None = None,
+    request_id: str | None = None,
 ) -> ArxivAcquisition:
     """Fetch official arXiv metadata and version-specific PDF using server-constructed URLs."""
     parsed_id, parsed_version = parse_arxiv_reference(canonical_id)
@@ -436,7 +562,9 @@ def fetch_official_arxiv(
 
     try:
         try:
-            metadata, latest_version = _fetch_metadata(client, canonical_id)
+            metadata, latest_version = _fetch_metadata(
+                client, canonical_id, limiter=limiter, request_id=request_id
+            )
         except (
             ArxivNotFound,
             ArxivVersionNotFound,
@@ -445,13 +573,15 @@ def fetch_official_arxiv(
         ):
             raise
         except httpx2.TimeoutException:
+            _log_upstream("export.arxiv.org", None, request_id)
             raise ArxivUpstreamError(
-                "The request to the official arXiv service timed out.",
+                "arXiv did not respond in time. Please wait and retry.",
                 status_code=504,
             ) from None
         except httpx2.HTTPError:
+            _log_upstream("export.arxiv.org", None, request_id)
             raise ArxivUpstreamError(
-                "Failed to communicate with the official arXiv service.",
+                "arXiv could not be reached. Please wait and retry.",
                 status_code=503,
             ) from None
 
@@ -467,7 +597,14 @@ def fetch_official_arxiv(
         pdf_url = f"https://arxiv.org/pdf/{canonical_id}v{resolved_version}"
 
         try:
-            pdf_path = _stream_pdf_to_sink(client, pdf_url, max_bytes, temp_dir)
+            pdf_path = _stream_pdf_to_sink(
+                client,
+                pdf_url,
+                max_bytes,
+                temp_dir,
+                limiter=limiter,
+                request_id=request_id,
+            )
         except (
             ArxivVersionNotFound,
             ArxivUpstreamError,
@@ -476,13 +613,15 @@ def fetch_official_arxiv(
         ):
             raise
         except httpx2.TimeoutException:
+            _log_upstream("arxiv.org", None, request_id)
             raise ArxivUpstreamError(
-                "The PDF download from official arXiv timed out.",
+                "The arXiv PDF download timed out. Please wait and retry.",
                 status_code=504,
             ) from None
         except httpx2.HTTPError:
+            _log_upstream("arxiv.org", None, request_id)
             raise ArxivUpstreamError(
-                "Failed to stream PDF from official arXiv service.",
+                "arXiv could not complete the PDF download. Please wait and retry.",
                 status_code=503,
             ) from None
 

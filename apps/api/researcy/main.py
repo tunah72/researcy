@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import logging
 from typing import Any
 from uuid import uuid4
 
@@ -46,6 +47,11 @@ class UploadBodyLimitMiddleware:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Enable application diagnostics without exposing third-party HTTP request logs.
+    logger = logging.getLogger("researcy")
+    if not logger.handlers:
+        logger.addHandler(logging.StreamHandler())
+    logger.setLevel(logging.INFO)
     app.state.settings = get_settings()
     yield
 

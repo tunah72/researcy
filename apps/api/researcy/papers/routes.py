@@ -237,6 +237,7 @@ def import_arxiv(
             canonical_id,
             requested_version=explicit_version,
             max_bytes=request.app.state.settings.max_upload_bytes,
+            request_id=request.state.request_id,
         )
         try:
             with get_conn() as conn:
