@@ -1,5 +1,15 @@
 # Researcy M1 acceptance — 2026-09-24
 
+## M2 handoff evidence addendum — 2026-09-27
+
+The owner explicitly confirmed successful testing with **two real Google accounts** and requested promotion of M1 to `Verified`. Treat this as owner-reported evidence, not an agent-observed OAuth journey. Account email addresses are intentionally omitted from tracked evidence; identity remains issuer + `sub`, not email. The owner also reaffirmed successful arXiv `2603.09689` import and the previous acceptance result.
+
+This resolves the previously unknown availability/use of two real identities. The supplied handoff does not describe each §7 gate's observed result: cross-owner direct-ID denial with swapped owners, both imports and original integrity, Library persistence in a new session, and old-cookie replay after logout. The earlier local-session HTTP/DB/MinIO evidence below remains valid but is not relabelled as real-Google-user evidence.
+
+**Gate reconciliation remains open; technical status stays `Implemented` pending that record or an explicitly approved acceptance-contract amendment.** Do not rerun owner-confirmed checks merely to confirm them. Close the record using retained owner results for the missing journeys; execute only genuinely untested probes with owner authorization. M2 specification work can proceed; M2 implementation requires the prerequisite decision plus separate spec and plan approvals.
+
+Handoff inspection: `git fetch origin` succeeded; `main`, `origin/main`, `fix-m1-remediation`, and `origin/fix-m1-remediation` were at `c39cd1725ceed662612c1fb7c7d76ea83747818b`. `docker compose ps -a` showed the Researcy services stopped. No owner data, service, M1 worktree, or unrelated local file was changed. The deleted worktree guideline was not restored.
+
 ## Current owner acceptance — 2026-09-27
 
 **Owner acceptance: PASSED.** After testing the remediated UI and successfully importing `2603.09689`, the owner explicitly requested marking M1 passed, committing by work item, merging into `main`, and synchronizing local/remote branches. The owner explicitly required preserving the remediation worktree. This records the owner's acceptance, not an invented agent-observed Google journey.

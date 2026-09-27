@@ -104,6 +104,8 @@ The sequence follows the reader-first product dependency: identity and a ready o
 
 **Owner acceptance:** **PASSED — 2026-09-27.** The owner confirmed successful `2603.09689` import after remediation and authorized task-based commits, merge/push to `main`, local/remote synchronization, and retention of the worktree. See [current owner acceptance](../reports/2026-09-24-researcy-m1-acceptance.md#current-owner-acceptance--2026-09-27). This acceptance is recorded separately from `Verified`: the detailed two-real-Google-user four-gate evidence is still outstanding. M2 remains Not started.
 
+**M2 handoff update — 2026-09-27:** The owner now explicitly confirms testing with two real Google accounts and requests `Verified`. This is accepted as owner-reported evidence; the remaining issue is the per-gate record, not the availability of real identities. See the [handoff evidence addendum](../reports/2026-09-24-researcy-m1-acceptance.md#m2-handoff-evidence-addendum--2026-09-27). Until that record or an explicit acceptance-contract amendment closes the gap, the technical status above is unchanged; no owner-confirmed check is rerun just for confirmation.
+
 **Approved child specification:** [`2026-09-24-researcy-m1-sign-in-library-import-design.md`](./2026-09-24-researcy-m1-sign-in-library-import-design.md) — owner-approved on 2026-09-24.
 **Approved implementation plan:** [`2026-09-24-researcy-m1-sign-in-library-import.md`](../plans/2026-09-24-researcy-m1-sign-in-library-import.md) — owner-approved on 2026-09-24; implementation and the 2026-09-27 remediation evidence are recorded in the [M1 acceptance report](../reports/2026-09-24-researcy-m1-acceptance.md). The later owner-approved reader-facing revision adds Landing → Google modal → Library, compact import controls, safe nontechnical feedback, `406`/`429`/`503` cooldowns, real `1706.03762v7` API/browser imports, PDF integrity, four-width production-browser checks, and local A/B ownership/logout replay. The owner's historical gate-pass attestation is retained, but the detailed real two-Google-user four-gate record is still unavailable; no `Verified` promotion is justified.
 
@@ -132,6 +134,8 @@ The sequence follows the reader-first product dependency: identity and a ready o
 - parser resource-bound and invalid-input cases have recorded security evidence.
 
 **Status:** Not started
+
+**Design in review — 2026-09-27:** [M2 child specification draft](./2026-09-27-researcy-m2-durable-processing-design.md). A draft is not approval and does not promote M2 or its requirement statuses. Detailed implementation planning waits for specification approval; implementation additionally requires plan approval and an explicit resolution of the M1 prerequisite record.
 
 ### M3 — ReaderAgent and Evidence-Linked PDF Reader
 
