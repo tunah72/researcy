@@ -9,7 +9,6 @@ Read these sources before changing behavior:
 1. `docs/superpowers/specs/2026-09-18-researcy-system-design.md` — approved master specification and architectural authority.
 2. `docs/superpowers/specs/2026-09-18-researcy-delivery-map.md` — milestone ownership, status, exit gates, and evidence rules.
 3. The approved child specification and implementation plan for the active milestone under `docs/superpowers/specs/` and `docs/superpowers/plans/`.
-4. `docs/guidelines/git-worktree-remote-workflow.md` — branch, worktree, and archival workflow.
 
 A child specification or plan may add local detail but must not silently override the master specification. The delivery map is authoritative for current status; do not infer milestone status from code or this file. Do not rewrite historical Q0 evidence.
 
