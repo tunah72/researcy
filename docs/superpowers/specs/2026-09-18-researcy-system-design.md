@@ -448,9 +448,11 @@ The Library contains:
 - search by title or author;
 - a single list of papers.
 
-`Add paper` presents exactly two options: arXiv URL/ID and PDF upload. A recommendation is added only when the user explicitly chooses `Add to Library`; this action reuses the existing arXiv import path and shows the normal processing state.
+`Add paper` presents exactly two options: arXiv URL/ID and PDF upload. A recommendation is added only when the user explicitly chooses `Add to Library`; this action reuses the existing arXiv import path and gives honest, reader-facing feedback about the result.
 
-List/grid switching and source/year/sort filters are excluded from the MVP. A row shows title, authors, year, and source. Processing or failed papers additionally show the current stage and an actionable detail/retry control. Ready papers do not carry redundant status badges.
+List/grid switching and source/year/sort filters are excluded from the MVP. A row shows title, authors, year, and source. Unavailable or failed papers offer a plain-language explanation and actionable detail/retry control only when supported. Ready papers do not carry redundant status badges.
+
+**Owner-approved M1 presentation amendment — 2026-09-27:** The UI is for readers, not system operators. Landing `Get Started` opens a Google-only sign-in dialog; success leads to Library. Show useful action feedback and document warnings, not internal processing stages, job/version UUIDs, diagnostic request IDs, infrastructure terms, or raw backend errors. M1 may confirm a paper was added without implying it is readable; its details explain that reading is not available yet. API states, request IDs, security checks, and diagnostic acceptance evidence remain unchanged. Later milestone stage verification uses API/worker/DB evidence rather than requiring technical status labels in the reader UI.
 
 ### 12.3 Reader
 

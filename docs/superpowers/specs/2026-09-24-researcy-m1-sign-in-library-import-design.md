@@ -4,6 +4,7 @@
 - **Date:** 2026-09-24
 - **Authority:** [System Design revision 2.0](./2026-09-18-researcy-system-design.md) remains normative; [Delivery Map](./2026-09-18-researcy-delivery-map.md) controls status and gates.
 - **Milestone:** M1 `Designed` upon owner approval on 2026-09-24. Q0 remains `Verified`; M2–M5 remain at their previous delivery-map statuses. M1 is neither `Planned` nor `Verified`.
+- **Presentation amendment approved 2026-09-27:** Landing `Get Started` opens a Google sign-in dialog; Library and intake use reader-facing language, not infrastructure terminology or diagnostic identifiers. Authentication, immutable storage, atomic acceptance, and four-gate contracts are unchanged.
 
 ## 1. Outcome and ownership
 
@@ -16,7 +17,7 @@ A person completes real Google sign-in, sees a PostgreSQL-backed Library scoped 
 | MinIO original-PDF write boundary; official arXiv acquisition; bounded initial PDF checks before acceptance | M2 full document parsing and provenance, final SEC-01 acceptance, deletion cleanup job |
 | Cookie sessions, CSRF, owner-scoped queries, logout revocation, request IDs and safe errors | The same security boundary applies to later routes; no second authentication system |
 
-The minimal queued row and migrations are prerequisites for master §8's atomic acceptance contract, **not** completion of delivery-map `JOB-01` or `SEC-01`. M1 does not operate a processing worker; the Library must never show a queued M1 import as successfully processed. Routes listed in master §15 for delete, jobs/retry, conversations, citations, and agents retain their master names and ownership, but their behavior is outside this child specification. A queued item's details may show "Waiting for processing"; no fake retry action is offered. M2 provides actionable failure/retry controls when such states actually exist.
+The minimal queued row and migrations are prerequisites for master §8's atomic acceptance contract, **not** completion of delivery-map `JOB-01` or `SEC-01`. M1 does not operate a processing worker; the Library must never show an M1 import as successfully processed. Routes listed in master §15 for delete, jobs/retry, conversations, citations, and agents retain their master names and ownership, but their behavior is outside this child specification. A saved item's details explain that reading is not available yet without exposing the internal queue stage. M2 provides actionable failure/retry controls when such states actually exist.
 
 ## 2. Decisions and alternative considered
 
@@ -56,6 +57,8 @@ The minimal queued row and migrations are prerequisites for master §8's atomic 
 
 Existing master route names stay unchanged. Authentication entry/callback/logout routes below are M1-local additions to the §15 API listing; the master does not prescribe their names. All JSON error responses use `{ "code": "STABLE_CODE", "message": "Safe actionable text", "request_id": "…" }`; never include secrets, raw provider responses, document text, or whether a foreign paper exists. Success responses include `request_id`. IDs are opaque server IDs, not ownership assertions.
 
+The UI translates known error codes into concise, actionable guidance; it never renders raw backend messages, request IDs, job IDs, document-version UUIDs, storage details, or internal processing stages. Request IDs and stable codes remain in API responses/logs for diagnostics and acceptance evidence. A saved paper is presented as added to the Library, not as processed or readable. Bibliographic metadata, source editions, document-readability warnings, and progress of the user's current action remain visible where useful.
+
 | Route | Authorized observable contract |
 |---|---|
 | `GET /auth/google/start`, `GET /auth/google/callback` | Browser redirects through Google; safe success to Library or safe sign-in error; no JSON token or arbitrary redirect. |
@@ -70,10 +73,10 @@ For either import, a new `202` body is `{"paper_id":"…","document_version":"�
 
 | Surface/state | Visible behavior and recovery |
 |---|---|
-| Sign-in idle, redirecting, OAuth failed, signed in, expired | Explicit Google action and progress; safe retry on callback failure; expired/revoked returns to sign-in without stale Library content. |
-| Library loading, empty, populated, query-empty, load error | Loading feedback; empty state offers Add paper; title/author search changes the owner-filtered result; error keeps a safe retry with request ID, never a fabricated/foreign row. |
-| Add paper idle, validating/uploading/downloading, accepted, accepted-with-warning, input error, upstream error | Exactly two choices; disable duplicate submission while in flight; accepted navigates/displays the persisted queued row. An accepted low-text PDF visibly warns that M2 processing may fail; it is not labelled supported or ready. Field-associated errors and explicit retry reuse the same idempotency key only for the same payload. |
-| Queued row and detail | Title, available authors/year, source, stored arXiv version when present, persisted screening warning when present, and "Waiting for processing" stage from DB; no `ready` badge, functional Reader link, fake progress percentage or claimed parser output. An unversioned arXiv repeat shows its existing version. Future M2 stages/failure/retry render only when actually persisted. |
+| Sign-in idle, redirecting, OAuth failed, signed in, expired | Landing `Get Started` and secondary `Sign in` open the same labelled Google-only modal. Explicit Google action uses the existing OAuth entry; success redirects to Library. Direct `/sign-in`, failed callbacks and expired sessions reuse the same dialog and plain-language recovery. Closing restores focus; Escape works; browser-back restores the ability to try again. |
+| Library loading, empty, populated, query-empty, load error | Loading feedback; one primary Add paper action; title/author search changes the owner-filtered result, with only the latest response allowed to update it. Errors retain a safe retry, never fabricated/foreign rows or diagnostic text. |
+| Add paper idle, submitting, accepted, accepted-with-warning, input error, unavailable | Exactly two choices in a compact panel: PDF upload and arXiv URL/ID. Disable duplicate submission and prevent dismissal during submission; accepted displays the persisted Library item. Low-text warnings describe possible reading difficulty, not parser milestones. Field-associated errors and explicit retry retain the same key only for the same payload. arXiv cooldown survives input edits and does not prevent PDF uploads; account import limits apply to both. |
+| Saved row and detail | Title, available authors/year, source, stored arXiv edition when present, and a plain-language readability warning when present. Do not show raw `queued`/job stages or technical identifiers. Details explain that reading is not available yet; no `ready` badge, functional Reader link, fake progress percentage or claimed parser output. An unversioned arXiv repeat shows its existing source edition. |
 | Logout pending, signed out | Wait for server revocation success, then clear authenticated view; if request fails, show a safe error and do not claim logout succeeded. |
 
 Keyboard traversal, visible focus, labelled forms/errors, restrained status announcements, responsive landing/auth/Library, no clipped controls or horizontal overflow at supported desktop widths, and readable unknown metadata follow master §§12–14 and 21. Do not add list/grid switching, source/year/sort filters or an M1 Reader placeholder presented as functional.

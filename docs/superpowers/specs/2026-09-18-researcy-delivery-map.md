@@ -10,6 +10,8 @@ This map tracks the approved reader-first revision 2.0 requirements through boun
 
 The approved master specification remains authoritative. A child specification may add local detail but may not silently override a master decision. This delivery map does not assert that a new route or capability is implemented or verified.
 
+**Source-of-truth rule:** The master specification controls product/architecture; an approved child specification controls its milestone's behavioral detail; this map controls current delivery status; acceptance reports record observations and blockers. Approval-time `Not started`/`Designed` wording in historical specifications and plans is not a current-status override. V4/The Moonlight visual references are design archives, not normative or pixel-perfect contracts. Preserve historical approvals and Q0 evidence.
+
 ## 2. Status model
 
 | Status | Meaning |
@@ -100,8 +102,10 @@ The sequence follows the reader-first product dependency: identity and a ready o
 
 **Status:** Implemented
 
+**Owner acceptance:** **PASSED — 2026-09-27.** The owner confirmed successful `2603.09689` import after remediation and authorized task-based commits, merge/push to `main`, local/remote synchronization, and retention of the worktree. See [current owner acceptance](../reports/2026-09-24-researcy-m1-acceptance.md#current-owner-acceptance--2026-09-27). This acceptance is recorded separately from `Verified`: the detailed two-real-Google-user four-gate evidence is still outstanding. M2 remains Not started.
+
 **Approved child specification:** [`2026-09-24-researcy-m1-sign-in-library-import-design.md`](./2026-09-24-researcy-m1-sign-in-library-import-design.md) — owner-approved on 2026-09-24.
-**Approved implementation plan:** [`2026-09-24-researcy-m1-sign-in-library-import.md`](../plans/2026-09-24-researcy-m1-sign-in-library-import.md) — owner-approved on 2026-09-24; implementation completed and focused validation recorded in the [M1 acceptance report](../reports/2026-09-24-researcy-m1-acceptance.md). All four real two-user exit gates remain pending.
+**Approved implementation plan:** [`2026-09-24-researcy-m1-sign-in-library-import.md`](../plans/2026-09-24-researcy-m1-sign-in-library-import.md) — owner-approved on 2026-09-24; implementation and the 2026-09-27 remediation evidence are recorded in the [M1 acceptance report](../reports/2026-09-24-researcy-m1-acceptance.md). The later owner-approved reader-facing revision adds Landing → Google modal → Library, compact import controls, safe nontechnical feedback, `406`/`429`/`503` cooldowns, real `1706.03762v7` API/browser imports, PDF integrity, four-width production-browser checks, and local A/B ownership/logout replay. The owner's historical gate-pass attestation is retained, but the detailed real two-Google-user four-gate record is still unavailable; no `Verified` promotion is justified.
 
 ### M2 — Durable PDF Processing and Owner-Scoped Index
 
@@ -248,4 +252,4 @@ A requirement has one delivery owner. Any earlier milestone is a prerequisite or
 
 ## 7. Current control point
 
-Master specification revision 2.0 and this delivery map were approved on 2026-09-24. Q0 remains `Verified` with its original and Q0.1 report/run links above. Q0.1 measured fused Recall@5 at 6/8, passed the three recorded generation cases, and browser-checked only one answerable case on Track D; it is not evidence of generalized multi-paper or production-agent quality. M1 and its M1-owned requirements are `Implemented`: planned code, focused suites, full-stack build, real arXiv/PDF local-session smoke, private-object integrity, responsive Chromium checks and local logout revocation are recorded in the M1 acceptance report. M1 is not `Verified` because the required two-real-Google-user four-gate journey has not run; M2–M5 retain their previous statuses. The configured product-runtime route remains `ag/gemini-3.8-flash-low` through 9Router; development-agent model selection is separate and does not change the product contract.
+Master specification revision 2.0 and this delivery map were approved on 2026-09-24. Q0 remains `Verified` with its original and Q0.1 report/run links above. Q0.1 measured fused Recall@5 at 6/8, passed the three recorded generation cases, and browser-checked only one answerable case on Track D; it is not evidence of generalized multi-paper or production-agent quality. M1 and SYS-01/AUTH-01/AUTH-02/LIB-01/UX-01 remain `Implemented`. The M1 acceptance report separates historical evidence from the 2026-09-27 arXiv pacing/406 and UI remediation, real `2303.09833v1` acceptance with DB/MinIO hash/size equality, four-width Chromium checks, and local A/B isolation/revocation probes. M1 is not `Verified`: the owner's gate-pass attestation has no recoverable detailed two-real-Google-user four-gate record, and synthetic sessions cannot establish that missing OAuth journey. SEC-01/JOB-01 remain M2-owned; M2–M5 retain their previous statuses. The configured product-runtime route remains `ag/gemini-3.8-flash-low` through 9Router; development-agent model selection is separate and does not change the product contract.

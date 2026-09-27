@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-24-researcy-m1-sign-in-library-import-design.md` (approved), subordinate to `docs/superpowers/specs/2026-09-18-researcy-system-design.md` revision 2.0; `docs/superpowers/specs/2026-09-18-researcy-delivery-map.md` controls gate/status changes.
 
+**Current execution/acceptance note — 2026-09-27:** Implementation and remediation are complete; the owner marked M1 **Passed** after confirming `2603.09689` import and authorized integration into `main` while preserving the remediation worktree. See the [acceptance report](../reports/2026-09-24-researcy-m1-acceptance.md#current-owner-acceptance--2026-09-27). Historical proposal/checklist wording below is not current delivery status. The delivery map retains technical `Implemented` until the complete real two-Google-user gate evidence is recorded. The approved reader-facing presentation amendment supersedes “Waiting for processing” UI wording below; persisted `queued` remains unchanged.
+
 ## Global Constraints
 
 - Work in the existing isolated `m1-sign-in-library-import-spec` worktree; do not edit Q0 evidence or implement M2–M5. A task is complete only after its own RED → GREEN, smoke check, review, and commit; reviewer is the gpt-6-sol coordinator, implementer is requested as gpt-6-luna when the agent interface supports that model selection. Do not falsely claim a model identity if the interface cannot select it.
