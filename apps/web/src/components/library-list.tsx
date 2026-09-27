@@ -2,16 +2,15 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Paper } from '@/lib/api';
+import { Paper, formatScreeningWarning } from '@/lib/api';
 
 interface LibraryListProps {
   papers: Paper[];
   isLoading?: boolean;
-  error?: { message: string; requestId?: string } | null;
+  error?: { message: string } | null;
   onRetry?: () => void;
   searchQuery?: string;
   onClearSearch?: () => void;
-  onOpenAddPaper?: () => void;
 }
 
 export function LibraryList({
@@ -21,23 +20,20 @@ export function LibraryList({
   onRetry,
   searchQuery,
   onClearSearch,
-  onOpenAddPaper,
 }: LibraryListProps) {
   if (isLoading) {
     return (
       <div
         role="status"
         aria-live="polite"
+        className="editorial-card"
         style={{
           padding: '3rem 1.5rem',
           textAlign: 'center',
-          backgroundColor: 'var(--color-surface)',
-          border: '1px solid var(--color-border)',
-          borderRadius: '6px',
         }}
       >
         <p style={{ color: 'var(--color-ink-muted)', fontSize: '1.125rem' }}>
-          Loading your library...
+          Loading papers...
         </p>
       </div>
     );
@@ -47,23 +43,19 @@ export function LibraryList({
     return (
       <div
         role="alert"
+        className="editorial-card"
         style={{
-          padding: '1.5rem',
-          backgroundColor: 'var(--color-error-bg)',
-          border: '1px solid var(--color-error-border)',
-          borderRadius: '6px',
-          marginBottom: '1.5rem',
+          padding: '2rem 1.5rem',
+          borderColor: 'var(--color-error-border)',
+          textAlign: 'center',
         }}
       >
-        <h3 style={{ color: 'var(--color-error-text)', marginBottom: '0.5rem', fontSize: '1.125rem' }}>
+        <h3 style={{ fontSize: '1.25rem', color: 'var(--color-error-text)', marginBottom: '0.5rem', fontWeight: 600 }}>
           Unable to Load Library
         </h3>
-        <p style={{ color: 'var(--color-ink)', marginBottom: '0.5rem' }}>{error.message}</p>
-        {error.requestId && (
-          <p style={{ fontSize: '0.8125rem', color: 'var(--color-ink-muted)', marginBottom: '1rem' }}>
-            Request ID: <code>{error.requestId}</code>
-          </p>
-        )}
+        <p style={{ color: 'var(--color-ink-muted)', marginBottom: '1.25rem' }}>
+          {error.message}
+        </p>
         {onRetry && (
           <button
             type="button"
@@ -71,7 +63,7 @@ export function LibraryList({
             className="btn btn-primary"
             style={{ minHeight: '44px' }}
           >
-            Retry Loading
+            Retry
           </button>
         )}
       </div>
@@ -84,15 +76,13 @@ export function LibraryList({
       <div
         role="region"
         aria-label="Search results"
+        className="editorial-card"
         style={{
           padding: '3rem 1.5rem',
           textAlign: 'center',
-          backgroundColor: 'var(--color-surface)',
-          border: '1px solid var(--color-border)',
-          borderRadius: '6px',
         }}
       >
-        <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>
+        <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem', fontWeight: 600 }}>
           No papers match &ldquo;{searchQuery}&rdquo;
         </h3>
         <p style={{ color: 'var(--color-ink-muted)', marginBottom: '1.5rem' }}>
@@ -103,6 +93,7 @@ export function LibraryList({
             type="button"
             onClick={onClearSearch}
             className="btn btn-secondary"
+            style={{ minHeight: '44px' }}
           >
             Clear Search
           </button>
@@ -111,186 +102,129 @@ export function LibraryList({
     );
   }
 
-  // Truly empty library state
+  // The persistent toolbar owns the sole Add Paper trigger.
   if (papers.length === 0) {
     return (
       <div
         role="region"
         aria-label="Empty library"
+        className="editorial-card"
         style={{
           padding: '3.5rem 1.5rem',
           textAlign: 'center',
-          backgroundColor: 'var(--color-surface)',
-          border: '1px solid var(--color-border)',
-          borderRadius: '6px',
         }}
       >
-        <h3 style={{ fontSize: '1.5rem', marginBottom: '0.75rem' }}>Your Library is Empty</h3>
+        <h3 style={{ fontSize: '1.5rem', marginBottom: '0.75rem', fontWeight: 600 }}>Your Library is Empty</h3>
         <p
           style={{
             color: 'var(--color-ink-muted)',
             maxWidth: '480px',
             margin: '0 auto 1.5rem auto',
+            lineHeight: 1.6,
           }}
         >
-          Researcy keeps your scholarly literature private and indexed. Add your first paper using
-          its arXiv identifier or upload a born-digital PDF.
+          Researcy keeps your scholarly literature organized in a private workspace. Add your first paper using
+          its arXiv identifier or upload a PDF.
         </p>
-        {onOpenAddPaper && (
-          <button
-            type="button"
-            onClick={onOpenAddPaper}
-            className="btn btn-primary"
-          >
-            Add Paper
-          </button>
-        )}
       </div>
     );
   }
 
   return (
-    <ul
-      role="list"
-      aria-label="Library papers"
-      style={{
-        listStyle: 'none',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '1rem',
-      }}
-    >
-      {papers.map((paper) => {
-        const stageLabel =
-          paper.stage === 'queued' ? 'Waiting for processing' : paper.stage;
-        const authorText =
-          paper.authors && paper.authors.length > 0
-            ? paper.authors.join(', ')
-            : 'Unknown author';
-        const yearText = paper.year ? String(paper.year) : 'Year unknown';
+    <div className="paper-table">
+      <div className="list-head" aria-hidden="true">
+        <div>Paper</div>
+        <div>Source</div>
+        <div style={{ textAlign: 'right' }}>Action</div>
+      </div>
+      <ul
+        role="list"
+        aria-label="Library papers"
+        style={{ listStyle: 'none', margin: 0, padding: 0 }}
+      >
+        {papers.map((paper) => {
+          const authorText =
+            paper.authors && paper.authors.length > 0
+              ? paper.authors.join(', ')
+              : 'Unknown author';
+          const yearText = paper.year ? String(paper.year) : 'Year unknown';
+          const sourceLabel =
+            paper.source === 'arxiv'
+              ? paper.source_version
+                ? `arXiv ${paper.source_version}`
+                : 'arXiv'
+              : paper.source === 'upload'
+              ? 'Uploaded PDF'
+              : paper.source;
+          const firstChar = (paper.title || 'U').trim().charAt(0).toUpperCase();
 
-        return (
-          <li
-            key={paper.paper_id}
-            style={{
-              backgroundColor: 'var(--color-surface)',
-              border: '1px solid var(--color-border)',
-              borderRadius: '6px',
-              padding: '1.25rem 1.5rem',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.75rem',
-              transition: 'border-color 0.15s ease',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
-              <div style={{ flex: '1 1 300px', minWidth: 0 }}>
-                <h3
-                  style={{
-                    fontSize: '1.25rem',
-                    lineHeight: 1.35,
-                    marginBottom: '0.375rem',
-                    overflowWrap: 'break-word',
-                    wordBreak: 'break-word',
-                  }}
-                >
-                  <Link
-                    href={`/library/${paper.paper_id}`}
-                    className="paper-title-link"
-                    style={{
-                      color: 'var(--color-navy)',
-                      textDecoration: 'none',
-                    }}
-                  >
-                    {paper.title || 'Untitled Document'}
-                  </Link>
-                </h3>
-                <p
-                  style={{
-                    color: 'var(--color-ink-muted)',
-                    fontSize: '0.9375rem',
-                    marginBottom: '0.25rem',
-                  }}
-                >
-                  <span>{authorText}</span>
-                  <span style={{ margin: '0 0.5rem' }}>&bull;</span>
-                  <span>{yearText}</span>
-                </p>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    flexWrap: 'wrap',
-                    fontSize: '0.875rem',
-                    color: 'var(--color-ink-muted)',
-                    marginTop: '0.5rem',
-                  }}
-                >
-                  <span
-                    style={{
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                      fontSize: '0.75rem',
-                      fontWeight: 700,
-                      padding: '0.125rem 0.5rem',
-                      backgroundColor: 'var(--color-surface-subtle)',
-                      borderRadius: '3px',
-                      border: '1px solid var(--color-border)',
-                    }}
-                  >
-                    {paper.source}
-                  </span>
-                  {paper.source_version && (
-                    <span>arXiv version: <strong>{paper.source_version}</strong></span>
+          return (
+            <li key={paper.paper_id} className="paper-row">
+              <div className="paper-main">
+                <div className="paper-cover" aria-hidden="true">
+                  {firstChar}
+                </div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <h3 className="paper-name">
+                    <Link
+                      href={`/library/${paper.paper_id}`}
+                      className="paper-title-link"
+                      style={{
+                        color: 'var(--color-navy)',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      {paper.title || 'Untitled Document'}
+                    </Link>
+                  </h3>
+                  <p className="paper-authors">
+                    <span>{authorText}</span>
+                    <span style={{ margin: '0 0.375rem' }}>&bull;</span>
+                    <span>{yearText}</span>
+                  </p>
+                  {paper.screening_warning && (
+                    <div
+                      role="note"
+                      className="notice-warning"
+                      style={{
+                        marginTop: '0.5rem',
+                        padding: '0.4rem 0.625rem',
+                        fontSize: '0.8125rem',
+                      }}
+                    >
+                      <strong>About this PDF:</strong>{' '}
+                      {formatScreeningWarning(paper.screening_warning)}
+                    </div>
                   )}
-                  <span
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      padding: '0.125rem 0.5rem',
-                      backgroundColor: 'var(--color-navy-subtle)',
-                      color: 'var(--color-navy)',
-                      borderRadius: '3px',
-                      fontWeight: 600,
-                      fontSize: '0.8125rem',
-                    }}
-                  >
-                    {stageLabel}
-                  </span>
                 </div>
               </div>
 
               <div>
+                <span className="badge-source">
+                  {sourceLabel}
+                </span>
+              </div>
+
+              <div style={{ textAlign: 'right' }}>
                 <Link
                   href={`/library/${paper.paper_id}`}
                   className="btn btn-secondary"
-                  style={{ whiteSpace: 'nowrap', fontSize: '0.875rem' }}
+                  style={{
+                    padding: '0.375rem 0.75rem',
+                    fontSize: '0.8125rem',
+                    textDecoration: 'none',
+                    minHeight: '44px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                  }}
                 >
-                  View Details
+                  View details
                 </Link>
               </div>
-            </div>
-
-            {paper.screening_warning && (
-              <div
-                role="note"
-                style={{
-                  marginTop: '0.25rem',
-                  padding: '0.5rem 0.75rem',
-                  backgroundColor: 'var(--color-gold-bg)',
-                  border: '1px solid var(--color-gold-border)',
-                  borderRadius: '4px',
-                  color: 'var(--color-gold-text)',
-                  fontSize: '0.875rem',
-                }}
-              >
-                <strong>Screening notice:</strong> {paper.screening_warning}. M2 processing may fail.
-              </div>
-            )}
-          </li>
-        );
-      })}
-    </ul>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }

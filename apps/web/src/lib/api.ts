@@ -47,14 +47,71 @@ export class ApiError extends Error {
   status: number;
   code: string;
   requestId?: string;
+  retryAfter?: number;
 
-  constructor(status: number, code: string, message: string, requestId?: string) {
+  constructor(status: number, code: string, message: string, requestId?: string, retryAfter?: number) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
     this.requestId = requestId;
+    this.retryAfter = retryAfter;
   }
+}
+
+export function parseRetryAfter(headerValue: string | null | undefined): number | undefined {
+  if (!headerValue) return undefined;
+  const trimmed = headerValue.trim();
+  if (/^\d+$/.test(trimmed)) {
+    const seconds = Number(trimmed);
+    return seconds > 0 ? seconds : undefined;
+  }
+  const timestamp = Date.parse(trimmed);
+  if (!isNaN(timestamp)) {
+    const diff = Math.ceil((timestamp - Date.now()) / 1000);
+    return diff > 0 ? diff : undefined;
+  }
+  return undefined;
+}
+
+export function formatScreeningWarning(warning: string | null | undefined): string | null {
+  if (!warning) return null;
+  const trimmed = warning.trim();
+  if (!trimmed) return null;
+
+  if (trimmed === 'LOW_TEXT' || trimmed.startsWith('LOW_TEXT:')) {
+    return 'Some text in this PDF may be difficult to read. You can keep it in your library.';
+  }
+
+  return 'This PDF may be difficult to read. You can keep it in your library.';
+}
+
+const USER_ERROR_MESSAGES: Readonly<Record<string, string>> = {
+  INVALID_ARXIV_REFERENCE: 'Enter an arXiv paper ID or a link from arxiv.org.',
+  ARXIV_NOT_FOUND: 'We could not find that paper on arXiv. Check the link or paper ID.',
+  ARXIV_VERSION_NOT_FOUND: 'That edition is not available on arXiv. Check the paper link.',
+  ARXIV_VERSION_CONFLICT: 'A different edition of this paper is already in your library.',
+  ARXIV_UPSTREAM_ERROR: 'We could not get this paper from arXiv right now. Please try again later.',
+  IMPORT_RATE_LIMITED: 'You have added several papers recently. Please wait before adding another.',
+  PDF_UNSUPPORTED: 'Choose a PDF file to add to your library.',
+  PDF_TOO_LARGE: 'This PDF is too large. Please choose a smaller file.',
+  PDF_TOO_MANY_PAGES: 'This PDF has too many pages. Please choose a shorter document.',
+  PDF_ENCRYPTED: 'This PDF is password-protected. Upload a copy without a password.',
+  PDF_NO_TEXT: 'Choose a PDF with selectable text rather than a scanned copy.',
+  PDF_INVALID: 'We could not read this PDF. Try opening it on your device or choose another copy.',
+  PDF_SCREEN_TIMEOUT: 'We could not read this PDF in time. Please try another copy.',
+  PDF_SCREEN_RESOURCE_LIMIT: 'We could not read this PDF. Please try another copy.',
+  FILE_REQUIRED: 'Choose a PDF file before continuing.',
+  IDEMPOTENCY_CONFLICT: 'The paper you selected has changed. Close this form and add it again.',
+};
+
+export function userErrorMessage(error: unknown, fallback: string): string {
+  if (!(error instanceof ApiError)) return fallback;
+  // API diagnostics stay in transport/logs; only known reader-facing guidance reaches the UI.
+  if (Object.hasOwn(USER_ERROR_MESSAGES, error.code)) return USER_ERROR_MESSAGES[error.code];
+  if (error.status === 401 || error.status === 403) return 'Please sign in again, then try once more.';
+  if (error.status === 429) return 'Please wait a little before trying again.';
+  return fallback;
 }
 
 export function generateIdempotencyKey(): string {
@@ -88,6 +145,7 @@ export async function mutate(path: string, body?: BodyInit, key?: string): Promi
 
 export async function parseResponse<T>(res: Response): Promise<T> {
   const requestIdHeader = res.headers.get('x-request-id');
+  const retryAfter = parseRetryAfter(res.headers.get('retry-after'));
   if (!res.ok) {
     let code = 'ERROR';
     let message = 'An unexpected error occurred.';
@@ -102,7 +160,7 @@ export async function parseResponse<T>(res: Response): Promise<T> {
     } catch {
       message = res.statusText || message;
     }
-    throw new ApiError(res.status, code, message, requestId);
+    throw new ApiError(res.status, code, message, requestId, retryAfter);
   }
 
   const data = await res.json();
@@ -152,6 +210,7 @@ export async function logoutUser(): Promise<void> {
     let code = 'LOGOUT_FAILED';
     let message = 'Sign-out request failed on the server.';
     let requestId = res.headers.get('x-request-id') ?? undefined;
+    const retryAfter = parseRetryAfter(res.headers.get('retry-after'));
     try {
       const data = await res.json();
       if (data && typeof data === 'object') {
@@ -160,8 +219,8 @@ export async function logoutUser(): Promise<void> {
         if (data.request_id) requestId = String(data.request_id);
       }
     } catch {
-      // response might be empty or HTML
+      // response might be empty or non-JSON
     }
-    throw new ApiError(res.status, code, message, requestId);
+    throw new ApiError(res.status, code, message, requestId, retryAfter);
   }
 }

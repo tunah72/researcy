@@ -4,44 +4,57 @@ import React from 'react';
 import Link from 'next/link';
 
 export default function ErrorBoundary({
-  error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
   return (
-    <div
-      role="alert"
+    <main
+      id="main-content"
+      className="container-narrow"
       style={{
-        maxWidth: '600px',
-        margin: '4rem auto',
-        padding: '2.5rem',
-        backgroundColor: 'var(--color-surface)',
-        border: '1px solid var(--color-error-border)',
-        borderRadius: '8px',
-        textAlign: 'center',
+        padding: '4rem 1.5rem',
       }}
     >
-      <h2 style={{ fontSize: '1.5rem', color: 'var(--color-error-text)', marginBottom: '1rem' }}>
-        Unable to Load Library View
-      </h2>
-      <p style={{ color: 'var(--color-ink-muted)', marginBottom: '1.5rem' }}>
-        {error.message || 'An unexpected error occurred while loading this view.'}
-      </p>
-      {error.digest && (
-        <p style={{ fontSize: '0.8125rem', color: 'var(--color-ink-muted)', marginBottom: '1.5rem' }}>
-          Error Digest: <code>{error.digest}</code>
+      <div
+        role="alert"
+        className="editorial-card"
+        style={{
+          padding: '2.5rem',
+          borderColor: 'var(--color-error-border)',
+          textAlign: 'center',
+        }}
+      >
+        <h2 style={{ fontSize: '1.5rem', color: 'var(--color-error-text)', marginBottom: '1rem', fontWeight: 600 }}>
+          Unable to Load Library View
+        </h2>
+        <p style={{ color: 'var(--color-ink-muted)', marginBottom: '1.75rem', lineHeight: 1.6 }}>
+          Something unexpected occurred while loading your library view. Please try again.
         </p>
-      )}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
-        <button type="button" onClick={() => reset()} className="btn btn-primary">
-          Try Again
-        </button>
-        <Link href="/" className="btn btn-secondary">
-          Return Home
-        </Link>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => reset()}
+            className="btn btn-primary"
+            style={{ minHeight: '44px' }}
+          >
+            Try Again
+          </button>
+          <Link
+            href="/"
+            className="btn btn-secondary"
+            style={{
+              minHeight: '44px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              textDecoration: 'none',
+            }}
+          >
+            Return Home
+          </Link>
+        </div>
       </div>
-    </div>
+    </main>
   );
 }

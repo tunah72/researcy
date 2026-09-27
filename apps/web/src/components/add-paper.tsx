@@ -1,21 +1,24 @@
 'use client';
 
-import React, { useState, useId } from 'react';
+import React, { useState, useId, useRef, useEffect, useCallback } from 'react';
 import {
   generateIdempotencyKey,
   importArxiv,
   uploadPdf,
   ApiError,
   IntakeResponse,
+  formatScreeningWarning,
+  userErrorMessage,
 } from '@/lib/api';
 
 interface AddPaperProps {
   onPaperAdded?: (paperId: string) => void;
   onClose?: () => void;
   onUnauthorized?: () => void;
+  onBusyChange?: (isBusy: boolean) => void;
 }
 
-export function AddPaper({ onPaperAdded, onClose, onUnauthorized }: AddPaperProps) {
+export function AddPaper({ onPaperAdded, onClose, onUnauthorized, onBusyChange }: AddPaperProps) {
   const [activeTab, setActiveTab] = useState<'arxiv' | 'upload'>('arxiv');
 
   // arXiv form state
@@ -23,41 +26,96 @@ export function AddPaper({ onPaperAdded, onClose, onUnauthorized }: AddPaperProp
   const [arxivKey, setArxivKey] = useState('');
   const [lastArxivPayload, setLastArxivPayload] = useState<string | null>(null);
   const [arxivSubmitting, setArxivSubmitting] = useState(false);
-  const [arxivError, setArxivError] = useState<{
-    code?: string;
-    message: string;
-    requestId?: string;
-  } | null>(null);
+  const [arxivError, setArxivError] = useState<{ message: string } | null>(null);
 
   // PDF upload form state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadKey, setUploadKey] = useState('');
   const [lastUploadFile, setLastUploadFile] = useState<File | null>(null);
   const [uploadSubmitting, setUploadSubmitting] = useState(false);
-  const [uploadError, setUploadError] = useState<{
-    code?: string;
-    message: string;
-    requestId?: string;
-  } | null>(null);
+  const [uploadError, setUploadError] = useState<{ message: string } | null>(null);
+
+  // Independent cooldown deadlines (avoids background timer drift and does NOT cross-block)
+  const [arxivCooldownDeadline, setArxivCooldownDeadline] = useState<number | null>(null);
+  const [arxivCooldownSeconds, setArxivCooldownSeconds] = useState(0);
+
+  const [uploadCooldownDeadline, setUploadCooldownDeadline] = useState<number | null>(null);
+  const [uploadCooldownSeconds, setUploadCooldownSeconds] = useState(0);
 
   // Accepted intake result
   const [acceptedResult, setAcceptedResult] = useState<IntakeResponse | null>(null);
 
+  const arxivTabRef = useRef<HTMLButtonElement>(null);
+  const uploadTabRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+
+  const isSubmitting = arxivSubmitting || uploadSubmitting;
+
+  useEffect(() => {
+    onBusyChange?.(isSubmitting);
+  }, [isSubmitting, onBusyChange]);
+
+  // Initial focus management
+  useEffect(() => {
+    arxivTabRef.current?.focus();
+  }, []);
+
+  // Escape key handler (respects isSubmitting)
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape' && !isSubmitting && onClose) {
+        onClose();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSubmitting, onClose]);
+
+  // arXiv Cooldown timer
+  useEffect(() => {
+    if (!arxivCooldownDeadline) return;
+    const update = () => {
+      const remaining = Math.max(0, Math.ceil((arxivCooldownDeadline - Date.now()) / 1000));
+      setArxivCooldownSeconds(remaining);
+      if (remaining <= 0) {
+        setArxivCooldownDeadline(null);
+      }
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [arxivCooldownDeadline]);
+
+  // PDF Upload Cooldown timer
+  useEffect(() => {
+    if (!uploadCooldownDeadline) return;
+    const update = () => {
+      const remaining = Math.max(0, Math.ceil((uploadCooldownDeadline - Date.now()) / 1000));
+      setUploadCooldownSeconds(remaining);
+      if (remaining <= 0) {
+        setUploadCooldownDeadline(null);
+      }
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [uploadCooldownDeadline]);
+
   const arxivInputId = useId();
   const fileInputId = useId();
-  function handleUnauthorized() {
+
+  const handleUnauthorized = useCallback(() => {
     if (onUnauthorized) {
       onUnauthorized();
       return;
     }
     window.location.href = '/sign-in?expired=1';
-  }
-
+  }, [onUnauthorized]);
 
   async function handleArxivSubmit(e: React.FormEvent) {
     e.preventDefault();
     const payload = arxivInput.trim();
-    if (!payload || arxivSubmitting) return;
+    if (!payload || arxivSubmitting || arxivCooldownSeconds > 0) return;
 
     setArxivSubmitting(true);
     setArxivError(null);
@@ -82,24 +140,41 @@ export function AddPaper({ onPaperAdded, onClose, onUnauthorized }: AddPaperProp
           handleUnauthorized();
           return;
         }
-        setArxivError({
-          code: err.code,
-          message: err.message,
-          requestId: err.requestId,
-        });
-      } else {
-        setArxivError({
-          message: 'Network request failed. Please check your connection and retry.',
-        });
+        if (err.retryAfter && err.retryAfter > 0) {
+          const deadline = Date.now() + err.retryAfter * 1000;
+          if (err.code === 'IMPORT_RATE_LIMITED') {
+            setArxivCooldownDeadline(deadline);
+            setArxivCooldownSeconds(err.retryAfter);
+            setUploadCooldownDeadline(deadline);
+            setUploadCooldownSeconds(err.retryAfter);
+            setUploadError({ message: userErrorMessage(err, 'Please wait before adding another paper.') });
+          } else {
+            setArxivCooldownDeadline(deadline);
+            setArxivCooldownSeconds(err.retryAfter);
+          }
+        }
       }
+      const message = userErrorMessage(
+        err,
+        'We could not get this paper from arXiv right now. Please check your link or try again later.'
+      );
+      setArxivError({ message });
     } finally {
       setArxivSubmitting(false);
     }
   }
 
+  function handleArxivChange(val: string) {
+    setArxivInput(val);
+    // Only clear error when not on active cooldown, keeping reason for disabled retry visible
+    if (arxivCooldownSeconds <= 0 && !arxivCooldownDeadline) {
+      setArxivError(null);
+    }
+  }
+
   async function handleUploadSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedFile || uploadSubmitting) return;
+    if (!selectedFile || uploadSubmitting || uploadCooldownSeconds > 0) return;
 
     setUploadSubmitting(true);
     setUploadError(null);
@@ -123,32 +198,79 @@ export function AddPaper({ onPaperAdded, onClose, onUnauthorized }: AddPaperProp
           handleUnauthorized();
           return;
         }
-        setUploadError({
-          code: err.code,
-          message: err.message,
-          requestId: err.requestId,
-        });
-      } else {
-        setUploadError({
-          message: 'Upload failed. Please check your connection and retry.',
-        });
+        if (err.retryAfter && err.retryAfter > 0) {
+          const deadline = Date.now() + err.retryAfter * 1000;
+          if (err.code === 'IMPORT_RATE_LIMITED') {
+            setArxivCooldownDeadline(deadline);
+            setArxivCooldownSeconds(err.retryAfter);
+            setUploadCooldownDeadline(deadline);
+            setUploadCooldownSeconds(err.retryAfter);
+            setArxivError({ message: userErrorMessage(err, 'Please wait before adding another paper.') });
+          } else {
+            setUploadCooldownDeadline(deadline);
+            setUploadCooldownSeconds(err.retryAfter);
+          }
+        }
       }
+      const message = userErrorMessage(
+        err,
+        'We could not confirm the upload. Check your connection and try again.'
+      );
+      setUploadError({ message });
     } finally {
       setUploadSubmitting(false);
     }
   }
 
+  function handleFileChange(file: File | null) {
+    setSelectedFile(file);
+    if (uploadCooldownSeconds <= 0 && !uploadCooldownDeadline) {
+      setUploadError(null);
+    }
+  }
+
+  function handleTabKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (activeTab === 'arxiv') {
+        setActiveTab('upload');
+        uploadTabRef.current?.focus();
+      } else {
+        setActiveTab('arxiv');
+        arxivTabRef.current?.focus();
+      }
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (activeTab === 'upload') {
+        setActiveTab('arxiv');
+        arxivTabRef.current?.focus();
+      } else {
+        setActiveTab('upload');
+        uploadTabRef.current?.focus();
+      }
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      setActiveTab('arxiv');
+      arxivTabRef.current?.focus();
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      setActiveTab('upload');
+      uploadTabRef.current?.focus();
+    }
+  }
+
   return (
     <section
+      id="add-paper-panel"
+      ref={panelRef}
       aria-labelledby="add-paper-heading"
-      style={{
-        backgroundColor: 'var(--color-surface)',
-        border: '1px solid var(--color-border)',
-        borderRadius: '6px',
-        padding: '1.5rem',
-        marginBottom: '2rem',
-      }}
+      className="add-paper-popover"
+      tabIndex={-1}
     >
+      <div aria-live="polite" aria-atomic="true" className="visually-hidden">
+        {arxivSubmitting ? 'Importing paper from arXiv, please wait.' : uploadSubmitting ? 'Uploading PDF document, please wait.' : ''}
+      </div>
+
       <div
         style={{
           display: 'flex',
@@ -166,9 +288,10 @@ export function AddPaper({ onPaperAdded, onClose, onUnauthorized }: AddPaperProp
           <button
             type="button"
             onClick={onClose}
+            disabled={isSubmitting}
             className="btn btn-secondary"
             aria-label="Close add paper panel"
-            style={{ padding: '0.5rem 0.75rem', fontSize: '0.875rem' }}
+            style={{ padding: '0.5rem 0.75rem', fontSize: '0.875rem', minHeight: '44px' }}
           >
             Close
           </button>
@@ -176,47 +299,33 @@ export function AddPaper({ onPaperAdded, onClose, onUnauthorized }: AddPaperProp
       </div>
 
       {acceptedResult ? (
-        <div
-          role="status"
-          style={{
-            padding: '1.25rem',
-            backgroundColor: 'var(--color-navy-subtle)',
-            border: '1px solid var(--color-navy)',
-            borderRadius: '4px',
-          }}
-        >
-          <h3 style={{ fontSize: '1.125rem', color: 'var(--color-navy)', marginBottom: '0.5rem' }}>
-            Paper Accepted
+        <div role="status" className="notice-status">
+          <h3 style={{ fontSize: '1.25rem', color: 'var(--color-navy)', marginBottom: '0.5rem', fontWeight: 600 }}>
+            Added to your library
           </h3>
-          <p style={{ marginBottom: '0.5rem' }}>
-            Status: <strong>Waiting for processing</strong>
+          <p style={{ marginBottom: '0.5rem', color: 'var(--color-ink)' }}>
+            This paper is saved in your library. Reading is not available yet.
           </p>
           {acceptedResult.arxiv_version && (
-            <p style={{ marginBottom: '0.5rem', fontSize: '0.9375rem' }}>
-              Stored arXiv version: <strong>{acceptedResult.arxiv_version}</strong>
+            <p style={{ marginBottom: '0.5rem', fontSize: '0.9375rem', color: 'var(--color-ink-muted)' }}>
+              Source: <strong>arXiv {acceptedResult.arxiv_version}</strong>
             </p>
           )}
           {acceptedResult.screening_warning && (
             <div
-              role="alert"
-              style={{
-                marginTop: '0.75rem',
-                marginBottom: '0.75rem',
-                padding: '0.75rem',
-                backgroundColor: 'var(--color-gold-bg)',
-                border: '1px solid var(--color-gold-border)',
-                borderRadius: '4px',
-                color: 'var(--color-gold-text)',
-                fontSize: '0.9375rem',
-              }}
+              role="note"
+              className="notice-warning"
+              style={{ marginTop: '0.75rem', marginBottom: '0.75rem' }}
             >
-              <strong>Screening Notice:</strong> {acceptedResult.screening_warning}. M2 processing may fail.
+              <strong>About this PDF:</strong>{' '}
+              {formatScreeningWarning(acceptedResult.screening_warning)}
             </div>
           )}
-          <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <div style={{ marginTop: '1.25rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <a
               href={`/library/${acceptedResult.paper_id}`}
               className="btn btn-primary"
+              style={{ minHeight: '44px' }}
             >
               View in Library
             </a>
@@ -230,6 +339,7 @@ export function AddPaper({ onPaperAdded, onClose, onUnauthorized }: AddPaperProp
                 setUploadError(null);
               }}
               className="btn btn-secondary"
+              style={{ minHeight: '44px' }}
             >
               Add Another Paper
             </button>
@@ -237,222 +347,222 @@ export function AddPaper({ onPaperAdded, onClose, onUnauthorized }: AddPaperProp
         </div>
       ) : (
         <>
-          {/* Exactly two import options: tab bar */}
-          <div
-            role="tablist"
-            aria-label="Import methods"
-            style={{
-              display: 'flex',
-              gap: '0.5rem',
-              marginBottom: '1.5rem',
-            }}
-          >
+          {/* Exactly two import choices: accessible tabs */}
+          <div role="tablist" aria-label="Import methods" className="tab-list">
             <button
+              ref={arxivTabRef}
               id="tab-arxiv"
               role="tab"
               aria-selected={activeTab === 'arxiv'}
               aria-controls="panel-arxiv"
+              tabIndex={activeTab === 'arxiv' ? 0 : -1}
+              disabled={isSubmitting}
               onClick={() => setActiveTab('arxiv')}
+              onKeyDown={handleTabKeyDown}
               className={`btn ${activeTab === 'arxiv' ? 'btn-primary' : 'btn-secondary'}`}
               type="button"
+              style={{ minHeight: '44px' }}
             >
-              arXiv Import
+              Import from arXiv
             </button>
             <button
+              ref={uploadTabRef}
               id="tab-upload"
               role="tab"
               aria-selected={activeTab === 'upload'}
               aria-controls="panel-upload"
+              tabIndex={activeTab === 'upload' ? 0 : -1}
+              disabled={isSubmitting}
               onClick={() => setActiveTab('upload')}
+              onKeyDown={handleTabKeyDown}
               className={`btn ${activeTab === 'upload' ? 'btn-primary' : 'btn-secondary'}`}
               type="button"
+              style={{ minHeight: '44px' }}
             >
-              PDF Upload
+              Upload paper
             </button>
           </div>
 
-          {/* Option 1: arXiv Form */}
-          {activeTab === 'arxiv' && (
-            <form
-              id="panel-arxiv"
-              role="tabpanel"
-              aria-labelledby="tab-arxiv"
-              onSubmit={handleArxivSubmit}
-              noValidate
-            >
-              <div style={{ marginBottom: '1rem' }}>
-                <label
-                  htmlFor={arxivInputId}
-                  style={{
-                    display: 'block',
-                    marginBottom: '0.375rem',
-                    fontWeight: 600,
-                  }}
-                >
-                  arXiv ID or URL
-                </label>
-                <input
-                  id={arxivInputId}
-                  type="text"
-                  value={arxivInput}
-                  onChange={(e) => setArxivInput(e.target.value)}
-                  placeholder="e.g. 1706.03762 or https://arxiv.org/abs/1706.03762"
-                  className="form-input"
-                  disabled={arxivSubmitting}
-                  aria-invalid={arxivError ? 'true' : 'false'}
-                  aria-describedby={arxivError ? 'arxiv-error-msg' : 'arxiv-helper'}
-                  required
-                />
-                <p
-                  id="arxiv-helper"
-                  style={{
-                    fontSize: '0.875rem',
-                    color: 'var(--color-ink-muted)',
-                    marginTop: '0.375rem',
-                  }}
-                >
-                  Accepts canonical arXiv identifiers or official arXiv abstract/PDF URLs.
-                </p>
-              </div>
-
-              {arxivError && (
-                <div
-                  id="arxiv-error-msg"
-                  role="alert"
-                  style={{
-                    marginBottom: '1rem',
-                    padding: '0.75rem',
-                    backgroundColor: 'var(--color-error-bg)',
-                    border: '1px solid var(--color-error-border)',
-                    borderRadius: '4px',
-                    color: 'var(--color-error-text)',
-                    fontSize: '0.9375rem',
-                  }}
-                >
-                  <p style={{ fontWeight: 600 }}>{arxivError.message}</p>
-                  {arxivError.requestId && (
-                    <p style={{ fontSize: '0.8125rem', marginTop: '0.25rem', opacity: 0.85 }}>
-                      Request ID: <code>{arxivError.requestId}</code>
-                    </p>
-                  )}
-                  <button
-                    type="submit"
-                    className="btn btn-secondary"
-                    disabled={arxivSubmitting}
-                    style={{
-                      marginTop: '0.5rem',
-                      padding: '0.5rem 0.75rem',
-                      fontSize: '0.875rem',
-                      borderColor: 'var(--color-error-border)',
-                    }}
-                  >
-                    Retry Submission
-                  </button>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={arxivSubmitting || !arxivInput.trim()}
-                className="btn btn-primary"
+          {/* Tab 1: arXiv Form */}
+          <form
+            id="panel-arxiv"
+            role="tabpanel"
+            aria-labelledby="tab-arxiv"
+            hidden={activeTab !== 'arxiv'}
+            onSubmit={handleArxivSubmit}
+            noValidate
+          >
+            <div style={{ marginBottom: '1rem' }}>
+              <label
+                htmlFor={arxivInputId}
+                style={{
+                  display: 'block',
+                  marginBottom: '0.375rem',
+                  fontWeight: 600,
+                }}
               >
-                {arxivSubmitting ? 'Importing from arXiv...' : 'Import Paper'}
-              </button>
-            </form>
-          )}
-
-          {/* Option 2: PDF Upload Form */}
-          {activeTab === 'upload' && (
-            <form
-              id="panel-upload"
-              role="tabpanel"
-              aria-labelledby="tab-upload"
-              onSubmit={handleUploadSubmit}
-              noValidate
-            >
-              <div style={{ marginBottom: '1rem' }}>
-                <label
-                  htmlFor={fileInputId}
-                  style={{
-                    display: 'block',
-                    marginBottom: '0.375rem',
-                    fontWeight: 600,
-                  }}
-                >
-                  Select PDF Document
-                </label>
-                <input
-                  id={fileInputId}
-                  type="file"
-                  accept="application/pdf,.pdf"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] ?? null;
-                    setSelectedFile(file);
-                    setUploadError(null);
-                  }}
-                  className="form-input"
-                  disabled={uploadSubmitting}
-                  aria-invalid={uploadError ? 'true' : 'false'}
-                  aria-describedby={uploadError ? 'upload-error-msg' : 'upload-helper'}
-                  required
-                />
-                <p
-                  id="upload-helper"
-                  style={{
-                    fontSize: '0.875rem',
-                    color: 'var(--color-ink-muted)',
-                    marginTop: '0.375rem',
-                  }}
-                >
-                  Supported born-digital PDF files up to 25 MiB and 100 pages.
-                </p>
-              </div>
-
-              {uploadError && (
-                <div
-                  id="upload-error-msg"
-                  role="alert"
-                  style={{
-                    marginBottom: '1rem',
-                    padding: '0.75rem',
-                    backgroundColor: 'var(--color-error-bg)',
-                    border: '1px solid var(--color-error-border)',
-                    borderRadius: '4px',
-                    color: 'var(--color-error-text)',
-                    fontSize: '0.9375rem',
-                  }}
-                >
-                  <p style={{ fontWeight: 600 }}>{uploadError.message}</p>
-                  {uploadError.requestId && (
-                    <p style={{ fontSize: '0.8125rem', marginTop: '0.25rem', opacity: 0.85 }}>
-                      Request ID: <code>{uploadError.requestId}</code>
-                    </p>
-                  )}
-                  <button
-                    type="submit"
-                    className="btn btn-secondary"
-                    disabled={uploadSubmitting}
-                    style={{
-                      marginTop: '0.5rem',
-                      padding: '0.5rem 0.75rem',
-                      fontSize: '0.875rem',
-                      borderColor: 'var(--color-error-border)',
-                    }}
-                  >
-                    Retry Upload
-                  </button>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={uploadSubmitting || !selectedFile}
-                className="btn btn-primary"
+                arXiv ID or URL
+              </label>
+              <input
+                id={arxivInputId}
+                type="text"
+                value={arxivInput}
+                onChange={(e) => handleArxivChange(e.target.value)}
+                placeholder="e.g. 1706.03762 or https://arxiv.org/abs/1706.03762"
+                className="form-input"
+                disabled={arxivSubmitting}
+                aria-invalid={arxivError ? 'true' : 'false'}
+                aria-describedby={
+                  arxivError
+                    ? `${arxivInputId}-error ${arxivInputId}-helper`
+                    : `${arxivInputId}-helper`
+                }
+                required
+              />
+              <p
+                id={`${arxivInputId}-helper`}
+                style={{
+                  fontSize: '0.875rem',
+                  color: 'var(--color-ink-muted)',
+                  marginTop: '0.375rem',
+                }}
               >
-                {uploadSubmitting ? 'Uploading PDF...' : 'Upload PDF'}
-              </button>
-            </form>
-          )}
+                Paste a paper link from arxiv.org, or enter its ID.
+              </p>
+            </div>
+
+            {arxivError && (
+              <div
+                id={`${arxivInputId}-error`}
+                className="notice-error"
+                style={{ marginBottom: '1rem' }}
+              >
+                <p role="alert" style={{ fontWeight: 600 }}>{arxivError.message}</p>
+                {arxivCooldownSeconds > 0 && (
+                  <p style={{ marginTop: '0.375rem', fontSize: '0.875rem' }}>
+                    Please wait <strong>{arxivCooldownSeconds}s</strong> before retrying.
+                  </p>
+                )}
+                <button
+                  type="submit"
+                  className="btn btn-secondary"
+                  disabled={arxivSubmitting || !arxivInput.trim() || arxivCooldownSeconds > 0}
+                  style={{
+                    marginTop: '0.5rem',
+                    padding: '0.5rem 0.75rem',
+                    fontSize: '0.875rem',
+                    borderColor: 'var(--color-error-border)',
+                    minHeight: '44px',
+                  }}
+                >
+                  {arxivCooldownSeconds > 0 ? `Retry in ${arxivCooldownSeconds}s` : 'Retry Submission'}
+                </button>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={arxivSubmitting || !arxivInput.trim() || arxivCooldownSeconds > 0}
+              className="btn btn-primary"
+              style={{ minHeight: '44px' }}
+            >
+              {arxivSubmitting ? 'Importing from arXiv...' : 'Import Paper'}
+            </button>
+          </form>
+
+          {/* Tab 2: PDF Upload Form */}
+          <form
+            id="panel-upload"
+            role="tabpanel"
+            aria-labelledby="tab-upload"
+            hidden={activeTab !== 'upload'}
+            onSubmit={handleUploadSubmit}
+            noValidate
+          >
+            <div style={{ marginBottom: '1rem' }}>
+              <label
+                htmlFor={fileInputId}
+                style={{
+                  display: 'block',
+                  marginBottom: '0.375rem',
+                  fontWeight: 600,
+                }}
+              >
+                Select PDF Document
+              </label>
+              <input
+                id={fileInputId}
+                type="file"
+                accept="application/pdf,.pdf"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] ?? null;
+                  handleFileChange(file);
+                }}
+                className="form-input"
+                disabled={uploadSubmitting}
+                aria-invalid={uploadError ? 'true' : 'false'}
+                aria-describedby={
+                  uploadError
+                    ? `${fileInputId}-error ${fileInputId}-helper`
+                    : `${fileInputId}-helper`
+                }
+                required
+              />
+              {selectedFile && (
+                <p className="editorial-meta" style={{ marginTop: '0.375rem' }}>
+                  Selected file: <strong>{selectedFile.name}</strong> ({Math.round(selectedFile.size / 1024)} KB)
+                </p>
+              )}
+              <p
+                id={`${fileInputId}-helper`}
+                style={{
+                  fontSize: '0.875rem',
+                  color: 'var(--color-ink-muted)',
+                  marginTop: '0.375rem',
+                }}
+              >
+                Supported PDF files up to 25 MiB and 100 pages.
+              </p>
+            </div>
+
+            {uploadError && (
+              <div
+                id={`${fileInputId}-error`}
+                className="notice-error"
+                style={{ marginBottom: '1rem' }}
+              >
+                <p role="alert" style={{ fontWeight: 600 }}>{uploadError.message}</p>
+                {uploadCooldownSeconds > 0 && (
+                  <p style={{ marginTop: '0.375rem', fontSize: '0.875rem' }}>
+                    Please wait <strong>{uploadCooldownSeconds}s</strong> before retrying.
+                  </p>
+                )}
+                <button
+                  type="submit"
+                  className="btn btn-secondary"
+                  disabled={uploadSubmitting || !selectedFile || uploadCooldownSeconds > 0}
+                  style={{
+                    marginTop: '0.5rem',
+                    padding: '0.5rem 0.75rem',
+                    fontSize: '0.875rem',
+                    borderColor: 'var(--color-error-border)',
+                    minHeight: '44px',
+                  }}
+                >
+                  {uploadCooldownSeconds > 0 ? `Retry in ${uploadCooldownSeconds}s` : 'Retry Upload'}
+                </button>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={uploadSubmitting || !selectedFile || uploadCooldownSeconds > 0}
+              className="btn btn-primary"
+              style={{ minHeight: '44px' }}
+            >
+              {uploadSubmitting ? 'Uploading PDF...' : 'Upload PDF'}
+            </button>
+          </form>
         </>
       )}
     </section>
