@@ -76,13 +76,14 @@ export async function POST(request: Request) {
       cache: 'no-store',
     });
   } catch {
+    const headers = new Headers({ 'Retry-After': '60' });
     return Response.json(
       {
         code: 'UPSTREAM_UNAVAILABLE',
-        message: 'The import service is temporarily unavailable.',
+        message: 'The import service is temporarily unavailable. Please try again shortly.',
         request_id: crypto.randomUUID(),
       },
-      { status: 502 }
+      { status: 502, headers }
     );
   }
 
