@@ -10,7 +10,7 @@
 
 **Spec:** [Owner-approved M2 child specification](../specs/2026-09-27-researcy-m2-durable-processing-design.md), approved 2026-09-27, subordinate to [master revision 2.0](../specs/2026-09-18-researcy-system-design.md). [Delivery map](../specs/2026-09-18-researcy-delivery-map.md) is authoritative.
 
-**Plan status:** Approved by owner on 2026-09-28. The owner explicitly permits M2 implementation while the M1 acceptance record is completed separately. M2 is `Planned`; Tasks 1–8 are complete with recorded runtime/schema/queue/parser/provenance/native-embedding/exact-index/worker-recovery smoke and review evidence; Task 9 is in progress. All final exit gates are pending. This permission does not promote M1 to `Verified`.
+**Plan status:** Approved by owner on 2026-09-28. The owner explicitly permits M2 implementation while the M1 acceptance record is completed separately. M2 is `Planned`; Tasks 1–9 are complete with recorded runtime/schema/queue/parser/provenance/native-embedding/exact-index/worker-recovery/owned-status-retry smoke and review evidence; Task 10 is in progress. All final exit gates are pending. This permission does not promote M1 to `Verified`.
 
 ## Global constraints
 
@@ -433,7 +433,7 @@ The fixture drives the real stage functions and may use a deterministic embeddin
 
 **Interfaces:** HTTP contract §2.3. Reuse `get_current_user`, `require_csrf`, `APIError` and threadpool conventions from existing routes. Do not introduce auth decorators or another session system.
 
-- [ ] **RED:** foreign/random job indistinguishable 404; unauthenticated 401; missing/incorrect CSRF and hostile Origin 403 before body/quota; two concurrent valid retry requests yield one new cycle; delayed replay after another terminal failure does not retry again. Import replay and paper list/detail show persisted current stage/preparation, not queued constants.
+- [x] **RED:** foreign/random job indistinguishable 404; unauthenticated 401; missing/incorrect CSRF and hostile Origin 403 before body/quota; two concurrent valid retry requests yield one new cycle; delayed replay after another terminal failure does not retry again. Import replay and paper list/detail show persisted current stage/preparation, not queued constants.
 
 ```python
 def test_retry_replay_after_terminal_state_does_not_start_cycle(job_api_fixture):
@@ -446,10 +446,10 @@ def test_retry_replay_after_terminal_state_does_not_start_cycle(job_api_fixture)
     assert replay.json()['status'] == 'failed'
 ```
 
-- [ ] **Run RED:** `uv run --frozen pytest tests/test_job_routes.py tests/test_library.py tests/test_intake.py -q`.
-- [ ] **GREEN:** authenticate/authorize before parsing retry JSON; validate exact revision body with forbidden extras. Offload blocking SQL using the established route threadpool pattern. Stable failures `JOB_NOT_RETRYABLE`, `RETRY_REVISION_CONFLICT`, `PROCESSING_RETRY_LIMITED`; 429 carries Retry-After. Serialize only safe job fields. Projection derives pending initial→waiting, pending retry→delayed, running→preparing, terminal failure→failed and published succeeded→complete; inconsistent publication fails safe rather than displaying complete.
-- [ ] **GREEN check/smoke:** use HTTP through actual Next.js same-origin proxy with two explicitly labelled smoke identities to exercise GET/retry/403/404/401 and persisted replay. These identities prove M2 ownership mechanisms, not missing real Google M1 acceptance. Preserve owner sessions and clean only test-owned identities/objects.
-- [ ] **Review/commit:** review body ordering, revision precedence and error disclosure; commit `feat(api): expose owned processing status and safe retry`.
+- [x] **Run RED:** 17 consumer failures demonstrated; isolated Docker test runner used for reproducible PostgreSQL/MinIO/Qdrant checks (exact recorded commands/results in acceptance report).
+- [x] **GREEN:** authenticate/authorize before parsing retry JSON; validate exact revision body with forbidden extras. Offload blocking SQL using the established route threadpool pattern. Stable failures `JOB_NOT_RETRYABLE`, `RETRY_REVISION_CONFLICT`, `PROCESSING_RETRY_LIMITED`; 429 carries Retry-After. Serialize only safe job fields. Projection derives pending initial→waiting, pending retry→delayed, running→preparing, terminal failure→failed and published succeeded→complete; inconsistent publication fails safe rather than displaying complete.
+- [x] **GREEN check/smoke:** HTTP through actual Next.js same-origin proxy with two explicitly labelled smoke identities exercised GET/retry/403/404/401 and persisted replay. These identities prove M2 ownership mechanisms, not missing real Google M1 acceptance. Owner sessions preserved; disposable HTTP identities/database removed.
+- [x] **Review/commit:** owner API and projection reviews passed after demonstrated counter and publication-snapshot regressions were fixed; commit `feat(api): expose owned processing status and safe retry`.
 
 ## Task 10: Reader-facing preparation and retry in existing Library
 

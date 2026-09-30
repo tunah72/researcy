@@ -155,9 +155,14 @@ def test_library_list_is_owner_scoped_and_ignores_client_owner(client, pg_conn):
     assert paper["active_version_id"] == str(version_b)
     assert paper["source_version"] == "v2"
     assert paper["screening_warning"] is None
+    assert paper["retry_revision"] == 0
+    assert paper["preparation"] == {
+        "state": "waiting",
+        "reason": None,
+        "retryable": False,
+        "retry_after_seconds": 0,
+    }
     assert payload["request_id"]
-
-
 def test_library_search_matches_owned_title_and_author_only(client, pg_conn):
     owner_a = _insert_user(pg_conn, "search-owner-a")
     owner_b = _insert_user(pg_conn, "search-owner-b")
@@ -258,14 +263,88 @@ def test_library_detail_preserves_unknown_metadata_and_persisted_version_state(
     assert detail["active_version_id"] == str(version_id)
     assert detail["source_version"] == "v7"
     assert detail["screening_warning"] == "LOW_TEXT"
+    assert detail["retry_revision"] == 0
+    assert detail["preparation"] == {
+        "state": "waiting",
+        "reason": None,
+        "retryable": False,
+        "retry_after_seconds": 0,
+    }
     listed = listing.json()["papers"][0]
     assert listed["title"] is None
     assert listed["authors"] is None
     assert listed["year"] is None
+    assert listed["retry_revision"] == 0
+    assert listed["preparation"] == detail["preparation"]
     assert detail["request_id"]
     assert "object_key" not in detail
 
 
+def test_library_and_detail_project_published_complete(client, selected_index, pg_conn):
+    import time
+    from researcy.retrieval.index import index_selected, publish_ready
+    from researcy.ingestion.jobs import short_transaction
+
+    scope = selected_index["scope"]
+    lease = selected_index["lease"]
+    conn = selected_index["conn"]
+    receipt = index_selected(lease, time.monotonic() + 60)
+    publish_ready(conn, lease, receipt)
+    with short_transaction(pg_conn):
+        assert pg_conn.execute(
+            "SELECT stage, status FROM ingestion_jobs WHERE id=%s", (lease.job_id,)
+        ).fetchone() == ("ready", "succeeded")
+    pg_conn.commit()
+
+    _authenticate(client, pg_conn, scope.owner_id)
+    detail = client.get(f"/api/papers/{scope.paper_id}")
+    listing = client.get("/api/papers")
+
+    assert detail.status_code == 200
+    assert listing.status_code == 200
+    detail_data = detail.json()
+    assert detail_data["stage"] == "ready"
+    assert detail_data["preparation"] == {
+        "state": "complete",
+        "reason": None,
+        "retryable": False,
+        "retry_after_seconds": 0,
+    }
+    listed_data = listing.json()["papers"][0]
+    assert listed_data["paper_id"] == str(scope.paper_id)
+    assert listed_data["stage"] == "ready"
+    assert listed_data["preparation"] == detail_data["preparation"]
+
+
+def test_library_and_detail_fail_safe_503_when_ready_without_publication(client, selected_index, pg_conn):
+    from researcy.ingestion.jobs import short_transaction
+
+    scope = selected_index["scope"]
+    lease = selected_index["lease"]
+
+    # Administrative corruption is simulated only in this disposable database.
+    # Normal application writes cannot bypass the deferred publication invariant.
+    with short_transaction(pg_conn):
+        pg_conn.execute('ALTER TABLE ingestion_jobs DISABLE TRIGGER trg_ready_publication')
+        pg_conn.execute(
+            """UPDATE ingestion_jobs
+               SET stage='ready', status='succeeded', locked_by=NULL, lease_expires_at=NULL,
+                   heartbeat_at=NULL, completed_at=clock_timestamp(), error_code=NULL, retryable=false
+               WHERE id=%s""",
+            (lease.job_id,),
+        )
+    pg_conn.commit()
+    with short_transaction(pg_conn):
+        pg_conn.execute('ALTER TABLE ingestion_jobs ENABLE TRIGGER trg_ready_publication')
+
+    _authenticate(client, pg_conn, scope.owner_id)
+    detail = client.get(f"/api/papers/{scope.paper_id}")
+    listing = client.get("/api/papers")
+
+    assert detail.status_code == 503
+    assert detail.json()["code"] == "PROCESSING_UNAVAILABLE"
+    assert listing.status_code == 503
+    assert listing.json()["code"] == "PROCESSING_UNAVAILABLE"
 def test_library_requires_an_authenticated_session(client):
     response = client.get("/api/papers")
 

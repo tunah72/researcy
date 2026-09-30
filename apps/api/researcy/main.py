@@ -12,6 +12,7 @@ from .auth.routes import router as auth_router
 from .config import get_settings
 from .errors import APIError, error_payload
 from .papers.routes import router as papers_router
+from .ingestion.routes import router as jobs_router
 
 
 class UploadBodyTooLarge(Exception):
@@ -63,6 +64,7 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(UploadBodyLimitMiddleware)
 app.include_router(auth_router)
 app.include_router(papers_router)
+app.include_router(jobs_router)
 
 
 @app.middleware("http")

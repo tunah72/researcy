@@ -1,6 +1,9 @@
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from ..ingestion.presentation import Preparation, ProcessingStage
+from ..ingestion.jobs import MAX_SAFE_INTEGER
 
 
 MAX_SEARCH_LENGTH = 200
@@ -12,11 +15,13 @@ class Paper(BaseModel):
     authors: list[str] | None
     year: int | None
     source: str
-    stage: str
+    stage: ProcessingStage
     active_version_id: UUID
     source_version: str | None
     screening_warning: str | None
-
+    job_id: UUID
+    retry_revision: int=Field(ge=0,le=MAX_SAFE_INTEGER)
+    preparation: Preparation
 
 class PaperListResponse(BaseModel):
     papers: list[Paper]
@@ -35,7 +40,7 @@ class IntakeResponse(BaseModel):
     paper_id: UUID
     document_version: UUID
     job_id: UUID
-    stage: str
+    stage: ProcessingStage
     screening_warning: str | None = None
     source_version: str | None = None
     arxiv_version: str | None = None

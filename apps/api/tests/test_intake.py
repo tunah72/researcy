@@ -219,6 +219,42 @@ def test_upload_exact_replay_returns_200_without_quota_or_new_records(client, pg
     assert quota_count == 1
 
 
+
+def test_upload_exact_replay_reflects_actual_current_processing_stage(client, pg_conn, private_bucket, tmp_path):
+    owner = _insert_user(pg_conn, "upload-replay-stage-owner")
+    headers = _auth_headers(client, pg_conn, owner)
+    headers["Idempotency-Key"] = "replay-stage-key-1"
+
+    pdf_path = _make_pdf(tmp_path / "doc.pdf")
+    pdf_bytes = pdf_path.read_bytes()
+
+    res1 = client.post(
+        "/api/papers/upload",
+        headers=headers,
+        files={"file": ("doc.pdf", io.BytesIO(pdf_bytes), "application/pdf")},
+    )
+    assert res1.status_code == 202
+    first_data = res1.json()
+    assert first_data["stage"] == "queued"
+    job_id = first_data["job_id"]
+
+    # Advance the processing job stage in DB to 'parsing' (pending honest state, no fake running lease)
+    pg_conn.execute(
+        "UPDATE ingestion_jobs SET stage = 'parsing', status = 'pending' WHERE id = %s",
+        (job_id,),
+    )
+    pg_conn.commit()
+
+    replay = client.post(
+        "/api/papers/upload",
+        headers=headers,
+        files={"file": ("doc.pdf", io.BytesIO(pdf_bytes), "application/pdf")},
+    )
+    assert replay.status_code == 200
+    replay_data = replay.json()
+    assert replay_data["job_id"] == first_data["job_id"]
+    assert replay_data["stage"] == "parsing"
+
 def test_upload_same_key_changed_bytes_returns_409(client, pg_conn, private_bucket, tmp_path):
     owner = _insert_user(pg_conn, "upload-conflict-owner")
     headers = _auth_headers(client, pg_conn, owner)

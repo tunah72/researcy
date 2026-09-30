@@ -9,18 +9,27 @@ from .models import DocumentScope, JobSnapshot, RetryResult, STAGES
 
 
 class RetryWait(APIError):
-    def __init__(self, seconds: int, *, quota: bool = False):
-        super().__init__(429, 'PROCESSING_RETRY_RATE_LIMITED' if quota else 'PROCESSING_RETRY_COOLDOWN',
+    def __init__(self, seconds: int):
+        super().__init__(429, 'PROCESSING_RETRY_LIMITED',
             'Preparation cannot be retried yet.')
         self.retry_after = max(1,seconds)
 
 
 def _read_owned(conn: psycopg.Connection, owner_id: UUID, job_id: UUID, *, lock: bool = False) -> dict:
     with conn.cursor(row_factory=dict_row) as cursor:
+        if lock:
+            # A waited FOR UPDATE can refresh its job tuple without refreshing
+            # correlated publication reads. Take a new snapshot after the lock.
+            cursor.execute("SELECT j.id FROM ingestion_jobs j WHERE j.owner_id=%s AND j.id=%s FOR UPDATE OF j",(owner_id,job_id))
+            if cursor.fetchone() is None:
+                raise APIError(404,'JOB_NOT_FOUND','The job was not found.')
         cursor.execute("""SELECT j.*,v.paper_id,
             GREATEST(0,ceil(extract(epoch FROM j.run_after-clock_timestamp())))::bigint AS retry_after_seconds
+            ,EXISTS(SELECT 1 FROM index_publications ip WHERE ip.owner_id=j.owner_id
+                AND ip.paper_id=v.paper_id AND ip.document_version_id=j.document_version_id
+                AND ip.profile_hash=j.profile_hash) AS published
             FROM ingestion_jobs j JOIN document_versions v ON v.id=j.document_version_id AND v.owner_id=j.owner_id
-            WHERE j.owner_id=%s AND j.id=%s""" + (' FOR UPDATE OF j' if lock else ''), (owner_id,job_id))
+            WHERE j.owner_id=%s AND j.id=%s""", (owner_id,job_id))
         row = cursor.fetchone()
     if row is None:
         raise APIError(404,'JOB_NOT_FOUND','The job was not found.')
@@ -30,7 +39,7 @@ def _read_owned(conn: psycopg.Connection, owner_id: UUID, job_id: UUID, *, lock:
 def _snapshot(row: dict) -> JobSnapshot:
     return JobSnapshot(DocumentScope(row['owner_id'],row['paper_id'],row['document_version_id']),row['id'],
         row['stage'],row['status'],row['failed_stage'],row['error_code'],row['failure_kind'],row['retryable'],
-        row['retry_revision'],row['attempts'],row['cycle_attempts'],row['retry_after_seconds'])
+        row['retry_revision'],row['attempts'],row['cycle_attempts'],row['retry_after_seconds'],row['published'],row['lease_generation'])
 
 
 def get_owned_job(conn: psycopg.Connection, owner_id: UUID, job_id: UUID) -> JobSnapshot:
@@ -43,12 +52,12 @@ def retry_owned(conn: psycopg.Connection, owner_id: UUID, job_id: UUID, revision
     with short_transaction(conn):
         row = _read_owned(conn,owner_id,job_id,lock=True)
         if type(revision) is not int or not 0 <= revision <= MAX_SAFE_INTEGER or revision > row['retry_revision']:
-            raise APIError(409,'PROCESSING_RETRY_CONFLICT','Preparation could not be retried.')
+            raise APIError(409,'RETRY_REVISION_CONFLICT','Preparation could not be retried.')
         if revision < row['retry_revision']:
             return RetryResult(_snapshot(row),False)
         if (row['status'] != 'failed' or not row['retryable']
             or max(row['attempts'],row['lease_generation'],row['retry_revision']) >= MAX_SAFE_INTEGER):
-            raise APIError(409,'PROCESSING_RETRY_CONFLICT','Preparation could not be retried.')
+            raise APIError(409,'JOB_NOT_RETRYABLE','Preparation could not be retried.')
         if row['retry_after_seconds'] > 0:
             raise RetryWait(row['retry_after_seconds'])
         # All accepted retries for one owner serialize after the owned job lock.
@@ -58,7 +67,7 @@ def retry_owned(conn: psycopg.Connection, owner_id: UUID, job_id: UUID, revision
             FROM processing_retry_rate_limits WHERE owner_id=%s AND window_start>clock_timestamp()-interval '1 hour'""",
             (owner_id,)).fetchone()
         if quota[0] >= 5:
-            raise RetryWait(quota[1],quota=True)
+            raise RetryWait(quota[1])
         completed = {entry[0] for entry in conn.execute("""SELECT stage FROM stage_manifests
             WHERE owner_id=%s AND document_version_id=%s AND profile_hash=%s""",
             (owner_id,row['document_version_id'],row['profile_hash'])).fetchall()}
@@ -69,7 +78,7 @@ def retry_owned(conn: psycopg.Connection, owner_id: UUID, job_id: UUID, revision
             WHERE owner_id=%s AND id=%s AND retry_revision=%s AND status='failed' AND retryable
               AND run_after<=clock_timestamp()""", (stage,owner_id,job_id,revision))
         if result.rowcount != 1:
-            raise APIError(409,'PROCESSING_RETRY_CONFLICT','Preparation could not be retried.')
+            raise APIError(409,'RETRY_REVISION_CONFLICT','Preparation could not be retried.')
         conn.execute("DELETE FROM processing_retry_rate_limits WHERE owner_id=%s AND window_start<=clock_timestamp()-interval '1 hour'", (owner_id,))
         conn.execute("""INSERT INTO processing_retry_rate_limits(owner_id,window_start,request_count)
             VALUES(%s,clock_timestamp(),1) ON CONFLICT(owner_id,window_start)

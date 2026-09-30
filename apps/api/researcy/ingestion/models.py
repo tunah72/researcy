@@ -153,6 +153,8 @@ class JobSnapshot:
     attempts: int
     cycle_attempts: int
     retry_after_seconds: int
+    published: bool = False
+    lease_generation: int = 0
 
 
 @dataclass(frozen=True, slots=True)
