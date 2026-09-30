@@ -10,7 +10,7 @@
 
 **Spec:** [Owner-approved M2 child specification](../specs/2026-09-27-researcy-m2-durable-processing-design.md), approved 2026-09-27, subordinate to [master revision 2.0](../specs/2026-09-18-researcy-system-design.md). [Delivery map](../specs/2026-09-18-researcy-delivery-map.md) is authoritative.
 
-**Plan status:** Approved by owner on 2026-09-28. The owner explicitly permits M2 implementation while the M1 acceptance record is completed separately. M2 is `Planned`; Task 1 is complete with recorded Linux containment/build/smoke and review evidence; remaining implementation tasks and all final exit gates are pending. This permission does not promote M1 to `Verified`.
+**Plan status:** Approved by owner on 2026-09-28. The owner explicitly permits M2 implementation while the M1 acceptance record is completed separately. M2 is `Planned`; Tasks 1–2 are complete with recorded runtime/schema/smoke and review evidence; Task 3 is in progress. All final exit gates are pending. This permission does not promote M1 to `Verified`.
 
 ## Global constraints
 
@@ -226,9 +226,9 @@ Mount only runtime libraries/interpreter needed by the chosen image; do not bind
 
 **Interfaces:** domain types in §2; tables `document_processing`, `ingestion_transitions`, `stage_manifests`, `embedding_batches`, `document_pages`, `document_sections`, `document_blocks`, `document_spans`, `document_chunks`, `chunk_span_mappings`, `index_publications`, `processing_retry_rate_limits`; extend existing `ingestion_jobs` fields exactly as spec §4. Use the existing owner/version/job uniqueness, not a new job per stage.
 
-- [ ] **RED:** populate a database at Alembic `0002_m1_source_guards` with upload/arXiv versions, warning and idempotency outcome; upgrade to head; assert original/version/job identities survive, due queued row can be claimed, source mutation rejected, profile cannot change after seal, cross-owner/version mapping rejected and ready without publication rejected. Remove the obsolete assertion that all non-queued stages are forbidden; replace it with transition/publication integrity tests.
-- [ ] **Run RED:** `uv run --frozen pytest tests/test_processing_schema.py tests/test_schema.py -q`.
-- [ ] **GREEN:** add compatible defaults, backfill no network calls, replace queued-only constraint, add composite FKs/checks and indexes. Required relation skeleton:
+- [x] **RED:** populate a database at Alembic `0002_m1_source_guards` with upload/arXiv versions, warning and idempotency outcome; upgrade to head; assert original/version/job identities survive, due queued row can be claimed, source mutation rejected, profile cannot change after seal, cross-owner/version mapping rejected and ready without publication rejected. Remove the obsolete assertion that all non-queued stages are forbidden; replace it with transition/publication integrity tests.
+- [x] **Run RED:** `uv run --frozen pytest tests/test_processing_schema.py tests/test_schema.py -q`.
+- [x] **GREEN:** add compatible defaults, backfill no network calls, replace queued-only constraint, add composite FKs/checks and indexes. Required relation skeleton:
 
 ```sql
 ALTER TABLE ingestion_jobs ADD COLUMN lease_generation bigint NOT NULL DEFAULT 0;
@@ -239,8 +239,8 @@ CREATE INDEX ix_jobs_expired ON ingestion_jobs(lease_expires_at, created_at, id)
 ```
 
 Add all remaining spec fields in the same migration, not a partially runnable ledger. Section parent FKs include owner/version; chunk mappings include owner/version/chunk/span identities. Page bounds/finite numbers and mapping intervals have DB checks plus domain validation. Trigger-guard sealed rows/manifests and profile from update; a ready job must have a matching publication using a deferred constraint trigger so publication and ready can commit together. Preserve original source/active-pointer guards. Immutable manifests refer to content hashes and selected artifacts, not mutable object paths. Embedding batch uniqueness is `(version, profile, batch_ordinal)` with exact selected bytes/hash.
-- [ ] **GREEN check/smoke:** run the focused suite and migrate a disposable populated DB twice, inspect actual rows, then attempt invalid inserts/updates through psycopg and observe constraint failures. No migration on owner DB yet.
-- [ ] **Review/commit:** review preservation, FK scope and sealed mutation guards; commit `feat(ingestion): add durable processing and provenance schema`.
+- [x] **GREEN check/smoke:** run the focused suite and migrate a disposable populated DB twice, inspect actual rows, then attempt invalid inserts/updates through psycopg and observe constraint failures. No migration on owner DB yet.
+- [x] **Review/commit:** review preservation, FK scope and sealed mutation guards; commit `feat(ingestion): add durable processing and provenance schema`.
 
 ## Task 3: Claims, fencing, bounded retries and manual replay semantics
 

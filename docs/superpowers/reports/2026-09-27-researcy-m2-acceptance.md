@@ -126,3 +126,15 @@ Resource proof now distinguishes CPU-limit termination from wall fallback, obser
 Latest integrated Linux backend suite: **215 passed, 1 skipped** (includes initial Task 2 schema regression coverage; Task 2 review/closeout is not yet complete). Final production image build passed; actual valid-PDF screening smoke passed. An independently generated PDF with its xref removed was confirmed repaired by PyMuPDF, then safely rejected by production screening with `422 PDF_INVALID`.
 
 Task 1 is complete; the earlier startup blocker and review-pending statements above are historical. M2 remains `Planned`, not implemented end-to-end or verified. No owner job was consumed; no push/merge/prune performed. Worker and G1–G6 final acceptance remain pending.
+
+## Task 2 closeout — forward schema and frozen contracts
+
+Migration `0003_m2_processing` preserves accepted M1 source/version/job/replay identity, adds scheduling/leases/counters, immutable profile and canonical relations, selected vector batches, manifests, publications and scoped transition/quota records. Composite constraints prevent cross-owner/version mappings and selected foreign chunks; source geometry cannot escape its page; selected-vector hashes must match exact bytes.
+
+RED: foreign selected chunks were accepted (one failing case); page-escaping geometry and wrong selected-vector hash were accepted (two failing cases). Review identified mutable/nonbinary manifest members, unsupported profiles and operational resource caps incorrectly altering semantic index identity (12 failing cases/one already passing). A second review found a committed published job could be requeued or deleted (two failing cases).
+
+GREEN: `tests/test_processing_schema.py tests/test_schema.py tests/test_processing_models.py -q --tb=short -p no:cacheprovider` in the restricted Linux test image: **28 passed**. Both schema and contract reviewers returned PASS after corrections. Succeeded jobs are now immutable; initial publication and ready still commit atomically. Semantic hashes exclude runtime resource caps; schema-1 model/parser contracts and immutable binary members are validated.
+
+Actual throwaway psycopg/Alembic smoke against a disposable PostgreSQL database: populate at 0002, upgrade twice, read unchanged source bytes/key, select due job under a row lock, seal supported identity, and attempt original/config/ready invalid writes. Observed `source_unchanged=True`, `due_job_claimable=True`, three rejected writes, final `queued/pending`. Temporary database dropped; no migration on owner DB.
+
+Task 2 is complete. Task 3 RED now demonstrates missing job/retry modules; those tests are not passing yet. No final M2 exit gate is claimed.

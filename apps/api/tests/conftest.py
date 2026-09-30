@@ -38,7 +38,7 @@ def alembic_config(database: str) -> Config:
 
 
 @pytest.fixture
-def pg_conn():
+def pg_conn(request):
     database = f"researcy_test_{uuid4().hex}"
     admin_conn = psycopg.connect(
         _database_url(TEST_ADMIN_URL.database), autocommit=True
@@ -51,7 +51,7 @@ def pg_conn():
         )
         created = True
         test_conn = psycopg.connect(_database_url(database))
-        command.upgrade(alembic_config(database), "head")
+        command.upgrade(alembic_config(database), getattr(request, "param", "head"))
         yield test_conn
     finally:
         if test_conn is not None:
@@ -62,3 +62,22 @@ def pg_conn():
                 sql.SQL("DROP DATABASE {}").format(sql.Identifier(database))
             )
         admin_conn.close()
+
+
+@pytest.fixture
+def queued_job(pg_conn):
+    from test_schema import insert_user, insert_paper, insert_job
+    from researcy.ingestion.models import DocumentScope
+
+    owner = insert_user(pg_conn, f"queue-{uuid4()}", None)
+    paper, version = insert_paper(pg_conn, owner, None)
+    job = insert_job(pg_conn, owner, version)
+    pg_conn.commit()
+    return DocumentScope(owner, paper, version), job
+
+
+@pytest.fixture
+def job_connections(pg_conn):
+    with psycopg.connect(_database_url(pg_conn.info.dbname)) as first:
+        with psycopg.connect(_database_url(pg_conn.info.dbname)) as second:
+            yield first, second
