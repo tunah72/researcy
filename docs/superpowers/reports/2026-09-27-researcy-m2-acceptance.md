@@ -201,3 +201,50 @@ Repeated actual final corpus parse → immutable put/replay → verified downloa
 Container peak: 90,939,392 bytes. Temporary test bucket was removed. No final resource/evidence gate is inferred from this focused smoke.
 
 All four scoped reviews are closed: geometry, typed interchange/security, artifact writes and runtime configuration returned PASS on corrected boundaries. Task 4 is complete. Task 5 RED now demonstrates absent normalization/chunking modules; its implementation and isolated canonical/provenance smoke remain pending. M2 and final gates are not promoted.
+
+## Task 5 outage recovery checkpoint
+
+The owner reported an internet outage and requested state verification and continuation. Fresh worktree inspection confirmed `feat-m2-durable-processing`, latest committed `2ef1eb7`, unchanged Tasks 1–4 and only uncommitted Task 5 files/local plan clarification. No staged changes, reset, deletion, owner migration or owner job processing.
+
+Two implementation agents and the normalization reviewer had terminated with provider DNS `ENOTFOUND`; the first provenance review returned an invalid schema without findings/coverage. These failures are not PASS or completion evidence. Resumed the same scoped jobs after connectivity returned.
+
+Observed Task 5 RED before the outage: normalization/chunking/provenance modules absent; repository suite **14 failed** on its unimplemented functions. The repository and chunking implementations remain unfinished at this checkpoint. Corrected normalization after separate RED cases for dropped typographic-heading source text and separate numbered/title blocks.
+
+After resumption, actual restricted Linux verification: **9 normalization cases passed**, plus the explicitly selected resource-bound case **1 passed**. Source overflow fails before emitting a partial canonical record. Earlier actual two-corpus normalization retained 38,450/67,755 raw code points; an exact normalized lookup of the frozen annotated page-three quote found one occurrence under the expected section. No approximate PDF search was used.
+
+Resumed provenance security review returned a valid static PASS; integrated PostgreSQL checks and the original-PDF overlay remain pending. No Task 5 closeout or final M2 gate is claimed.
+
+### Task 5 integrated canonical/provenance evidence
+
+After the chunking provider request aborted again, parent inspection confirmed its file was still absent. The parent implemented the bounded streaming chunker inline; no missing-code compatibility fallback was accepted. Repository integration removed a duplicate checksum fallback and demonstrated RED for a 1e-6 immutable geometry change being accepted, an iterable being consumed beyond its 500-record limit, wrong-profile page IDs, and three invalid mappings after the first 500-row transaction leaving an immutable prefix.
+
+Corrections: exact replay equality; bounded `islice(...,501)` input checks; fixed integrity failures instead of raw PostgreSQL constraint detail; all canonical IDs recomputed against the sealed profile; and every complete chunk mapping checked against owned persisted source text/bounds/section/exclusion before its first header insert. Preflight and range resolution reuse the same source-transformation predicate. Actual inserted headers plus mappings still use at most 500 rows per short fenced transaction. Chunk exhaustion now persists a non-retryable resource failure rather than a false integrity label.
+
+Observed restricted Linux focused command (`tests/test_chunking.py tests/test_document_provenance.py tests/test_document_repository.py tests/test_jobs.py`): **51 passed**. All four final read-only reviews returned PASS: normalization, chunking, repository and provenance/security. Static PASS is not substituted for runtime acceptance.
+
+Actual throwaway original upload → owner-scoped original streaming/hash verification → deployed parser → canonical writes → chunks/mappings → full replay → exact range resolution used a unique test PostgreSQL database and private MinIO bucket. Source hashes match the unchanged frozen corpus. Expected versus observed row sets were compared using all stored row content (ordered table snapshots), not only counts; identical replay preserved IDs, checksums and mappings exactly.
+
+| Public paper | Pages / sections / blocks / spans | Chunks / mappings | Raw code points | Combined path |
+|---|---|---|---|---|
+| `1706.03762` | 15 / 62 / 1,051 / 1,048 | 68 / 12,176 | 38,450 | 13.848 s |
+| `2005.11401` | 19 / 111 / 1,327 / 1,324 | 126 / 19,930 | 67,755 | 22.036 s |
+
+The frozen annotated scaled-attention quote had one exact normalized occurrence. PostgreSQL offset resolution returned five source fragments, page index 3, and 225 exact character boxes. The generated original-PDF overlay was visually inspected: boxes cover the requested paragraph and fraction, not adjacent body text. Exact box area within the unchanged rounded gold regions was 0.99999595; the tiny difference is annotation rounding, not a stretched/approximate source box. Container peak was 152,961,024 bytes. This was not a native-model/resource acceptance run.
+
+The unique database and bucket were removed by the harness. No owner database, job or collection was modified. The first combined build/suite command timed out at 300 seconds after both image builds succeeded and a 217-second frozen Pygments download consumed most of the deadline; its incomplete test progress is not a full-suite PASS. Final build/full-suite closeout remains pending.
+
+### Task 5 closeout
+
+Final production image build passed. Full current backend suite under the deployed restricted test profile with the exact current package/tests mounted read-only: **338 passed, 1 skipped in 55.41 seconds**. The skip remains the existing opt-in real-arXiv network case. This standalone run avoided another test-dependency download; no dependency versions or security limits changed.
+
+```bash
+docker build --target production -t researcy-m2-api:local -f apps/api/Dockerfile apps/api
+docker compose --env-file /dev/null -p researcy-m2-test \
+  -f compose.yaml -f compose.test.yaml -f /tmp/researcy-m2-isolated-compose.yaml \
+  run --rm --no-deps -T \
+  -v /Users/tuananhduong/Projects/researcy/.omp/worktrees/m2-durable-processing/apps/api/researcy:/app/researcy:ro \
+  -v /Users/tuananhduong/Projects/researcy/.omp/worktrees/m2-durable-processing/apps/api/tests:/app/tests:ro \
+  api python -m pytest tests -q --tb=short -p no:cacheprovider
+```
+
+Generated overlay PNG/JSON were removed after inspection and safe measurement recording. Temporary original/parser files were inside removed disposable containers. All scoped reviews and the full affected suite/build are complete; Task 5 is complete. Embeddings, Qdrant, worker/API/UI integration and the six final real-stack gates remain Tasks 6–11. No stronger M2 milestone status is claimed.

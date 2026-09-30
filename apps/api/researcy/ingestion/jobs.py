@@ -20,6 +20,7 @@ _SAFE_FAILURES = {
     "PDF_TOO_LARGE": ("resource_limit",False),
     "PDF_TOO_MANY_PAGES": ("resource_limit",False),
     "PDF_PARSE_RESOURCE_LIMIT": ("resource_limit",False),
+    "PROCESSING_RESOURCE_LIMIT": ("resource_limit",False),
     "PDF_PARSE_TIMEOUT": ("resource_limit",False),
     "PDF_ENCRYPTED": ("unsupported",False),
     "PDF_INVALID": ("unsupported",False),

@@ -10,7 +10,7 @@
 
 **Spec:** [Owner-approved M2 child specification](../specs/2026-09-27-researcy-m2-durable-processing-design.md), approved 2026-09-27, subordinate to [master revision 2.0](../specs/2026-09-18-researcy-system-design.md). [Delivery map](../specs/2026-09-18-researcy-delivery-map.md) is authoritative.
 
-**Plan status:** Approved by owner on 2026-09-28. The owner explicitly permits M2 implementation while the M1 acceptance record is completed separately. M2 is `Planned`; Tasks 1–4 are complete with recorded runtime/schema/queue/parser/smoke and review evidence; Task 5 is in progress. All final exit gates are pending. This permission does not promote M1 to `Verified`.
+**Plan status:** Approved by owner on 2026-09-28. The owner explicitly permits M2 implementation while the M1 acceptance record is completed separately. M2 is `Planned`; Tasks 1–5 are complete with recorded runtime/schema/queue/parser/provenance/smoke and review evidence; Task 6 is in progress. All final exit gates are pending. This permission does not promote M1 to `Verified`.
 
 ## Global constraints
 
@@ -306,11 +306,11 @@ def test_parser_retains_crop_rotation_geometry(parser_fixture, tmp_path):
 
 ## Task 5: Canonical normalization, section chunks and reversible evidence
 
-**Files:** create `documents/{normalize,chunking,provenance,repository}.py`, `tests/test_document_provenance.py`, `tests/test_chunking.py`; extend document model definitions. No product citation endpoint.
+**Files:** create `documents/{canonical,normalize,chunking,provenance,repository}.py`, `tests/test_document_provenance.py`, `tests/test_chunking.py`, `tests/test_document_repository.py`. Scoped canonical records live in `canonical.py`, separate from the secret-free parser interchange types in `models.py`. No product citation endpoint.
 
 **Interfaces:** `normalize_records`, `chunk_section`, `write_canonical_batch`, `write_chunk_batch`, `resolve_range`. Canonical writes require T3 lease; `resolve_range` requires explicit scope and chunk offset, not a fuzzy quote search. `normalize_records` receives mandatory keyword `scope` derived by the trusted worker: the secret-free parser cannot provide authoritative owner/version identity. Define `read_parser_records` streaming production iterator in T4 models and consume it here.
 
-- [ ] **RED:** exact quote mapping across normalized whitespace, ligature expansion and dehyphenation returns original raw characters and boxes; foreign version fails. Header/footer detection retains source blocks but excludes repeating margin text; body repetitions remain. Oversized paragraphs split without loss or section crossing; overlap never loops or duplicates spans.
+- [x] **RED:** exact quote mapping across normalized whitespace, ligature expansion and dehyphenation returns original raw characters and boxes; foreign version fails. Header/footer detection retains source blocks but excludes repeating margin text; body repetitions remain. Oversized paragraphs split without loss or section crossing; overlap never loops or duplicates spans.
 
 ```python
 def test_chunking_never_crosses_section(two_section_document, profile):
@@ -322,8 +322,8 @@ def test_chunking_never_crosses_section(two_section_document, profile):
 ```
 
 Fixtures and `reconstruct_nonoverlap_text` are test-local helpers comparing actual interval coverage, not a second chunker. Add negative reconstruction tests for a removed mapping and wrong source box.
-- [ ] **Run RED:** `uv run --frozen pytest tests/test_chunking.py tests/test_document_provenance.py -q`.
-- [ ] **GREEN:** implement approved normalization and explicit transformation map; detect repeating margin strings on ≥3 and ≥60% pages within 8% bands, normalize page-number digits only for detection. Section parser recognizes bounded numbered/typographic headings, preserving unknown sections. Chunk at paragraph/sentence/whitespace boundaries with target/max/overlap; require advancing non-overlap cursor. Hash text plus ordered mappings/profile/scope. Insert ≤500 rows per short fenced transaction; identical conflict is replay, divergent conflict fails. Seal full counts/hash only after all rows validate.
+- [x] **Run RED:** `uv run --frozen pytest tests/test_chunking.py tests/test_document_provenance.py -q`.
+- [x] **GREEN:** implement approved normalization and explicit transformation map; detect repeating margin strings on ≥3 and ≥60% pages within 8% bands, normalize page-number digits only for detection. Section parser recognizes bounded numbered/typographic headings, preserving unknown sections. Chunk at paragraph/sentence/whitespace boundaries with target/max/overlap; require advancing non-overlap cursor. Hash text plus ordered mappings/profile/scope. Insert ≤500 rows per short fenced transaction; identical conflict is replay, divergent conflict fails. Seal full counts/hash only after all rows validate.
 
 ```python
 for batch in batched(canonical_records, 500):
@@ -333,8 +333,10 @@ for batch in batched(canonical_records, 500):
 ```
 
 Use standard `itertools.batched`; no custom batching abstraction. Range resolution includes actual source offset and rejects partial ambiguous expansions rather than inventing exact sub-character boxes.
-- [ ] **GREEN check/smoke:** write real corpus canonical rows/chunks into isolated PostgreSQL, replay all batches, compare exact ID/checksum/mapping sets, resolve the annotated page-3 quote and render a private diagnostic overlay on the original PDF for human inspection. Overlay is acceptance evidence, not Reader UI; delete generated private artifacts after recording safe measurements.
-- [ ] **Review/commit:** review Unicode offsets, deletion mapping, section bounds and geometry; commit `feat(documents): persist reversible section-aware chunks`.
+
+`chunk_section(section, profile, *, start_ordinal=0)` receives the trusted worker's running global chunk count when processing subsequent sections; replay uses the same deterministic order. `chunk_checksum(scope, profile_hash, section_id, text, mappings)` is reused for persisted provenance validation. Original heading text remains mapped source exactly once; section metadata is never prepended as synthetic evidence. `write_chunk_batch` internally batches chunk headers plus mapping rows into at most 500 actual inserts per fenced transaction, allowing private incomplete rows to resume safely before stage selection.
+- [x] **GREEN check/smoke:** write real corpus canonical rows/chunks into isolated PostgreSQL, replay all batches, compare exact ID/checksum/mapping sets, resolve the annotated page-3 quote and render a private diagnostic overlay on the original PDF for human inspection. Overlay is acceptance evidence, not Reader UI; delete generated private artifacts after recording safe measurements.
+- [x] **Review/commit:** review Unicode offsets, deletion mapping, section bounds and geometry; commit `feat(documents): persist reversible section-aware chunks`.
 
 ## Task 6: Native embedding identity and selected vector manifests
 
