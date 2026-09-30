@@ -112,10 +112,13 @@ def run_once(worker_id: str,*,stop: Event | None=None) -> bool:
 
 
 def main() -> None:
+    settings=get_settings()
+    if settings.app_role!='worker':
+        raise ValueError('worker entry requires worker role')
     stop=Event()
     for signum in (signal.SIGTERM,signal.SIGINT):
         signal.signal(signum,lambda *_:stop.set())
-    settings=get_settings();worker_id=f'worker-{os.getpid()}-{uuid4().hex}'
+    worker_id=f'worker-{os.getpid()}-{uuid4().hex}'
     idle=settings.worker_idle_min_seconds
     while not stop.is_set():
         try:

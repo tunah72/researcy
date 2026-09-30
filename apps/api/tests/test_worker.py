@@ -107,3 +107,13 @@ def test_expired_previous_stage_budget_does_not_fail_unstarted_checkpoint(queued
     assert snapshot(conn,job)[:3]==('parsing','pending',None)
     row=conn.execute('SELECT error_code,failed_stage FROM ingestion_jobs WHERE id=%s',(job,)).fetchone();conn.commit()
     assert row==(None,None)
+
+def test_worker_entry_refuses_api_role_before_consuming_jobs(queued_job,job_connections,monkeypatch):
+    _,job=queued_job;conn,_=job_connections
+    monkeypatch.setenv('APP_ROLE','api')
+    def forbidden_claim(*args,**kwargs):
+        raise AssertionError('An API-role process must refuse startup before claiming')
+    monkeypatch.setattr(worker,'run_once',forbidden_claim)
+    with pytest.raises(ValueError,match='worker role'):
+        worker.main()
+    assert snapshot(conn,job)==('queued','pending',None,0,0,0)
