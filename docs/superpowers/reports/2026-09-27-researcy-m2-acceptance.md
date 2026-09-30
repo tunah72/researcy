@@ -248,3 +248,29 @@ docker compose --env-file /dev/null -p researcy-m2-test \
 ```
 
 Generated overlay PNG/JSON were removed after inspection and safe measurement recording. Temporary original/parser files were inside removed disposable containers. All scoped reviews and the full affected suite/build are complete; Task 5 is complete. Embeddings, Qdrant, worker/API/UI integration and the six final real-stack gates remain Tasks 6–11. No stronger M2 milestone status is claimed.
+
+## Task 6 implementation evidence — native embeddings and first selection
+
+Observed actual native Ollama `/api/version` and CLI version: 0.18.2. Inventory contains the approved `bge-m3:567m`, F16, digest `7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab`; `/api/show` reports `bert.embedding_length=1024`, embedding capability. No model was pulled or substituted.
+
+RED: absent retrieval module and absent first-selection functions. Implemented bounded native HTTP requests, exact runtime/model preflight, streamed response cap, `truncate:false`, finite unit float32 little-endian serialization, fenced first selection and complete ordered embedding manifests. Deterministic HTTP boundary tests plus actual PostgreSQL/MinIO changed-recomputation test: **12 passed**. A second valid candidate cannot replace the first selected bytes/artifact.
+
+Actual container-to-native preflight and one real vector passed, 4,096 bytes, SHA-256 `c1e30094218d4028ba24c4756c77044030900550187a54adaa70216f0902e072`. Native `ollama ps` observed 1.2 GB, 100% GPU, context 4,096; this is a runtime display observation, not total host-resource gate evidence.
+
+Actual isolated golden-paper pipeline embedded all 68 sealed chunks in 17 batches of four. The harness uploaded private immutable vector artifacts, selected each batch under the current lease, validated the complete manifest, downloaded every selected artifact and replayed selection without another embedding call. Embedding phase: 16.033 seconds. Complete harness: 35.671 seconds; container peak 115,912,704 bytes. Selected manifest hash: `3f20d5876d63c960c82acaf3de27dad612c98ccf18195f3173ae146991e51cd6`; all 17 batch hashes were observed in the throwaway harness output. The unchanged source hash, canonical replay and annotated quote geometry also remained valid.
+
+Unique temporary database, private bucket and generated diagnostics were removed. Embedding/client and first-selection reviews, final affected suites/build and runtime-stage orchestration remain pending at this checkpoint. No final M2 gate is claimed.
+
+Task 6 later checks: focused embedding/config/repository **51 passed**; embedding/config/jobs **45 passed**; latest embedding module including stale-worker denial, partial non-final batch rejection and configured-origin guards **19 passed**. RED demonstrated a short first batch could permanently occupy its immutable slot; selection now loads the full expected quartet/final remainder before comparing IDs. Safe embedding error codes are explicitly preserved by the job failure allowlist.
+
+Production build and full backend after the partial-batch fix: **352 passed, 1 skipped**. The later stale-worker/origin cases passed focused verification; full final review closeout is still pending. First-selection review reports the partial-batch defect resolved with no remaining contract defect.
+
+Independent next-task prerequisite: inspected the portable Qdrant 1.19.0 registry manifest and ARM64 platform digest. Added a private-network-only, 512 MiB, `processing`-profile service; the isolated project overrides storage to temporary memory and has no owner volume/host port. `compose config --quiet` passed and isolated Qdrant became healthy; actual restricted API container observed Qdrant version 1.19.0. No index/retrieval/publication behavior is claimed from service startup.
+
+### Task 6 closeout
+
+Client review reproduced malformed compressed HTTP responses escaping as raw decoding errors and arbitrary embed 400 responses mislabeled as context overflow. Both RED cases were corrected: sanitize HTTP request/decoding failures; inspect only the bounded error JSON and recognize the exact pinned context-limit error. No provider error text is stored or exposed.
+
+Both embedding-client and first-selection re-reviews returned PASS. Latest focused embedding suite: **21 passed**. Final production build passed; full current affected backend: **359 passed, 1 skipped in 74.50 seconds**. Actual corrected client preflight plus real model embedding again produced the same valid 4,096-byte test vector/hash. The corpus's selected-byte replay proof above remains the Task 6 runtime evidence.
+
+Task 6 is complete. Task 7's index identity/exact-membership RED cases are being added; its production index and publication are not implemented yet. No final G1–G6 gate or stronger M2 status is claimed.

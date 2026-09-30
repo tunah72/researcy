@@ -460,3 +460,80 @@ def write_chunk_batch(
                             or ex_meta != {}
                         ):
                             raise IntegrityFailure("PROCESSING_INTEGRITY_FAILURE")
+
+
+def select_embedding_batch(conn: psycopg.Connection, lease: Lease, batch_ordinal: int, artifact,
+    chunk_ids: tuple, *, selected_bytes: bytes, runtime_identity: dict):
+    from researcy.ingestion.models import ArtifactRef, ProcessingProfile
+    from researcy.retrieval.embedding import validate_vectors
+    import hashlib
+
+    if type(batch_ordinal) is not int or batch_ordinal<0 or not isinstance(chunk_ids,tuple) or not 1<=len(chunk_ids)<=4 or len(set(chunk_ids))!=len(chunk_ids):
+        raise IntegrityFailure()
+    validate_vectors(selected_bytes,len(chunk_ids))
+    if artifact.sha256!=hashlib.sha256(selected_bytes).digest() or artifact.byte_count!=len(selected_bytes):
+        raise IntegrityFailure()
+    with fenced_transaction(conn,lease) as job:
+        if job['stage']!='embedding':raise IntegrityFailure()
+        row=conn.execute("""SELECT profile FROM document_processing WHERE owner_id=%s AND paper_id=%s AND document_version_id=%s AND profile_hash=%s""",
+            (lease.scope.owner_id,lease.scope.paper_id,lease.scope.document_version_id,job['profile_hash'])).fetchone()
+        if row is None:raise IntegrityFailure()
+        profile=ProcessingProfile(**row[0])
+        expected={'runtime':'ollama','version':'0.18.2','model_tag':profile.model_tag,'model_digest':profile.model_digest,
+            'dimension':profile.dimension,'quantization':profile.quantization}
+        if runtime_identity!=expected:raise IntegrityFailure()
+        owned=conn.execute("""SELECT id FROM document_chunks WHERE owner_id=%s AND paper_id=%s AND document_version_id=%s
+            AND profile_hash=%s ORDER BY ordinal LIMIT %s OFFSET %s""",
+            (lease.scope.owner_id,lease.scope.paper_id,lease.scope.document_version_id,job['profile_hash'],4,batch_ordinal*4)).fetchall()
+        if tuple(record[0] for record in owned)!=chunk_ids:raise IntegrityFailure()
+        existing=conn.execute("""SELECT chunk_ids,artifact FROM embedding_batches WHERE owner_id=%s AND paper_id=%s
+            AND document_version_id=%s AND profile_hash=%s AND batch_ordinal=%s""",
+            (lease.scope.owner_id,lease.scope.paper_id,lease.scope.document_version_id,job['profile_hash'],batch_ordinal)).fetchone()
+        if existing is not None:
+            if tuple(existing[0])!=chunk_ids:raise IntegrityFailure()
+            selected=existing[1]
+            return ArtifactRef(selected['key'],bytes.fromhex(selected['sha256']),selected['byte_count'])
+        prefix=f"processing/{lease.scope.owner_id}/{lease.scope.document_version_id}/{profile.profile_hash.hex()}/embedding/"
+        if artifact.key!=prefix+artifact.sha256.hex():raise IntegrityFailure()
+        value={'key':artifact.key,'sha256':artifact.sha256.hex(),'byte_count':artifact.byte_count}
+        _insert(conn,"""INSERT INTO embedding_batches(owner_id,paper_id,document_version_id,profile_hash,batch_ordinal,
+            chunk_ids,selected_bytes,content_hash,artifact,runtime_identity) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+            (lease.scope.owner_id,lease.scope.paper_id,lease.scope.document_version_id,job['profile_hash'],batch_ordinal,
+                list(chunk_ids),selected_bytes,artifact.sha256,Jsonb(value),Jsonb(runtime_identity)))
+        return artifact
+
+
+def seal_embedding_manifest(conn: psycopg.Connection, lease: Lease):
+    from researcy.ingestion.models import ArtifactRef, StageManifest
+    from researcy.retrieval.embedding import validate_vectors
+    import hashlib
+    import json
+
+    with short_transaction(conn):
+        job=require_owned(conn,lease)
+        if job['stage']!='embedding':raise IntegrityFailure()
+        chunks=conn.execute("""SELECT id FROM document_chunks WHERE owner_id=%s AND paper_id=%s
+            AND document_version_id=%s AND profile_hash=%s ORDER BY ordinal LIMIT 10001""",
+            (lease.scope.owner_id,lease.scope.paper_id,lease.scope.document_version_id,job['profile_hash'])).fetchall()
+    if not 1<=len(chunks)<=10000:raise IntegrityFailure()
+    artifacts=[];digest=hashlib.sha256()
+    for ordinal,chunk_batch in enumerate(itertools.batched(chunks,4)):
+        with short_transaction(conn):
+            require_owned(conn,lease)
+            selected=conn.execute("""SELECT chunk_ids,selected_bytes,content_hash,artifact FROM embedding_batches
+                WHERE owner_id=%s AND paper_id=%s AND document_version_id=%s AND profile_hash=%s AND batch_ordinal=%s""",
+                (lease.scope.owner_id,lease.scope.paper_id,lease.scope.document_version_id,job['profile_hash'],ordinal)).fetchone()
+        if selected is None or tuple(selected[0])!=tuple(row[0] for row in chunk_batch):raise IntegrityFailure()
+        encoded=bytes(selected[1]);validate_vectors(encoded,len(chunk_batch))
+        content_hash=bytes(selected[2]);value=selected[3]
+        if hashlib.sha256(encoded).digest()!=content_hash or value['sha256']!=content_hash.hex() or value['byte_count']!=len(encoded):
+            raise IntegrityFailure()
+        ref=ArtifactRef(value['key'],content_hash,len(encoded));artifacts.append(ref)
+        digest.update(json.dumps({'ordinal':ordinal,'chunk_ids':[str(row[0]) for row in chunk_batch],
+            'sha256':content_hash.hex(),'artifact':value},sort_keys=True,separators=(',',':')).encode())
+    with short_transaction(conn):
+        require_owned(conn,lease)
+        count=conn.execute("""SELECT count(*) FROM embedding_batches WHERE owner_id=%s AND paper_id=%s AND document_version_id=%s AND profile_hash=%s""",
+            (lease.scope.owner_id,lease.scope.paper_id,lease.scope.document_version_id,job['profile_hash'])).fetchone()[0]
+    if count!=len(artifacts):raise IntegrityFailure()
+    return StageManifest('embedding',bytes(job['profile_hash']),digest.digest(),len(chunks),tuple(artifacts))

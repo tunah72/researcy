@@ -132,8 +132,9 @@ write_canonical_batch(conn, lease: Lease, records: Sequence[CanonicalRecord]) ->
 write_chunk_batch(conn, lease: Lease, records: Sequence[ChunkRecord]) -> None
 
 # retrieval/embedding.py
-EmbeddingClient.preflight(profile: ProcessingProfile) -> RuntimeIdentity
-EmbeddingClient.embed(texts: Sequence[str], deadline: float) -> list[list[float]]
+EmbeddingClient(profile: ProcessingProfile, *, endpoint: str | None = None)
+EmbeddingClient.preflight() -> dict[str, object]
+EmbeddingClient.embed(texts: Sequence[str]) -> bytes
 # retrieval/index.py
 ensure_collection(profile: ProcessingProfile) -> None
 index_selected(lease: Lease, deadline: float) -> IndexReceipt
@@ -344,7 +345,9 @@ Use standard `itertools.batched`; no custom batching abstraction. Range resoluti
 
 **Interfaces:** `EmbeddingClient.preflight`, `EmbeddingClient.embed`; `select_embedding_batch(conn, lease, batch_ordinal, artifact, chunk_ids) -> ArtifactRef` in `documents/repository.py` is a fenced first-selection operation, returning the already-selected artifact on replay. `seal_embedding_manifest(conn, lease) -> StageManifest` verifies every ordered chunk exactly once.
 
-- [ ] **RED:** malformed dimension, cardinality, NaN/Inf/zero vectors and wrong model identity fail; lost lease cannot select a batch; competing recomputations cannot replace selected bytes. Inject HTTP fixtures only for deterministic error boundaries; real runtime proof remains separate.
+`select_embedding_batch` also requires keyword `selected_bytes` and `runtime_identity`: validated little-endian float32 bytes and observed secret-free runtime/model metadata are supplied after immutable artifact upload/readback, never fetched over the network inside the transaction. The production batch is four ordered chunks, with only the final remainder shorter. `EmbeddingClient.embed` returns validated serialized bytes directly; this avoids reserializing model floats before selection. The request timeout is resolved from Settings (maximum 60 seconds); the worker owns the enclosing 15-minute stage deadline.
+
+- [x] **RED:** malformed dimension, cardinality, NaN/Inf/zero vectors and wrong model identity fail; lost lease cannot select a batch; competing recomputations cannot replace selected bytes. Inject HTTP fixtures only for deterministic error boundaries; real runtime proof remains separate.
 
 ```python
 def test_selected_batch_is_immutable(embedding_batch_fixture):
@@ -355,16 +358,16 @@ def test_selected_batch_is_immutable(embedding_batch_fixture):
 ```
 
 Fixture executes actual database selection and private artifact writes, not mock-return equality.
-- [ ] **Run RED:** `uv run --frozen pytest tests/test_embedding.py -q`.
-- [ ] **GREEN:** POST native `/api/show` and inspect model metadata plus digest from runtime model inventory; reject mismatches. POST `/api/embed` with exact tag, ordered batch of ≤4 texts and `truncate: false`. Enforce total deadline/response size, finite float32 unit normalization, then write immutable selected artifacts. No model pulling or tag fallback. Store observed runtime identity alongside job/profile diagnostics without secrets.
+- [x] **Run RED:** `uv run --frozen pytest tests/test_embedding.py -q`.
+- [x] **GREEN:** POST native `/api/show` and inspect model metadata plus digest from runtime model inventory; reject mismatches. POST `/api/embed` with exact tag, ordered batch of ≤4 texts and `truncate: false`. Enforce total deadline/response size, finite float32 unit normalization, then write immutable selected artifacts. No model pulling or tag fallback. Store observed runtime identity alongside job/profile diagnostics without secrets.
 
 ```python
 payload = {'model': profile.model_tag, 'input': list(texts), 'truncate': False}
 # Bound the response while streaming; check cardinality and 1024 values before sealing.
 ```
 
-- [ ] **GREEN check/smoke:** preflight actual native ARM64 runtime, inspect model identity/dimension/quantization and one real batch, then embed the isolated golden paper's sealed chunks. Record time, selected batch hashes and native model memory; verify retry reads selected bytes without a second embedding request. Runtime unavailability is a blocker/retry outcome, not a fake vector fallback.
-- [ ] **Review/commit:** review float serialization and first-selection race; commit `feat(retrieval): seal native embedding batches for replay`.
+- [x] **GREEN check/smoke:** preflight actual native ARM64 runtime, inspect model identity/dimension/quantization and one real batch, then embed the isolated golden paper's sealed chunks. Record time, selected batch hashes and native model memory; verify retry reads selected bytes without a second embedding request. Runtime unavailability is a blocker/retry outcome, not a fake vector fallback.
+- [x] **Review/commit:** review float serialization and first-selection race; commit `feat(retrieval): seal native embedding batches for replay`.
 
 ## Task 7: Qdrant exact-set indexing, publication and owned lookup
 
