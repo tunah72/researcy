@@ -150,3 +150,54 @@ GREEN: full Linux backend suite before final review corrections: **253 passed, 1
 Actual two-process throwaway harness through `get_conn` against a temporary migrated database: one exclusive claimant; connections IDLE between work; expiry/reclaim generation 1→2; stale heartbeat false/current heartbeat true; stale release rejected; current release returned `validating/pending`. Temporary database removed. The worker-only ready-publication consumer and its exact index verification remain T7, not a claim from this queue smoke.
 
 Task 3 is complete. Task 4 parser and immutable-artifact work is in progress. No owner job processed, no owner migration, no final G1–G6 gate claimed.
+
+## Task 4 implementation evidence — parser and immutable artifacts
+
+Implemented bounded secret-free geometry parsing, strict schema-1 page/block/span interchange, original unrotated PDF geometry, ordered source-group paragraph cues, deterministic column/table ordering and immutable content-addressed artifact storage. Raw source text and per-code-point boxes are retained; no OCR, pixels, invented table semantics or approximate evidence boxes are added.
+
+RED: actual malformed output exposed integer overflow, non-finite determinant acceptance, JSON recursion and duplicate-field acceptance. Corrected shared decoding and typed validation return terminal safe `PARSER_OUTPUT_INVALID`, with no published partial output. Review also verified that four earlier mutation fixtures now use actual JSONL newline terminators.
+
+Actual MinIO smoke found a consumer-visible replay failure only at corpus size: a 3.2 MiB duplicate conditional PUT received an early rejection/reset while its request body was still streaming. The protocol now verifies an existing key first, permits conditional PUT only after 404, and performs exactly one post-PUT readback for success or uncertain ACK. All steps share one deadline; there is no unconditional overwrite, repeated upload, provider-body logging or generic retry loop. Large replay and concurrent-create regressions use real MinIO.
+
+Observed verification in the isolated restricted ARM64 test project:
+
+```bash
+docker compose --env-file /dev/null -p researcy-m2-test \
+  -f compose.yaml -f compose.test.yaml -f /tmp/researcy-m2-isolated-compose.yaml \
+  build api
+docker compose --env-file /dev/null -p researcy-m2-test \
+  -f compose.yaml -f compose.test.yaml -f /tmp/researcy-m2-isolated-compose.yaml \
+  run --rm --no-deps -T api python -m pytest tests -q --tb=short -p no:cacheprovider
+```
+
+Full current backend suite: **288 passed, 1 skipped**; the skip remains the opt-in real-arXiv network test. Focused parser/artifact/sandbox/screening checks with current package/tests bound read-only: **64 passed**.
+
+Throwaway actual parse → private MinIO put → identical replay → verified download → typed read used both frozen public qualification PDFs, checked their original SHA-256 against the corpus, and removed only its unique temporary test bucket. Observed:
+
+| Public paper | Pages / blocks / spans | Raw characters | Artifact bytes / SHA-256 | Gold order |
+|---|---|---|---|---|
+| `1706.03762` | 15 / 1,051 / 1,048 | 38,450 | 3,236,373 / `a63e514514cc38bf7c5310f43998254adb2118f61c9502e4199cba321a9b44bf` | 6/6 |
+| `2005.11401` | 19 / 1,327 / 1,324 | 67,755 | 5,526,900 / `06550bf751ba7d768bc22ad20b271c4d163c89e20a46bcedcfc379d73ddf533c` | 6/6 |
+
+Replay identity, SHA-256, byte counts and downloaded character counts matched exactly. Ordering comparison removed whitespace and expanded only the explicit `ﬀ ﬁ ﬂ ﬃ ﬄ ﬅ ﬆ` ligatures; artifact source text was not changed. Combined per-paper paths took 1.357 and 1.651 seconds; container cgroup peak was 89,513,984 bytes. This focused measurement ran without an embedding model and is not the full resource gate.
+
+Runtime-config and interchange/security re-reviews returned PASS. Geometry and artifact review closeout remain pending at this checkpoint. No owner migration/job processing occurred; no final G1–G6 gate or stronger milestone status is claimed.
+
+### Task 4 final review corrections
+
+Geometry review exposed incorrect regex escapes, bold captions promoted to headings, unknown-glyph-only documents accepted as usable, and internally inconsistent transform/block geometry. RED reproduced each consumer-visible defect. Corrected captions/numbered headings, retained replacement glyphs in mixed usable text while rejecting marker-only input, required one span per text line, and checked exact character-box union and oriented transform corners with ≤1e-4 PDF-unit rounding tolerance. A reflected transform with the same crop envelope was separately demonstrated accepted before the ordered-corner fix.
+
+Artifact review exposed transient 429/unlisted 5xx being terminal and truncated HTTP responses escaping as raw protocol exceptions. Deterministic local HTTP-server regressions reproduced the failures; all transport exceptions are now sanitized and dependency 429/5xx remains retryable.
+
+Production image build succeeded. Full backend after those corrections but before the final ordered-corner change: **299 passed, 1 skipped**. Final parser/artifact/sandbox/screening checks after ordered-corner validation: **76 passed**. Artifact reviewer returned PASS; geometry re-review is pending at this checkpoint.
+
+Repeated actual final corpus parse → immutable put/replay → verified download passed exact identity and all 12 ordering relations. Classification fixes changed artifact bytes (raw text, pages, blocks, spans and character counts unchanged):
+
+| Public paper | Final artifact bytes / SHA-256 | Elapsed combined path |
+|---|---|---|
+| `1706.03762` | 3,236,445 / `746905ababf629f80af91fd3a14b3998a03abc3e378ee6d66a515d4b240c29a4` | 1.401 s |
+| `2005.11401` | 5,526,951 / `7e8480c2a627d7fdfbaf02a8e12efafcc83d8e11962fd2d2119f005cb13e7b00` | 1.724 s |
+
+Container peak: 90,939,392 bytes. Temporary test bucket was removed. No final resource/evidence gate is inferred from this focused smoke.
+
+All four scoped reviews are closed: geometry, typed interchange/security, artifact writes and runtime configuration returned PASS on corrected boundaries. Task 4 is complete. Task 5 RED now demonstrates absent normalization/chunking modules; its implementation and isolated canonical/provenance smoke remain pending. M2 and final gates are not promoted.

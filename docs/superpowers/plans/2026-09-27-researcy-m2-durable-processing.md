@@ -10,7 +10,7 @@
 
 **Spec:** [Owner-approved M2 child specification](../specs/2026-09-27-researcy-m2-durable-processing-design.md), approved 2026-09-27, subordinate to [master revision 2.0](../specs/2026-09-18-researcy-system-design.md). [Delivery map](../specs/2026-09-18-researcy-delivery-map.md) is authoritative.
 
-**Plan status:** Approved by owner on 2026-09-28. The owner explicitly permits M2 implementation while the M1 acceptance record is completed separately. M2 is `Planned`; Tasks 1–3 are complete with recorded runtime/schema/queue/smoke and review evidence; Task 4 is in progress. All final exit gates are pending. This permission does not promote M1 to `Verified`.
+**Plan status:** Approved by owner on 2026-09-28. The owner explicitly permits M2 implementation while the M1 acceptance record is completed separately. M2 is `Planned`; Tasks 1–4 are complete with recorded runtime/schema/queue/parser/smoke and review evidence; Task 5 is in progress. All final exit gates are pending. This permission does not promote M1 to `Verified`.
 
 ## Global constraints
 
@@ -120,7 +120,7 @@ release_owned(conn, lease: Lease) -> None
 run_pdf_child(mode: str, source: Path, output: Path, limits: SandboxLimits) -> None
 # documents/parser.py / normalize.py / chunking.py
 parse_pdf(source: Path, output: Path, limits: SandboxLimits) -> ArtifactSummary
-normalize_records(records: Iterable[ParserRecord], profile: ProcessingProfile) -> Iterator[CanonicalRecord]
+normalize_records(records: Iterable[ParserRecord], profile: ProcessingProfile, *, scope: DocumentScope) -> Iterator[CanonicalRecord]
 chunk_section(section: CanonicalSection, profile: ProcessingProfile) -> Iterator[ChunkRecord]
 # documents/provenance.py
 resolve_range(conn, scope: DocumentScope, chunk_id: UUID, start: int, end: int) -> tuple[EvidenceLocation, ...]
@@ -283,7 +283,7 @@ Claim increments generation/attempt counters and sets lease. Heartbeat predicate
 
 **Interfaces:** `parse_pdf`, `put_artifact`, `verify_artifact`; schema-versioned streamed records. `parser_fixture` creates actual supported/rotated/cropped/one-/two-column PDFs at runtime; public corpus hashes and gold come from existing qualification data, never copied probe implementation.
 
-- [ ] **RED:** extract a known text run from a rotated page with nonzero crop origin and assert its inverse-transformed exact character boxes; reject malformed child records and oversize outputs; identical bytes/profile produce identical artifact key/hash; existing key with wrong bytes is rejected, never overwritten.
+- [x] **RED:** extract a known text run from a rotated page with nonzero crop origin and assert its inverse-transformed exact character boxes; reject malformed child records and oversize outputs; identical bytes/profile produce identical artifact key/hash; existing key with wrong bytes is rejected, never overwritten.
 
 ```python
 def test_parser_retains_crop_rotation_geometry(parser_fixture, tmp_path):
@@ -299,16 +299,16 @@ def test_parser_retains_crop_rotation_geometry(parser_fixture, tmp_path):
 ```
 
 `SandboxLimits.full_parser()` resolves the approved Settings values. `read_parser_records(path: Path) -> Iterator[ParserRecord]` in `documents/models.py` validates and streams records; only these bounded test fixtures collect them into a list. Compare coordinates with an explicit ≤1e-4 PDF-unit tolerance if float transforms require it, not viewport/fuzzy matching.
-- [ ] **Run RED:** `uv run --frozen pytest tests/test_parser.py tests/test_artifacts.py -q`.
-- [ ] **GREEN:** use PyMuPDF raw character extraction, inverse page transformation, deterministic reading order and section cues. No JavaScript, raster OCR or external calls. Parent validates record types/counts/text/geometry. Artifact key is `processing/{owner}/{version}/{profile_hex}/{stage}/{content_hex}`; create immutably, verify streamed readback hash/length. Use supported conditional object creation; if a key already exists verify identical content. Never overwrite a conflicting key. Successful upload is not a checkpoint until the fenced database selection commits.
-- [ ] **GREEN check/smoke:** parse both frozen public corpus PDFs under the deployed sandbox; record page count, hash, time/memory and compare reading-order gold, without logging source text. Generate separate single-column, figure-heavy, alternative-layout and rotated/cropped fixtures. Missing frozen PDFs are an acquisition prerequisite: retrieve the matching official version and verify hash, not an invented substitute.
-- [ ] **Review/commit:** review geometry, input/output bounds and immutable write race; commit `feat(documents): parse immutable PDFs into exact source geometry`.
+- [x] **Run RED:** `uv run --frozen pytest tests/test_parser.py tests/test_artifacts.py -q`.
+- [x] **GREEN:** use PyMuPDF raw character extraction, inverse page transformation, deterministic reading order and section cues. No JavaScript, raster OCR or external calls. Parent validates record types/counts/text/geometry. Artifact key is `processing/{owner}/{version}/{profile_hex}/{stage}/{content_hex}`; create immutably, verify streamed readback hash/length. Use supported conditional object creation; if a key already exists verify identical content. Never overwrite a conflicting key. Successful upload is not a checkpoint until the fenced database selection commits.
+- [x] **GREEN check/smoke:** parse both frozen public corpus PDFs under the deployed sandbox; record page count, hash, time/memory and compare reading-order gold, without logging source text. Generate separate single-column, figure-heavy, alternative-layout and rotated/cropped fixtures. Missing frozen PDFs are an acquisition prerequisite: retrieve the matching official version and verify hash, not an invented substitute.
+- [x] **Review/commit:** review geometry, input/output bounds and immutable write race; commit `feat(documents): parse immutable PDFs into exact source geometry`.
 
 ## Task 5: Canonical normalization, section chunks and reversible evidence
 
 **Files:** create `documents/{normalize,chunking,provenance,repository}.py`, `tests/test_document_provenance.py`, `tests/test_chunking.py`; extend document model definitions. No product citation endpoint.
 
-**Interfaces:** `normalize_records`, `chunk_section`, `write_canonical_batch`, `write_chunk_batch`, `resolve_range`. Canonical writes require T3 lease; `resolve_range` requires explicit scope and chunk offset, not a fuzzy quote search. Define `read_parser_records` streaming production iterator in T4 models and consume it here.
+**Interfaces:** `normalize_records`, `chunk_section`, `write_canonical_batch`, `write_chunk_batch`, `resolve_range`. Canonical writes require T3 lease; `resolve_range` requires explicit scope and chunk offset, not a fuzzy quote search. `normalize_records` receives mandatory keyword `scope` derived by the trusted worker: the secret-free parser cannot provide authoritative owner/version identity. Define `read_parser_records` streaming production iterator in T4 models and consume it here.
 
 - [ ] **RED:** exact quote mapping across normalized whitespace, ligature expansion and dehyphenation returns original raw characters and boxes; foreign version fails. Header/footer detection retains source blocks but excludes repeating margin text; body repetitions remain. Oversized paragraphs split without loss or section crossing; overlap never loops or duplicates spans.
 

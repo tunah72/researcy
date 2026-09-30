@@ -32,10 +32,11 @@ class SandboxError(Exception):
 
 def run_pdf_child(mode: str, source: Path, output: Path, limits: SandboxLimits) -> None:
     """Only publish complete bounded output; namespace failure is fail-closed."""
-    if mode != "screen":
+    if mode not in ("screen","parse"):
         raise ValueError("unsupported parser mode")
     if sys.platform != "linux" or os.geteuid() == 0:
         raise SandboxError("PDF_SANDBOX_UNAVAILABLE")
+    prefix = "PDF_SCREEN" if mode=="screen" else "PDF_PARSE"
     process = None
     succeeded = False
     output_created = False
@@ -62,7 +63,7 @@ def run_pdf_child(mode: str, source: Path, output: Path, limits: SandboxLimits) 
                 "/runtime/bin/python", "-I", "-c", _BOOTSTRAP,
                 str(limits.cpu_seconds), str(limits.memory_bytes),
                 str(limits.open_files), str(limits.processes), str(limits.output_bytes),
-                "/parser_child.py", mode, str(limits.pages), str(limits.input_bytes),
+                "/parser_child.py", mode, str(limits.pages), str(limits.input_bytes), str(limits.characters),
             ]
             process = subprocess.Popen(
                 command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
@@ -79,7 +80,7 @@ def run_pdf_child(mode: str, source: Path, output: Path, limits: SandboxLimits) 
                 while selector.get_map():
                     remaining = deadline - time.monotonic()
                     if remaining <= 0:
-                        raise SandboxError("PDF_SCREEN_TIMEOUT")
+                        raise SandboxError(f"{prefix}_TIMEOUT")
                     for key, _ in selector.select(remaining):
                         data = os.read(key.fd, 64 * 1024)
                         if not data:
@@ -95,18 +96,18 @@ def run_pdf_child(mode: str, source: Path, output: Path, limits: SandboxLimits) 
                                 continue
                         count += len(data)
                         if count > limits.output_bytes:
-                            raise SandboxError("PDF_SCREEN_RESOURCE_LIMIT")
+                            raise SandboxError(f"{prefix}_RESOURCE_LIMIT")
                         target.write(data)
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
-                    raise SandboxError("PDF_SCREEN_TIMEOUT")
+                    raise SandboxError(f"{prefix}_TIMEOUT")
                 if preamble != _READY:
                     raise SandboxError("PDF_SANDBOX_UNAVAILABLE")
                 if process.wait(timeout=remaining) != 0 or count == 0:
-                    raise SandboxError("PDF_SCREEN_RESOURCE_LIMIT")
+                    raise SandboxError(f"{prefix}_RESOURCE_LIMIT")
             succeeded = True
     except subprocess.TimeoutExpired:
-        raise SandboxError("PDF_SCREEN_TIMEOUT") from None
+        raise SandboxError(f"{prefix}_TIMEOUT") from None
     except OSError:
         raise SandboxError("PDF_SANDBOX_UNAVAILABLE") from None
     finally:
