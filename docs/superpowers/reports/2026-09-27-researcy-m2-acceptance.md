@@ -138,3 +138,15 @@ GREEN: `tests/test_processing_schema.py tests/test_schema.py tests/test_processi
 Actual throwaway psycopg/Alembic smoke against a disposable PostgreSQL database: populate at 0002, upgrade twice, read unchanged source bytes/key, select due job under a row lock, seal supported identity, and attempt original/config/ready invalid writes. Observed `source_unchanged=True`, `due_job_claimable=True`, three rejected writes, final `queued/pending`. Temporary database dropped; no migration on owner DB.
 
 Task 2 is complete. Task 3 RED now demonstrates missing job/retry modules; those tests are not passing yet. No final M2 exit gate is claimed.
+
+## Task 3 closeout — fencing and bounded retry cycles
+
+Implemented idle-connection short transactions, SKIP LOCKED due/expired claims, independent guarded heartbeat, immutable profile selection, checkpoint comparison, final DB-time batch fencing, safe failure/release transitions, cycle exhaustion and owner-scoped explicit retry. Accepted retries serialize by job and owner, charge only new transitions to a rolling one-hour quota, preserve lifetime attempts/manifests and replay older accepted revisions without reset. Shared Settings contain bounded queue/deadline defaults; parser/storage configuration fields for the next task were integrated in the same configuration boundary.
+
+RED: absent modules prevented collection; unsafe queue settings were accepted (four failing cases); provider cooldown 301 seconds was clamped into automatic retry (two failing cases). Read-only reviews identified the final safe retry revision being treated as claim overflow, raw provider failure metadata persistence (three failing cases), and the wrong shared Retry-After exception attribute.
+
+GREEN: full Linux backend suite before final review corrections: **253 passed, 1 skipped**. Latest focused queue/retry/config suite after corrections, with exact current files mounted read-only under the deployed test profile: **38 passed**. Both lease and retry reviewers returned PASS on corrected boundaries. Unknown failure codes now map to terminal safe integrity metadata; claims guard only counters they increment. Actual shared API error-handler smoke returned `429`, `Retry-After: 30`.
+
+Actual two-process throwaway harness through `get_conn` against a temporary migrated database: one exclusive claimant; connections IDLE between work; expiry/reclaim generation 1→2; stale heartbeat false/current heartbeat true; stale release rejected; current release returned `validating/pending`. Temporary database removed. The worker-only ready-publication consumer and its exact index verification remain T7, not a claim from this queue smoke.
+
+Task 3 is complete. Task 4 parser and immutable-artifact work is in progress. No owner job processed, no owner migration, no final G1–G6 gate claimed.

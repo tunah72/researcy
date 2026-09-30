@@ -131,3 +131,20 @@ def test_invalid_runtime_role_is_rejected(monkeypatch):
     monkeypatch.setenv("APP_ROLE", "parser")
     with pytest.raises(ValueError, match="APP_ROLE"):
         Settings.from_env()
+
+
+@pytest.mark.parametrize("name,value", [
+    ("JOB_LEASE_SECONDS","0"), ("JOB_LOCK_TIMEOUT_MS","6000"),
+    ("PROCESSING_EMBEDDING_DEADLINE_SECONDS","901"),
+])
+def test_worker_bounds_cannot_disable_fencing_or_exceed_deadlines(monkeypatch, name, value):
+    monkeypatch.setenv(name, value)
+    with pytest.raises(ValueError):
+        Settings.from_env()
+
+
+def test_worker_heartbeat_must_precede_lease_expiry(monkeypatch):
+    monkeypatch.setenv("JOB_LEASE_SECONDS", "10")
+    monkeypatch.setenv("JOB_HEARTBEAT_SECONDS", "10")
+    with pytest.raises(ValueError):
+        Settings.from_env()

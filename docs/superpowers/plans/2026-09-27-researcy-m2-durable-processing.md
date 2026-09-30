@@ -10,7 +10,7 @@
 
 **Spec:** [Owner-approved M2 child specification](../specs/2026-09-27-researcy-m2-durable-processing-design.md), approved 2026-09-27, subordinate to [master revision 2.0](../specs/2026-09-18-researcy-system-design.md). [Delivery map](../specs/2026-09-18-researcy-delivery-map.md) is authoritative.
 
-**Plan status:** Approved by owner on 2026-09-28. The owner explicitly permits M2 implementation while the M1 acceptance record is completed separately. M2 is `Planned`; Tasks 1–2 are complete with recorded runtime/schema/smoke and review evidence; Task 3 is in progress. All final exit gates are pending. This permission does not promote M1 to `Verified`.
+**Plan status:** Approved by owner on 2026-09-28. The owner explicitly permits M2 implementation while the M1 acceptance record is completed separately. M2 is `Planned`; Tasks 1–3 are complete with recorded runtime/schema/queue/smoke and review evidence; Task 4 is in progress. All final exit gates are pending. This permission does not promote M1 to `Verified`.
 
 ## Global constraints
 
@@ -248,7 +248,7 @@ Add all remaining spec fields in the same migration, not a partially runnable le
 
 **Interfaces:** §2 `claim_due`, `heartbeat`, `seal_profile`, `commit_stage`, `record_failure`, `release_owned`, `retry_owned`. Real get_conn connections; fixtures `queued_job` and `job_connections` create committed scoped jobs and independent connections to the temporary test database.
 
-- [ ] **RED:** two independent claimers cannot own one job; set a test lease expired using SQL in the disposable database, reclaim, then exercise stale heartbeat/checkpoint/release/publication attempts. Preserve the new claimant's state. Test fifth-crash terminalization, failure backoff and old retry revision replay after a completed cycle.
+- [x] **RED:** two independent claimers cannot own one job; set a test lease expired using SQL in the disposable database, reclaim, then exercise stale heartbeat/checkpoint/release/publication attempts. Preserve the new claimant's state. Test fifth-crash terminalization, failure backoff and old retry revision replay after a completed cycle.
 
 ```python
 def test_expired_owner_cannot_heartbeat(job_connections, queued_job):
@@ -262,8 +262,8 @@ def test_expired_owner_cannot_heartbeat(job_connections, queued_job):
     assert heartbeat(b, new) is True
 ```
 
-- [ ] **Run RED:** `uv run --frozen pytest tests/test_jobs.py tests/test_processing_retry.py -q`.
-- [ ] **GREEN:** claim under short transaction with `FOR UPDATE SKIP LOCKED`; DB-time predicates in every write. Lock and validate the job before canonical/manifest writes in the same short transaction, with a final lease guard before commit; losing the guard rolls back the whole batch. Never perform child/network work while the row is locked. Expired exhausted rows terminalize atomically instead of being skipped indefinitely.
+- [x] **Run RED:** `uv run --frozen pytest tests/test_jobs.py tests/test_processing_retry.py -q`.
+- [x] **GREEN:** claim under short transaction with `FOR UPDATE SKIP LOCKED`; DB-time predicates in every write. Lock and validate the job before canonical/manifest writes in the same short transaction, with a final lease guard before commit; losing the guard rolls back the whole batch. Never perform child/network work while the row is locked. Expired exhausted rows terminalize atomically instead of being skipped indefinitely.
 
 ```sql
 SELECT id FROM ingestion_jobs
@@ -274,8 +274,8 @@ FOR UPDATE SKIP LOCKED LIMIT 1;
 ```
 
 Claim increments generation/attempt counters and sets lease. Heartbeat predicate includes owner/job/worker/generation/running/unexpired. `record_failure` maps fixed safe classifications, clears lease, preserves completed manifests, sets bounded run_after or terminal failure; transition events use safe codes. Explicit retry checks replay revision before rate-limit/state rejection: any previously accepted nonnegative revision returns current snapshot without reset; equal current revision may start a valid new cycle; future revision conflicts. Under one transaction lock job and owner quota, increment revision once, reset only cycle attempts and resume earliest incomplete stage. Lifetime attempt exhaustion cannot wrap counters.
-- [ ] **GREEN check/smoke:** run both suites; a throwaway two-process harness against temporary PostgreSQL claims real jobs, expires/reclaims one and prints only generation/stage/status outcomes. Confirm connection transactions are closed while the harness waits. Remove harness afterward.
-- [ ] **Review/commit:** review ordering, rollback fencing, stale writer and replay race; commit `feat(ingestion): fence job leases and bound retry cycles`.
+- [x] **GREEN check/smoke:** run both suites; a throwaway two-process harness against temporary PostgreSQL claims real jobs, expires/reclaims one and prints only generation/stage/status outcomes. Confirm connection transactions are closed while the harness waits. Remove harness afterward.
+- [x] **Review/commit:** review ordering, rollback fencing, stale writer and replay race; commit `feat(ingestion): fence job leases and bound retry cycles`.
 
 ## Task 4: Geometry-first production parser and immutable artifacts
 

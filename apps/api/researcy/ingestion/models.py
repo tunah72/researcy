@@ -130,10 +130,32 @@ class StageFailure(Exception):
         self.code = code
         self.failure_kind = failure_kind
         self.retryable = retryable
-        self.retry_after_seconds = min(300, max(0, retry_after_seconds))
+        self.retry_after_seconds = max(0, retry_after_seconds)
         super().__init__(code)
 
 
 class IntegrityFailure(StageFailure):
     def __init__(self, code: str = "PROCESSING_INTEGRITY_FAILURE"):
         super().__init__(code, "integrity", False)
+
+
+@dataclass(frozen=True, slots=True)
+class JobSnapshot:
+    scope: DocumentScope
+    job_id: UUID
+    stage: str
+    status: str
+    failed_stage: str | None
+    error_code: str | None
+    failure_kind: str | None
+    retryable: bool
+    retry_revision: int
+    attempts: int
+    cycle_attempts: int
+    retry_after_seconds: int
+
+
+@dataclass(frozen=True, slots=True)
+class RetryResult:
+    job: JobSnapshot
+    accepted: bool
