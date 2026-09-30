@@ -10,7 +10,7 @@
 
 **Spec:** [Owner-approved M2 child specification](../specs/2026-09-27-researcy-m2-durable-processing-design.md), approved 2026-09-27, subordinate to [master revision 2.0](../specs/2026-09-18-researcy-system-design.md). [Delivery map](../specs/2026-09-18-researcy-delivery-map.md) is authoritative.
 
-**Plan status:** Approved by owner on 2026-09-28. The owner explicitly permits M2 implementation while the M1 acceptance record is completed separately. M2 is `Planned`; Tasks 1–5 are complete with recorded runtime/schema/queue/parser/provenance/smoke and review evidence; Task 6 is in progress. All final exit gates are pending. This permission does not promote M1 to `Verified`.
+**Plan status:** Approved by owner on 2026-09-28. The owner explicitly permits M2 implementation while the M1 acceptance record is completed separately. M2 is `Planned`; Tasks 1–7 are complete with recorded runtime/schema/queue/parser/provenance/native-embedding/exact-index smoke and review evidence; Task 8 is in progress. All final exit gates are pending. This permission does not promote M1 to `Verified`.
 
 ## Global constraints
 
@@ -375,7 +375,7 @@ payload = {'model': profile.model_tag, 'input': list(texts), 'truncate': False}
 
 **Interfaces:** `ensure_collection`, `index_selected`, `verify_index`, `publish_ready`, `search_owned`; implement `IndexReceipt`/`EvidenceHit` from §2. Point ID = UUID5(index identity, chunk UUID); payload exactly chunk ID + owner/paper/document_version/section_type.
 
-- [ ] **RED:** equal count with wrong point IDs fails; missing/extra/mismatched vectors fail; partial upsert and lost acknowledgement replay creates identical exact set; stale lease cannot publish; Qdrant poisoned foreign chunk ID cannot rehydrate. Foreign/unready lookup must not call embedding or Qdrant.
+- [x] **RED:** equal count with wrong point IDs fails; missing/extra/mismatched vectors fail; partial upsert and lost acknowledgement replay creates identical exact set; stale lease cannot publish; Qdrant poisoned foreign chunk ID cannot rehydrate. Foreign/unready lookup must not call embedding or Qdrant.
 
 ```python
 def test_equal_count_wrong_identity_cannot_publish(index_fixture):
@@ -388,8 +388,8 @@ def test_equal_count_wrong_identity_cannot_publish(index_fixture):
 ```
 
 `index_fixture` uses real temporary PostgreSQL, private MinIO artifacts and a uniquely named real Qdrant collection; cleanup is limited to its namespace.
-- [ ] **Run RED:** `uv run --frozen pytest tests/test_indexing.py tests/test_owned_retrieval.py -q`.
-- [ ] **GREEN:** collection identity includes profile/index hash; verify cosine/1024 and required payload keyword indexes. Upsert only selected manifest float32 values with acknowledged completion. Read back paginated IDs/payload/vectors, exact membership and component tolerance `1e-5`, reject unexpected points, run worker-only selected-vector search, rehydrate scoped canonical records and verify mapping. Final ready transaction rechecks lease and unchanged manifest hashes, inserts publication and updates stage/status atomically. Network work finishes before that transaction.
+- [x] **Run RED:** `uv run --frozen pytest tests/test_indexing.py tests/test_owned_retrieval.py -q`.
+- [x] **GREEN:** collection identity includes profile/index hash; verify cosine/1024 and required payload keyword indexes. Upsert only selected manifest float32 values with acknowledged completion. Read back paginated IDs/payload/vectors, exact membership and component tolerance `1e-5`, reject unexpected points, run worker-only selected-vector search, rehydrate scoped canonical records and verify mapping. Final ready transaction rechecks lease and unchanged manifest hashes, inserts publication and updates stage/status atomically. Network work finishes before that transaction.
 
 ```python
 receipt = verify_index(lease, deadline)
@@ -398,8 +398,8 @@ with get_conn() as conn:
 ```
 
 Owned lookup validates owner/paper/readiness in PostgreSQL before embedding, fixes collection/filter/limit, validates point membership against publication and rehydrates by owner/version. Bound query to 2,400 code points and limit to 1–5 for this internal M2 probe; no HTTP retrieval route. Post-publication mismatch returns safe unavailable evidence, not hidden reindex/source widening.
-- [ ] **GREEN check/smoke:** index real selected vectors, interrupt between Qdrant acknowledgement and publication in a throwaway harness, replay, verify stable point/chunk sets and actual gold dense query. No live owner data corruption. Record collection/model identity and scope-denial outcomes.
-- [ ] **Review/commit:** review external stale-write equivalence and publication TOCTOU assumptions; commit `feat(retrieval): verify owner-scoped index before ready publication`.
+- [x] **GREEN check/smoke:** index real selected vectors, interrupt between Qdrant acknowledgement and publication in a throwaway harness, replay, verify stable point/chunk sets and actual gold dense query. No live owner data corruption. Record collection/model identity and scope-denial outcomes.
+- [x] **Review/commit:** review external stale-write equivalence and publication TOCTOU assumptions; commit `feat(retrieval): verify owner-scoped index before ready publication`.
 
 ## Task 8: Wire the real worker and bounded runtime preflight
 

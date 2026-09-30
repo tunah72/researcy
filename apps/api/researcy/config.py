@@ -143,6 +143,7 @@ class Settings:
     storage_secure: bool = False
     storage_bucket: str = "researcy-originals"
     embedding_endpoint: str = "http://host.docker.internal:11434"
+    qdrant_endpoint: str = "http://qdrant:6333"
 
     @property
     def max_upload_request_bytes(self) -> int:
@@ -199,17 +200,20 @@ class Settings:
         storage_secret_key = environ.get("MINIO_SECRET_KEY") or environ.get("MINIO_ROOT_PASSWORD", "")
         storage_secure = _parse_bool("MINIO_SECURE", "false")
         storage_bucket = _validate_minio_bucket(environ.get("MINIO_BUCKET", "researcy-originals"))
-        embedding_endpoint=environ.get("OLLAMA_BASE_URL","http://host.docker.internal:11434").strip()
-        try:
-            parsed=urlsplit(embedding_endpoint)
-            valid=(parsed.scheme in ("http","https") and bool(parsed.hostname) and parsed.username is None
-                and parsed.password is None and parsed.path in ("","/") and not parsed.query and not parsed.fragment
-                and not any(char.isspace() for char in embedding_endpoint) and "\\" not in embedding_endpoint)
-            _=parsed.port
-        except ValueError:
-            valid=False
-        if not valid:
-            raise ValueError("OLLAMA_BASE_URL must be a plain HTTP origin")
+        endpoints={}
+        for name,default in (("OLLAMA_BASE_URL","http://host.docker.internal:11434"),("QDRANT_URL","http://qdrant:6333")):
+            endpoint=environ.get(name,default).strip()
+            try:
+                parsed=urlsplit(endpoint)
+                valid=(parsed.scheme in ("http","https") and bool(parsed.hostname) and parsed.username is None
+                    and parsed.password is None and parsed.path in ("","/") and not parsed.query and not parsed.fragment
+                    and not any(char.isspace() for char in endpoint) and "\\" not in endpoint)
+                _=parsed.port
+            except ValueError:
+                valid=False
+            if not valid:
+                raise ValueError(f"{name} must be a plain HTTP origin")
+            endpoints[name]=endpoint.rstrip("/")
         deadlines = tuple((stage,_bounded_int(f"PROCESSING_{stage.upper()}_DEADLINE_SECONDS",cap,cap))
             for stage,cap in (("validating",60),("parsing",60),("normalizing",120),
                 ("chunking",120),("embedding",900),("indexing",300)))
@@ -267,7 +271,8 @@ class Settings:
             storage_secret_key=storage_secret_key,
             storage_secure=storage_secure,
             storage_bucket=storage_bucket,
-            embedding_endpoint=embedding_endpoint.rstrip("/"),
+            embedding_endpoint=endpoints["OLLAMA_BASE_URL"],
+            qdrant_endpoint=endpoints["QDRANT_URL"],
             **queue,
         )
 

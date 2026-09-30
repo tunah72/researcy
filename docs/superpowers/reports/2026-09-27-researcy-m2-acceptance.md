@@ -274,3 +274,48 @@ Client review reproduced malformed compressed HTTP responses escaping as raw dec
 Both embedding-client and first-selection re-reviews returned PASS. Latest focused embedding suite: **21 passed**. Final production build passed; full current affected backend: **359 passed, 1 skipped in 74.50 seconds**. Actual corrected client preflight plus real model embedding again produced the same valid 4,096-byte test vector/hash. The corpus's selected-byte replay proof above remains the Task 6 runtime evidence.
 
 Task 6 is complete. Task 7's index identity/exact-membership RED cases are being added; its production index and publication are not implemented yet. No final G1–G6 gate or stronger M2 status is claimed.
+
+## Task 7 implementation checkpoint — exact selected index and owned evidence
+
+Implemented bounded Qdrant transport, full-profile UUID5 point identity, selected-byte artifact readback, acknowledged upsert, paginated exact owned point membership/payload/vector comparison, prepublication selected-vector source rehydration, and a frozen verification receipt. Publication rechecks current lease, active version, original/profile identity, all five prior manifest hashes, canonical counts and exact chunk/point hashes before the short atomic `ready/succeeded` transaction. Owned lookup authorizes and checks readiness/publication in PostgreSQL before embedding or Qdrant.
+
+Consumer-visible failures observed and corrected during integration:
+
+- Immutable artifact download rejects an already-existing destination: use a private temporary directory with a new destination, not `NamedTemporaryFile`.
+- Provenance resolution owns its short transactions: end metadata reads before calling it, never nest the idle-connection boundary.
+- The native golden paper exposed a multi-vector first-batch bug missed by the one-chunk fixture: prepublication search now decodes only the first validated 4,096-byte vector, not an entire four-vector batch as one vector. A permanent real PostgreSQL/MinIO/Qdrant multi-chunk regression exercises publication.
+
+Latest focused command used the restricted isolated API test container with read-only `researcy` and `tests` mounts:
+
+```text
+python -m pytest tests/test_indexing.py tests/test_index_transport.py tests/test_owned_retrieval.py -q --tb=short -p no:cacheprovider
+45 passed in 88.88s
+```
+
+The fixture exercises a real born-digital PDF, private original upload/readback, sandbox parser, canonical rows/chunks, all five prior manifests, private selected vector artifacts and a uniquely named real Qdrant collection. Tests cover wrong IDs despite equal counts, wrong vectors, missing/extra/foreign points, stale publication, incomplete checkpoints, denied foreign/unready lookup, poisoned payloads, canonical source rehydration and an actual HTTP 503 search dependency. Automated query vectors are deterministic; native model evidence is separate.
+
+Actual native golden-paper smoke, exit 0: verified frozen `1706.03762` original SHA, 15 pages, 68 chunks, 17 native batches; selected vectors written privately and exact sets verified. Publication was deliberately withheld after Qdrant acknowledgement, then indexing was replayed in the same throwaway process with an identical selected-point set before atomic `ready/succeeded`. This proves the prepublication replay path, not a killed/restarted worker. The frozen scaled-attention question returned five real dense hits and included the exact expected gold phrase with original-source geometry on zero-based page 3. Observed top hit: page 3, cosine score `0.6891066`; second hit pages 3–4, `0.6525763`. Whole smoke: **38.903 seconds**. Foreign owner lookup returned indistinguishable `404`.
+
+Observed selected manifest hash `106e616ca9824621e66eb5d441f3256dafa627365b786ef01262fbd2035b01ea`; exact point-set hash `e1626ddaef56b9e98f13ff4e1033c0bd7f6050aa95e130d6e4334a8cf2b68a7e`; chunk-set hash `3e9e4997c95d81652cd97f4e258a14c227fcc76c5e062d5fb3601fd05ff41144`. These are scoped smoke outputs, not identities for owner papers.
+
+The smoke's unique database, private bucket and Qdrant collection were removed in `finally`; no owner source/session/job was changed. Final Task 7 reviews and full affected backend/build closeout remain pending. This checkpoint does not close final G1–G6 or promote M2 status.
+
+Task 7 review checkpoint: owned lookup's publication point-set hash, canonical payload UUID, successful search envelope and cosine-score range gaps were reproduced RED and corrected. An additional JSON integer overflow (`10**400`) was reproduced, then safely rejected; the noncanonical UUID regression uses deterministic hyphenless text. Latest owned suite: **20 passed**; scoped re-review PASS.
+
+The index-publication review remains open. Actual RED checks observed **11 failures, 2 passes** for incomplete parser artifact, unbound embedding manifest, concurrent equivalent collection creation, malformed nested Qdrant results, uncompleted payload-index acknowledgement and missing remaining-deadline propagation to storage. Fixes are being implemented; earlier 404-pass full-suite/build and native-golden success do not supersede these open contract failures. Task 7 is not complete.
+
+Later Task 7 checks after index review fixes: **78 passed in 43.51 seconds** across indexing, transport, owned retrieval and immutable artifact suites. Real equivalent collection-create races replay safely; payload indexes wait for completed acknowledgement and are re-read; malformed nested responses fail safely; missing parser artifacts/unbound selected manifest hashes fail before indexing; actual slow-storage streaming aborts on its remaining deadline without a partial file.
+
+The actual native golden-paper pipeline was re-exercised after these fixes, exit 0, **26.533 seconds**, same 68-chunk result and gold page-3 hit at score `0.6891066`; selected point replay then atomic publication and foreign-owner `404` all passed. Selected manifest `6cb8010ef50016c4ad836f9f6328c6807a9037bba864da9775bfb75959967b79`, point-set `2fb89e1c4d31e481753609af60ed16e3f8c9b17f64e6cebea6dd86e44153e684`, chunk-set `64445660a3390dd445342205c52a62143cc5add4ed3c1e65fd1f4597351c6c67`. Disposable resources were removed.
+
+Final current production API build passed; full affected backend **424 passed, 1 skipped in 130.42 seconds**. Index-publication scoped re-review is still pending; these passing commands do not replace that review or the later real-worker/API/UI gates.
+
+### Task 7 final scoped review and runtime proof
+
+The exact-index review subsequently found three missing fail-closed checks: strict bounded prepublication hits, a local four-point scroll-page cap, and a fresh non-mutating collection schema check. These are implemented; a real collection regression removes a required payload index after upsert and confirms verification refuses publication. Strict hit validation rejects noncanonical IDs, foreign/malformed payloads, duplicate points, nonfinite/out-of-range scores and integer-to-float overflow. Regression UUIDs use guaranteed noncanonical hyphenless strings rather than probabilistic uppercase text.
+
+Final review found two remaining malformed-envelope paths: non-OK search status and non-list terminal scroll points. Both were demonstrated with real selected-index/Qdrant setup: **2 failed, 18 deselected**, each failed because verification incorrectly accepted the corrupt envelope. After the four-line fail-closed correction, the final focused indexing/transport/owned/artifact suites returned **97 passed in 36.85 seconds**. The scoped index-publication re-review returned PASS, confidence 0.995; owned-evidence re-review also passed.
+
+The actual native golden-paper path was rerun after the final corrections, exit 0, **26.361 seconds**: 68 chunks, 17 batches from pinned native Ollama 0.18.2/BGE-M3 F16, exact acknowledged selected-point replay, atomic `ready/succeeded`, exact frozen gold phrase/source boxes on original zero-based page 3 with top score `0.6891066`, and foreign-owner `404`. Selected manifest `14638d5a3e4e6215dc1810921dc2f94d9aa4baead65e95a031270026e98f2b56`; point-set `44f1360567fa7b93ac218064885eb59a662bd7280fc40865aec8c629df281672`; chunk-set `b59b94f305b3dc2e5ac35e1495774e8f7e9d75640cfa08a18743f3117e7baceb`. Disposable database, bucket and collection cleanup completed. This is same-process prepublication replay, not final worker kill/restart evidence.
+
+Final reviewed production API build passed; full affected backend **443 passed, 1 skipped in 131.34 seconds**. Task 7 is complete. No G1–G6 acceptance gate or M2 status promotion is claimed; Task 8 starts with the real worker and bounded preflight.

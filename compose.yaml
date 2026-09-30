@@ -43,6 +43,18 @@ services:
         mc mb --ignore-existing "local/$$MINIO_BUCKET"
         mc anonymous set none "local/$$MINIO_BUCKET"
 
+  qdrant:
+    image: qdrant/qdrant:v1.19.0@sha256:057ee3a8da769fe7310dd3537b4dc7583bf87a95ce8ac43c0af5a46bc580d1fc
+    profiles: ["processing"]
+    mem_limit: 512m
+    volumes:
+      - qdrant-data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/6333; printf \"GET /readyz HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n\" >&3; IFS= read -r line <&3; [[ \"$$line\" == *\" 200 \"* ]]'"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
   api:
     build:
       context: ./apps/api
@@ -109,3 +121,4 @@ services:
 volumes:
   postgres-data:
   minio-data:
+  qdrant-data:

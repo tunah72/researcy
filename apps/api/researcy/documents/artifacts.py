@@ -2,6 +2,7 @@ import asyncio
 import hashlib
 from pathlib import Path
 import secrets
+import time
 from uuid import UUID
 
 import httpx2
@@ -248,6 +249,8 @@ async def _verify_artifact_async(
     ref: ArtifactRef,
     destination: Path,
     settings: Settings,
+    *,
+    deadline: float | None = None,
 ) -> None:
     if not isinstance(ref, ArtifactRef):
         raise IntegrityFailure("PROCESSING_INTEGRITY_FAILURE")
@@ -268,14 +271,19 @@ async def _verify_artifact_async(
         raise _storage_unavailable() from None
 
     temp_file = dest_path.with_name(f".tmp.{dest_path.name}.{secrets.token_hex(16)}")
-    deadline = float(settings.worker_io_deadline_seconds)
+    timeout = float(settings.worker_io_deadline_seconds)
+    if deadline is not None:
+        remaining = float(deadline) - time.monotonic()
+        if remaining <= 0:
+            raise _storage_unavailable()
+        timeout = min(remaining, timeout)
     max_bytes = settings.parser_output_bytes
     expected_bytes = ref.byte_count
     expected_sha256 = ref.sha256
 
     try:
-        async with httpx2.AsyncClient(timeout=deadline, trust_env=False) as http_client:
-            async with asyncio.timeout(deadline):
+        async with httpx2.AsyncClient(timeout=timeout, trust_env=False) as http_client:
+            async with asyncio.timeout(timeout):
                 async with http_client.stream("GET", get_url) as stream_resp:
                     if stream_resp.status_code == 429 or stream_resp.status_code >= 500:
                         raise _storage_unavailable()
@@ -340,12 +348,16 @@ def verify_artifact(
     destination: Path | str,
     *,
     settings: Settings | None = None,
+    deadline: float | None = None,
 ) -> None:
+    if deadline is not None and time.monotonic() >= float(deadline):
+        raise _storage_unavailable()
     resolved_settings = settings if settings is not None else get_settings()
     asyncio.run(
         _verify_artifact_async(
             ref,
             Path(destination),
             resolved_settings,
+            deadline=deadline,
         )
     )
