@@ -47,8 +47,20 @@ services:
     build:
       context: ./apps/api
       dockerfile: Dockerfile
+    init: true
+    user: "65534:65534"
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=./deploy/parser-seccomp.json
+    mem_limit: 512m
+    pids_limit: 64
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
     environment:
       APP_ENV: ${APP_ENV:-development}
+      APP_ROLE: api
       APP_ORIGINS: ${APP_ORIGINS:-http://localhost:3000}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       SESSION_LOOKUP_KEY: ${SESSION_LOOKUP_KEY-}

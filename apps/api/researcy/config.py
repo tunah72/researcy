@@ -76,6 +76,7 @@ def _validate_production_google_redirect(
 class Settings:
     database_url: str
     app_env: str
+    app_role: str
     trusted_origins: tuple[str, ...]
     cookie_secure: bool
     max_upload_bytes: int
@@ -96,10 +97,15 @@ class Settings:
         if app_env not in {"development", "test", "production"}:
             raise ValueError("APP_ENV must be development, test, or production")
 
+        app_role = environ.get("APP_ROLE", "api").strip().lower()
+        if app_role not in {"api", "worker"}:
+            raise ValueError("APP_ROLE must be api or worker")
+
         production = app_env == "production"
         cookie_secure = _parse_bool("COOKIE_SECURE", "false")
         origins = _parse_origins(
-            environ.get("APP_ORIGINS", "http://localhost:3000"), production
+            environ.get("APP_ORIGINS", "http://localhost:3000"),
+            production if app_role == "api" else False,
         )
         max_upload_bytes = int(environ.get("MAX_UPLOAD_BYTES", str(25 * 1024 * 1024)))
         max_pdf_pages = int(environ.get("MAX_PDF_PAGES", "100"))
@@ -114,37 +120,38 @@ class Settings:
         database_url = environ.get("DATABASE_URL", "").strip()
         session_lookup_key = environ.get("SESSION_LOOKUP_KEY", "").encode()
         if production:
-            required = (
-                "DATABASE_URL",
-                "POSTGRES_PASSWORD",
-                "SESSION_LOOKUP_KEY",
-                "MINIO_ROOT_USER",
-                "MINIO_ROOT_PASSWORD",
-                "GOOGLE_CLIENT_ID",
-                "GOOGLE_CLIENT_SECRET",
-                "GOOGLE_REDIRECT_URI",
-            )
+            required = ["DATABASE_URL", "POSTGRES_PASSWORD", "MINIO_ROOT_USER", "MINIO_ROOT_PASSWORD"]
+            if app_role == "api":
+                required.extend([
+                    "SESSION_LOOKUP_KEY",
+                    "GOOGLE_CLIENT_ID",
+                    "GOOGLE_CLIENT_SECRET",
+                    "GOOGLE_REDIRECT_URI",
+                ])
             missing = [name for name in required if not environ.get(name, "").strip()]
             if missing:
                 raise ValueError(f"missing production settings: {', '.join(missing)}")
-            for name in (
-                "POSTGRES_PASSWORD",
-                "SESSION_LOOKUP_KEY",
-                "MINIO_ROOT_PASSWORD",
-            ):
+
+            secret_checks = ["POSTGRES_PASSWORD", "MINIO_ROOT_PASSWORD"]
+            if app_role == "api":
+                secret_checks.append("SESSION_LOOKUP_KEY")
+            for name in secret_checks:
                 if len(environ[name].encode()) < 32:
                     raise ValueError(f"production {name} must be at least 32 bytes")
-            if not cookie_secure:
-                raise ValueError("production COOKIE_SECURE must be true")
-            _validate_production_google_redirect(
-                environ["GOOGLE_REDIRECT_URI"].strip(), origins
-            )
+
+            if app_role == "api":
+                if not cookie_secure:
+                    raise ValueError("production COOKIE_SECURE must be true")
+                _validate_production_google_redirect(
+                    environ["GOOGLE_REDIRECT_URI"].strip(), origins
+                )
         elif not database_url:
             database_url = DEFAULT_DATABASE_URL
 
         return cls(
             database_url=database_url,
             app_env=app_env,
+            app_role=app_role,
             trusted_origins=origins,
             cookie_secure=cookie_secure,
             max_upload_bytes=max_upload_bytes,

@@ -10,7 +10,7 @@
 
 **Spec:** [Owner-approved M2 child specification](../specs/2026-09-27-researcy-m2-durable-processing-design.md), approved 2026-09-27, subordinate to [master revision 2.0](../specs/2026-09-18-researcy-system-design.md). [Delivery map](../specs/2026-09-18-researcy-delivery-map.md) is authoritative.
 
-**Plan status:** Approved by owner on 2026-09-28. The owner explicitly permits M2 implementation while the M1 acceptance record is completed separately. M2 is `Planned`; no implementation task or exit gate is yet complete. This permission does not promote M1 to `Verified`.
+**Plan status:** Approved by owner on 2026-09-28. The owner explicitly permits M2 implementation while the M1 acceptance record is completed separately. M2 is `Planned`; Task 1 is complete with recorded Linux containment/build/smoke and review evidence; remaining implementation tasks and all final exit gates are pending. This permission does not promote M1 to `Verified`.
 
 ## Global constraints
 
@@ -192,7 +192,7 @@ Pydantic response models mirror this contract; `failed_stage` cannot be `ready`/
 
 **Interfaces:** implement `SandboxLimits`, `run_pdf_child`; child `screen` mode preserves existing `ScreeningResult` and error codes. `parse` mode is introduced in T4, not as a fake successful stub. Credential-free runtime-role validation reuses Settings and preserves API production validation.
 
-- [ ] **RED:** create a PDF fixture in a private temporary directory; run a controlled child under the same launcher that attempts network connection, parent-environment secret access and reading a marker outside its permitted root. Assert each denied operation and valid PDF screening success separately. Add actual output-flood, fork/PID, CPU, memory and wall-bound tests. Example assertion shape:
+- [x] **RED:** create a PDF fixture in a private temporary directory; run a controlled child under the same launcher that attempts network connection, parent-environment secret access and reading a marker outside its permitted root. Assert each denied operation and valid PDF screening success separately. Add actual output-flood, fork/PID, CPU, memory and wall-bound tests. Example assertion shape:
 
 ```python
 def test_sandbox_cannot_read_parent_secret(sandbox_probe):
@@ -203,8 +203,8 @@ def test_sandbox_cannot_read_parent_secret(sandbox_probe):
 
 `sandbox_probe` is a test-only fixture implemented in this task using the real launcher and a finite controlled child, not a mocked verdict. Malicious-child tests prove containment; real invalid-PDF tests prove parser policy.
 
-- [ ] **Run RED:** `uv run --frozen pytest tests/test_parser_sandbox.py tests/test_screening.py -q` in `apps/api`, in the deployed Linux test image for isolation tests. Record failure caused by missing containment; no passing skip counts as sandbox proof.
-- [ ] **GREEN:** install bubblewrap in the pinned ARM64 Python image; run API as an unprivileged UID with read-only runtime, private tmp and no-new-privileges. Construct fixed launcher arguments, never a shell string from input:
+- [x] **Run RED:** `uv run --frozen pytest tests/test_parser_sandbox.py tests/test_screening.py -q` in `apps/api`, in the deployed Linux test image for isolation tests. Record failure caused by missing containment; no passing skip counts as sandbox proof.
+- [x] **GREEN:** install bubblewrap in the pinned ARM64 Python image; run API as an unprivileged UID with read-only runtime, private tmp and no-new-privileges. Construct fixed launcher arguments, never a shell string from input:
 
 ```python
 args = ['bwrap', '--unshare-user', '--unshare-pid', '--unshare-net',
@@ -216,9 +216,9 @@ args = ['bwrap', '--unshare-user', '--unshare-pid', '--unshare-net',
 ```
 
 Mount only runtime libraries/interpreter needed by the chosen image; do not bind the whole application/environment as `runtime_root`. Child sets hard resource limits before opening input. Parent streams capped output to its own private sink, enforces total deadline and kills/reaps the process group. Sanitize stderr. Namespace denial yields safe unavailable failure, not an unsandboxed fallback. Adapt the mount paths to actual image layout during implementation and prove it, rather than assuming the illustrative paths exist.
-- [ ] **GREEN check:** run the focused suite; valid, low-text, encrypted, corrupt, repaired, no-text and boundary inputs retain M1 outcomes. Production config still rejects missing OAuth/session settings for API; worker role does not need those secrets.
-- [ ] **Smoke:** build API image, run actual valid screening and malicious probes under deployed Compose security/cgroup settings; record UID, restrictions and termination. If default seccomp rejects namespace setup, investigate the denied syscall and permit only the measured necessary namespace operations in a checked-in profile; never `seccomp=unconfined` as the deliverable. If safe isolation cannot work, stop for spec revision.
-- [ ] **Review/commit:** review containment and intact atomic intake; record evidence; commit `feat(security): sandbox PDF screening with bounded execution`.
+- [x] **GREEN check:** run the focused suite; valid, low-text, encrypted, corrupt, repaired, no-text and boundary inputs retain M1 outcomes. Production config still rejects missing OAuth/session settings for API; worker role does not need those secrets.
+- [x] **Smoke:** build API image, run actual valid screening and malicious probes under deployed Compose security/cgroup settings; record UID, restrictions and termination. If default seccomp rejects namespace setup, investigate the denied syscall and permit only the measured necessary namespace operations in a checked-in profile; never `seccomp=unconfined` as the deliverable. If safe isolation cannot work, stop for spec revision.
+- [x] **Review/commit:** review containment and intact atomic intake; record evidence; commit `feat(security): sandbox PDF screening with bounded execution`.
 
 ## Task 2: Forward schema and immutable processing contracts
 

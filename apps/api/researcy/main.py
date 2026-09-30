@@ -52,7 +52,10 @@ async def lifespan(app: FastAPI):
     if not logger.handlers:
         logger.addHandler(logging.StreamHandler())
     logger.setLevel(logging.INFO)
-    app.state.settings = get_settings()
+    settings = get_settings()
+    if settings.app_role != "api":
+        raise ValueError(f"cannot boot api with APP_ROLE={settings.app_role}")
+    app.state.settings = settings
     yield
 
 
