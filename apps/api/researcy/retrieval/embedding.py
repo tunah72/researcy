@@ -10,6 +10,7 @@ import httpx2
 
 from researcy.config import get_settings
 from researcy.ingestion.models import ProcessingProfile, StageFailure
+from researcy.ingestion.io import cancellable
 
 
 _EMBED_LOCK=threading.Lock()
@@ -30,13 +31,14 @@ def validate_vectors(data: bytes, count: int, dimension: int=1024) -> None:
             raise _failure('EMBEDDING_OUTPUT_INVALID')
 
 class EmbeddingClient:
-    def __init__(self,profile: ProcessingProfile,*,endpoint: str | None=None):
+    def __init__(self,profile: ProcessingProfile,*,endpoint: str | None=None,cancel: threading.Event | None=None):
         endpoint=endpoint or get_settings().embedding_endpoint
         parsed=urlsplit(endpoint)
         if parsed.scheme not in ('http','https') or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path not in ('','/'):
             raise ValueError('embedding endpoint must be a plain HTTP origin')
         self.profile=profile;self.endpoint=endpoint.rstrip('/');self.runtime_identity=None
         self.timeout=get_settings().worker_embedding_request_seconds
+        self.cancel=cancel
 
     async def _request(self,client,path,payload=None):
         async with client.stream('GET' if payload is None else 'POST',self.endpoint+path,json=payload) as response:
@@ -58,7 +60,7 @@ class EmbeddingClient:
             return value
 
     def _run(self,operation):
-        try:return asyncio.run(operation)
+        try:return asyncio.run(cancellable(operation,self.cancel))
         except (httpx2.RequestError,TimeoutError,OSError):
             raise _failure('DEPENDENCY_UNAVAILABLE',True) from None
 

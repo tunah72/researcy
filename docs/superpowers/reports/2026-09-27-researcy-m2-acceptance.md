@@ -319,3 +319,31 @@ Final review found two remaining malformed-envelope paths: non-OK search status 
 The actual native golden-paper path was rerun after the final corrections, exit 0, **26.361 seconds**: 68 chunks, 17 batches from pinned native Ollama 0.18.2/BGE-M3 F16, exact acknowledged selected-point replay, atomic `ready/succeeded`, exact frozen gold phrase/source boxes on original zero-based page 3 with top score `0.6891066`, and foreign-owner `404`. Selected manifest `14638d5a3e4e6215dc1810921dc2f94d9aa4baead65e95a031270026e98f2b56`; point-set `44f1360567fa7b93ac218064885eb59a662bd7280fc40865aec8c629df281672`; chunk-set `b59b94f305b3dc2e5ac35e1495774e8f7e9d75640cfa08a18743f3117e7baceb`. Disposable database, bucket and collection cleanup completed. This is same-process prepublication replay, not final worker kill/restart evidence.
 
 Final reviewed production API build passed; full affected backend **443 passed, 1 skipped in 131.34 seconds**. Task 7 is complete. No G1–G6 acceptance gate or M2 status promotion is claimed; Task 8 starts with the real worker and bounded preflight.
+
+## Task 8 implementation and real worker checkpoint
+
+Implemented direct six-stage dispatch, a single-claim process loop, separate-connection heartbeat, stage/claim watchdogs, SIGTERM recovery, and credential-minimal `processing`-profile worker Compose service. Canonical/chunk writes remain bounded; embedding reads four chunks per page and fully selected replay performs no model call. Active lease cancellation terminates silent parser children and cancels asynchronous embedding, Qdrant and storage requests; private partial downloads are removed even on `CancelledError`.
+
+Actual silent HTTP cancellation regressions were demonstrated RED for the absent client cancellation contract, then passed against real loopback HTTP servers. The native/Qdrant pair returned **2 passed in 1.18 seconds**; the later storage case also passed integrated checks. The real silent-child regression passed alongside parser/screening checks. Safe storage-probe cleanup was exercised against a stalled DELETE response, demonstrated RED before bounded presigned DELETE implementation.
+
+The first actual default preflight failed safely with `FAIL: sandbox`: its default probe generator was missing, although supplied-probe unit checks passed. Added a default-journey regression, observed its failure, implemented the trusted one-page probe directly, and verified **15 preflight tests passed in 4.80 seconds**. Replaced an ineffective mocked-vector test with the existing real embedding HTTP fixture so malformed probe vectors actually reach the native-client boundary.
+
+Actual isolated native-worker smoke after that correction, exit 0:
+
+- Healthy `python -m researcy.ingestion.preflight --check` passed without changing queued job state; an unreachable native embedding origin returned only `FAIL: embedding`, also without changing the job.
+- Launched the actual `python -m researcy.ingestion.worker` process over the frozen 15-page `1706.03762` original. Killed it with SIGKILL after the actual chunk checkpoint entered embedding.
+- Started a replacement immediately; waited for actual PostgreSQL-time lease expiry without any expiry SQL mutation. It reclaimed generation 2/attempt 2 and reached `ready/succeeded`.
+- Exact 68 chunk IDs/checksums, already sealed pre-embedding manifests, and original SHA remained unchanged. Actual native dense evidence returned the gold page-3 hit at cosine score `0.6891066`; foreign-owner lookup returned `404`.
+- Replacement SIGTERM exited 0 without stderr. Recovery after replacement startup: **94.834 seconds**; whole smoke: **108.625 seconds**.
+
+The disposable database, private bucket and only this smoke's scoped Qdrant points were removed; no shared collection or owner data was deleted. This is Task 8 worker recovery proof, not complete G1–G6 acceptance: HTTP intake, owner API/UI journeys and full resource/gold gates are still pending.
+
+Independent worker/stage reviews then identified cancellation gaps during normalization input/sealing, unverifiable selected-artifact replay, old-stage deadline transition races, dependency-timeout classification and post-shutdown claim initiation. All eight corresponding regression cases were observed RED before the corrections. Focused post-fix verification/re-reviews and full affected build/suite closeout remain in progress; Task 8 is not yet complete.
+
+### Task 8 closeout
+
+All eight worker/stage review regressions passed in the final focused run: **58 passed in 36.80 seconds** across stage, worker, preflight, active-I/O cancellation and embedding suites. Scoped worker review PASS (0.98), stage review PASS (0.99), and preflight/Compose review PASS (0.98). `docker compose --env-file /dev/null -f compose.yaml config --quiet` and production API build passed. Full affected backend: **481 passed, 1 skipped in 125.67 seconds**.
+
+The real native-worker kill/reclaim smoke was repeated after all review fixes, exit 0: healthy/default preflight and safe unavailable embedding did not mutate the queued job; SIGKILL after sealed chunks recovered only after actual database-time lease expiry; generation 2/attempt 2 reached `ready/succeeded` with unchanged 68 chunk IDs/checksums, pre-embedding manifests and original SHA. The same exact gold page-3 evidence scored `0.6891066`, foreign-owner lookup returned `404`, and SIGTERM exited cleanly. Replacement recovery **100.907 seconds**, whole smoke **113.056 seconds**; all disposable scoped resources were removed.
+
+Task 8 is complete. Task 9 owner-scoped status/retry API remains pending; no HTTP-intake/UI gate, final G1–G6 completion or M2 status promotion is claimed.

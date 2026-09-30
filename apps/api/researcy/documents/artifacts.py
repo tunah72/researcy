@@ -3,6 +3,7 @@ import hashlib
 from pathlib import Path
 import secrets
 import time
+from threading import Event
 from uuid import UUID
 
 import httpx2
@@ -16,6 +17,7 @@ from researcy.ingestion.models import (
     IntegrityFailure,
     StageFailure,
 )
+from researcy.ingestion.io import cancellable
 
 CHUNK_SIZE = 64 * 1024
 
@@ -100,6 +102,8 @@ async def _put_artifact_async(
     stage: str,
     source: Path,
     settings: Settings,
+    *,
+    deadline: float | None=None,
 ) -> ArtifactRef:
     if (
         not isinstance(scope, DocumentScope)
@@ -161,7 +165,12 @@ async def _put_artifact_async(
                     break
                 yield chunk
 
-    deadline = float(settings.worker_io_deadline_seconds)
+    timeout = float(settings.worker_io_deadline_seconds)
+    if deadline is not None:
+        remaining=deadline-time.monotonic()
+        if remaining<=0:
+            raise _storage_unavailable()
+        timeout=min(timeout,remaining)
     headers = {
         "If-None-Match": "*",
         "Content-Length": str(byte_count),
@@ -169,8 +178,8 @@ async def _put_artifact_async(
     }
 
     try:
-        async with httpx2.AsyncClient(timeout=deadline, trust_env=False) as http_client:
-            async with asyncio.timeout(deadline):
+        async with httpx2.AsyncClient(timeout=timeout, trust_env=False) as http_client:
+            async with asyncio.timeout(timeout):
                 # 1. GET verify existing key first under total deadline
                 existing_status = await _check_existing(
                     http_client=http_client,
@@ -313,14 +322,11 @@ async def _verify_artifact_async(
 
         temp_file.replace(dest_path)
     except (TimeoutError, asyncio.TimeoutError, httpx2.TimeoutException):
-        temp_file.unlink(missing_ok=True)
         raise _storage_unavailable() from None
     except httpx2.TransportError:
-        temp_file.unlink(missing_ok=True)
         raise _storage_unavailable() from None
-    except Exception:
+    finally:
         temp_file.unlink(missing_ok=True)
-        raise
 
 
 def put_artifact(
@@ -330,16 +336,19 @@ def put_artifact(
     source: Path | str,
     *,
     settings: Settings | None = None,
+    deadline: float | None = None,
+    cancel: Event | None = None,
 ) -> ArtifactRef:
     resolved_settings = settings if settings is not None else get_settings()
     return asyncio.run(
-        _put_artifact_async(
+        cancellable(_put_artifact_async(
             scope,
             profile_hash,
             stage,
             Path(source),
             resolved_settings,
-        )
+            deadline=deadline,
+        ),cancel)
     )
 
 
@@ -349,15 +358,16 @@ def verify_artifact(
     *,
     settings: Settings | None = None,
     deadline: float | None = None,
+    cancel: Event | None = None,
 ) -> None:
     if deadline is not None and time.monotonic() >= float(deadline):
         raise _storage_unavailable()
     resolved_settings = settings if settings is not None else get_settings()
     asyncio.run(
-        _verify_artifact_async(
+        cancellable(_verify_artifact_async(
             ref,
             Path(destination),
             resolved_settings,
             deadline=deadline,
-        )
+        ),cancel)
     )

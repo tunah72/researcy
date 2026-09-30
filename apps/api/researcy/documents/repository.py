@@ -1,11 +1,13 @@
 import itertools
+import time
+from threading import Event
 from typing import Iterable, Sequence
 
 import psycopg
 from psycopg.types.json import Jsonb
 
 from researcy.ingestion.jobs import fenced_transaction, short_transaction, require_owned
-from researcy.ingestion.models import IntegrityFailure, Lease, deterministic_id
+from researcy.ingestion.models import IntegrityFailure, Lease, deterministic_id, LostLease, StageFailure
 from .canonical import (
     CanonicalBlock,
     CanonicalPage,
@@ -503,12 +505,19 @@ def select_embedding_batch(conn: psycopg.Connection, lease: Lease, batch_ordinal
         return artifact
 
 
-def seal_embedding_manifest(conn: psycopg.Connection, lease: Lease):
+def seal_embedding_manifest(conn: psycopg.Connection, lease: Lease, *, deadline: float | None=None, cancel: Event | None=None):
     from researcy.ingestion.models import ArtifactRef, StageManifest
     from researcy.retrieval.embedding import validate_vectors
     import hashlib
     import json
 
+    def check_work() -> None:
+        if cancel is not None and cancel.is_set():
+            raise LostLease()
+        if deadline is not None and time.monotonic()>=deadline:
+            raise StageFailure('DEPENDENCY_UNAVAILABLE','temporary',True,retry_after_seconds=5)
+
+    check_work()
     with short_transaction(conn):
         job=require_owned(conn,lease)
         if job['stage']!='embedding':raise IntegrityFailure()
@@ -518,6 +527,7 @@ def seal_embedding_manifest(conn: psycopg.Connection, lease: Lease):
     if not 1<=len(chunks)<=10000:raise IntegrityFailure()
     artifacts=[];digest=hashlib.sha256()
     for ordinal,chunk_batch in enumerate(itertools.batched(chunks,4)):
+        check_work()
         with short_transaction(conn):
             require_owned(conn,lease)
             selected=conn.execute("""SELECT chunk_ids,selected_bytes,content_hash,artifact FROM embedding_batches
@@ -531,9 +541,11 @@ def seal_embedding_manifest(conn: psycopg.Connection, lease: Lease):
         ref=ArtifactRef(value['key'],content_hash,len(encoded));artifacts.append(ref)
         digest.update(json.dumps({'ordinal':ordinal,'chunk_ids':[str(row[0]) for row in chunk_batch],
             'sha256':content_hash.hex(),'artifact':value},sort_keys=True,separators=(',',':')).encode())
+    check_work()
     with short_transaction(conn):
         require_owned(conn,lease)
         count=conn.execute("""SELECT count(*) FROM embedding_batches WHERE owner_id=%s AND paper_id=%s AND document_version_id=%s AND profile_hash=%s""",
             (lease.scope.owner_id,lease.scope.paper_id,lease.scope.document_version_id,job['profile_hash'])).fetchone()[0]
     if count!=len(artifacts):raise IntegrityFailure()
+    check_work()
     return StageManifest('embedding',bytes(job['profile_hash']),digest.digest(),len(chunks),tuple(artifacts))

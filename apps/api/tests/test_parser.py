@@ -52,7 +52,7 @@ def test_malformed_child_output_is_rejected_without_publishing(tmp_path, monkeyp
 
     source=tmp_path/'source.pdf';source.write_bytes(b'%PDF-untrusted')
     output=tmp_path/'records.jsonl'
-    def malformed(mode,source,sink,limits):
+    def malformed(mode,source,sink,limits,**kwargs):
         sink.write_text(json.dumps({'kind':'page','schema_version':1,'page_index':0,'media_box':[0,0,100,100],
             'crop_box':[0,0,100,100],'rotation':0,'width':100,'height':100,'transform':[1,0,0,1,0,0]})+'\n'+
             json.dumps({'kind':'span','schema_version':1,'page_index':0,'ordinal':0,'block_ordinal':0,
@@ -190,7 +190,7 @@ def test_deeply_nested_child_json_is_a_safe_failure_without_output(tmp_path, mon
 
     source=tmp_path/'source.pdf';source.write_bytes(b'%PDF-trusted-fixture')
     output=tmp_path/'records.jsonl'
-    def nested(mode,source,sink,limits):
+    def nested(mode,source,sink,limits,**kwargs):
         sink.write_text('['*10000+'0'+']'*10000+'\n')
     monkeypatch.setattr(parser,'run_pdf_child',nested)
     with pytest.raises(StageFailure) as exc:
@@ -212,7 +212,7 @@ def test_duplicate_child_fields_are_rejected_without_publication(tmp_path, monke
         list(read_parser_records(malformed))
     assert exc.value.code=='PARSER_OUTPUT_INVALID'
     output=tmp_path/'published.jsonl'
-    monkeypatch.setattr(parser,'run_pdf_child',lambda mode,source,sink,limits: sink.write_bytes(malformed.read_bytes()))
+    monkeypatch.setattr(parser,'run_pdf_child',lambda mode,source,sink,limits,**kwargs: sink.write_bytes(malformed.read_bytes()))
     with pytest.raises(StageFailure) as exc:
         parse_pdf(source,output,SandboxLimits.full_parser())
     assert exc.value.code=='PARSER_OUTPUT_INVALID' and not output.exists()

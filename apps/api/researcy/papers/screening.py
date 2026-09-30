@@ -5,6 +5,9 @@ import tempfile
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
+from threading import Event
+
+from researcy.ingestion.models import LostLease
 
 from ..config import get_settings
 from ..documents.models import SandboxLimits
@@ -61,13 +64,14 @@ def _safe_title(value: str | None) -> str | None:
     return title or None
 
 
-def _inspection_result(source_fd: int, page_limit: int, byte_limit: int) -> dict:
+def _inspection_result(source_fd: int, page_limit: int, byte_limit: int, *, cancel: Event | None=None, deadline: float | None=None) -> dict:
     try:
         with tempfile.TemporaryDirectory(prefix="researcy-screen-") as directory:
             output = Path(directory) / "result.json"
             run_pdf_child(
                 "screen", Path(f"/proc/self/fd/{source_fd}"), output,
                 SandboxLimits(pages=page_limit, input_bytes=byte_limit),
+                cancel=cancel,deadline=deadline,
             )
             result = json.loads(output.read_bytes())
     except SandboxError as error:
@@ -85,7 +89,7 @@ def _inspection_result(source_fd: int, page_limit: int, byte_limit: int) -> dict
     return result
 
 
-def screen_pdf(path: str | os.PathLike[str], media_type: str | None) -> ScreeningResult:
+def screen_pdf(path: str | os.PathLike[str], media_type: str | None, *, cancel: Event | None=None, deadline: float | None=None) -> ScreeningResult:
     """Hash and inspect a bounded PDF without returning its extracted text."""
     if media_type is not None and media_type.split(";", 1)[0].strip().lower() != "application/pdf":
         raise _error(415, "PDF_UNSUPPORTED")
@@ -112,6 +116,8 @@ def screen_pdf(path: str | os.PathLike[str], media_type: str | None) -> Screenin
         digest.update(signature)
         byte_count = len(signature)
         while True:
+            if cancel is not None and cancel.is_set():
+                raise LostLease()
             chunk = source.read(_READ_SIZE)
             if not chunk:
                 break
@@ -120,7 +126,7 @@ def screen_pdf(path: str | os.PathLike[str], media_type: str | None) -> Screenin
                 raise _error(413, "PDF_TOO_LARGE")
             digest.update(chunk)
         source.seek(0)
-        inspected = _inspection_result(source.fileno(), max_pages, max_bytes)
+        inspected = _inspection_result(source.fileno(), max_pages, max_bytes,cancel=cancel,deadline=deadline)
 
     if "error" in inspected:
         code = inspected["error"]

@@ -9,5 +9,5 @@ from .config import get_settings
 @contextmanager
 def get_conn() -> Iterator[psycopg.Connection]:
     """Yield the application's managed PostgreSQL connection."""
-    with psycopg.connect(get_settings().database_url) as conn:
+    with psycopg.connect(get_settings().database_url,connect_timeout=5) as conn:
         yield conn

@@ -106,6 +106,47 @@ services:
       timeout: 3s
       retries: 12
 
+  worker:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    profiles: ["processing"]
+    init: true
+    user: "65534:65534"
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=./deploy/parser-seccomp.json
+    mem_limit: 1024m
+    pids_limit: 64
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=384m
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      APP_ROLE: worker
+      DATABASE_URL: "${DATABASE_URL:-postgresql://${POSTGRES_USER:-researcy}:${POSTGRES_PASSWORD:-local-postgres-password}@postgres:5432/${POSTGRES_DB:-researcy}}"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD-}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_SECURE: ${MINIO_SECURE:-false}
+      MINIO_BUCKET: ${MINIO_BUCKET:-researcy-originals}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-researcy-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-local-minio-password}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      qdrant:
+        condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      disable: true
+    command: ["python", "-m", "researcy.ingestion.worker"]
+
   web:
     build:
       context: ./apps/web

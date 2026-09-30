@@ -10,7 +10,7 @@
 
 **Spec:** [Owner-approved M2 child specification](../specs/2026-09-27-researcy-m2-durable-processing-design.md), approved 2026-09-27, subordinate to [master revision 2.0](../specs/2026-09-18-researcy-system-design.md). [Delivery map](../specs/2026-09-18-researcy-delivery-map.md) is authoritative.
 
-**Plan status:** Approved by owner on 2026-09-28. The owner explicitly permits M2 implementation while the M1 acceptance record is completed separately. M2 is `Planned`; Tasks 1–7 are complete with recorded runtime/schema/queue/parser/provenance/native-embedding/exact-index smoke and review evidence; Task 8 is in progress. All final exit gates are pending. This permission does not promote M1 to `Verified`.
+**Plan status:** Approved by owner on 2026-09-28. The owner explicitly permits M2 implementation while the M1 acceptance record is completed separately. M2 is `Planned`; Tasks 1–8 are complete with recorded runtime/schema/queue/parser/provenance/native-embedding/exact-index/worker-recovery smoke and review evidence; Task 9 is in progress. All final exit gates are pending. This permission does not promote M1 to `Verified`.
 
 ## Global constraints
 
@@ -407,7 +407,7 @@ Owned lookup validates owner/paper/readiness in PostgreSQL before embedding, fix
 
 **Interfaces:** `run_once`, module entry point `python -m researcy.ingestion.worker`; preflight `python -m researcy.ingestion.preflight --check` returns nonzero with safe dependency names on failure. `stages.py` directly dispatches the six actual stage functions from T4–T7; no generic workflow framework.
 
-- [ ] **RED:** accepted M1 row processes without source refetch, worker crash resumes selected checkpoints, lost heartbeat cancels child/new writes, stage timeout cannot heartbeat forever, shutdown preserves recoverability. Use real DB/storage for transition behavior; controlled dependency failures for deterministic timeout classification.
+- [x] **RED:** accepted M1 row processes without source refetch, worker crash resumes selected checkpoints, lost heartbeat cancels child/new writes, stage timeout cannot heartbeat forever, shutdown preserves recoverability. Use real DB/storage for transition behavior; controlled dependency failures for deterministic timeout classification.
 
 ```python
 def test_worker_resumes_sealed_chunks(worker_fixture):
@@ -421,11 +421,11 @@ def test_worker_resumes_sealed_chunks(worker_fixture):
 ```
 
 The fixture drives the real stage functions and may use a deterministic embedding HTTP server for automated lifecycle coverage only; G1/G5 require the native model.
-- [ ] **Run RED:** `uv run --frozen pytest tests/test_worker.py -q`.
-- [ ] **GREEN:** one claim loop, separate heartbeat connection/thread, process-unique worker ID, cancellation event and total monotonic stage/claim deadlines. No blocking stage work in the heartbeat thread. On SQL lease loss stop new work, terminate active child and do not record stale errors. On SIGTERM stop claiming and relinquish only owned lease; SIGKILL relies on expiry. Worker validates original bytes from DB-bound MinIO object, never refetches arXiv. Fresh source profile sealed once; null M1 pending_config adopts approved profile, unknown nonempty config fails safely.
-- [ ] **Wire runtime:** add worker profile `processing` so ordinary `compose up` cannot accidentally start consuming owner queued rows before cutover. Worker shares API build, runs without OAuth/session/generation secrets, default concurrency one, cgroup/PID/tmp limits; dependencies ordered without changing bucket-init behavior. Add native host address and Qdrant internal endpoint. Preflight checks DB migrations, private storage access with an isolated probe key, Qdrant schema, native digest/vector shape and sandbox containment; report no credential values. Keep `/health` liveness independent of downstream outage; no M5 all-in-one demo launcher.
-- [ ] **GREEN check/smoke:** start real worker only on explicitly selected isolated resources, observe transitions, kill/restart after an actual stage checkpoint and wait real lease expiry. Verify preflight failure is safe and does not consume owner jobs. Then run a healthy actual-stack processing path. API startup must not require embedding availability just to sign in/read Library.
-- [ ] **Review/commit:** review cancellation, dependency timeouts and credential-minimal role validation; commit `feat(ingestion): run bounded recoverable PDF processing worker`.
+- [x] **Run RED:** `uv run --frozen pytest tests/test_worker.py -q`.
+- [x] **GREEN:** one claim loop, separate heartbeat connection/thread, process-unique worker ID, cancellation event and total monotonic stage/claim deadlines. No blocking stage work in the heartbeat thread. On SQL lease loss stop new work, terminate active child and do not record stale errors. On SIGTERM stop claiming and relinquish only owned lease; SIGKILL relies on expiry. Worker validates original bytes from DB-bound MinIO object, never refetches arXiv. Fresh source profile sealed once; null M1 pending_config adopts approved profile, unknown nonempty config fails safely.
+- [x] **Wire runtime:** add worker profile `processing` so ordinary `compose up` cannot accidentally start consuming owner queued rows before cutover. Worker shares API build, runs without OAuth/session/generation secrets, default concurrency one, cgroup/PID/tmp limits; dependencies ordered without changing bucket-init behavior. Add native host address and Qdrant internal endpoint. Preflight checks DB migrations, private storage access with an isolated probe key, Qdrant schema, native digest/vector shape and sandbox containment; report no credential values. Keep `/health` liveness independent of downstream outage; no M5 all-in-one demo launcher.
+- [x] **GREEN check/smoke:** start real worker only on explicitly selected isolated resources, observe transitions, kill/restart after an actual stage checkpoint and wait real lease expiry. Verify preflight failure is safe and does not consume owner jobs. Then run a healthy actual-stack processing path. API startup must not require embedding availability just to sign in/read Library.
+- [x] **Review/commit:** review cancellation, dependency timeouts and credential-minimal role validation; commit `feat(ingestion): run bounded recoverable PDF processing worker`.
 
 ## Task 9: Owner-scoped job API and persisted preparation projection
 

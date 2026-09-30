@@ -5,6 +5,9 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from threading import Event
+
+from researcy.ingestion.models import LostLease
 
 from .models import SandboxLimits
 
@@ -30,7 +33,7 @@ class SandboxError(Exception):
         super().__init__(code)
 
 
-def run_pdf_child(mode: str, source: Path, output: Path, limits: SandboxLimits) -> None:
+def run_pdf_child(mode: str, source: Path, output: Path, limits: SandboxLimits, *, cancel: Event | None=None, deadline: float | None=None) -> None:
     """Only publish complete bounded output; namespace failure is fail-closed."""
     if mode not in ("screen","parse"):
         raise ValueError("unsupported parser mode")
@@ -40,7 +43,9 @@ def run_pdf_child(mode: str, source: Path, output: Path, limits: SandboxLimits) 
     process = None
     succeeded = False
     output_created = False
-    deadline = time.monotonic() + limits.wall_seconds
+    deadline = min(deadline if deadline is not None else float('inf'),time.monotonic()+limits.wall_seconds)
+    if cancel is not None and cancel.is_set():
+        raise LostLease()
     try:
         with source.open("rb") as original:
             fd = original.fileno()
@@ -78,10 +83,12 @@ def run_pdf_child(mode: str, source: Path, output: Path, limits: SandboxLimits) 
                 count = 0
                 preamble = b""
                 while selector.get_map():
+                    if cancel is not None and cancel.is_set():
+                        raise LostLease()
                     remaining = deadline - time.monotonic()
                     if remaining <= 0:
                         raise SandboxError(f"{prefix}_TIMEOUT")
-                    for key, _ in selector.select(remaining):
+                    for key, _ in selector.select(min(remaining,.1)):
                         data = os.read(key.fd, 64 * 1024)
                         if not data:
                             selector.unregister(key.fileobj)
@@ -103,7 +110,19 @@ def run_pdf_child(mode: str, source: Path, output: Path, limits: SandboxLimits) 
                     raise SandboxError(f"{prefix}_TIMEOUT")
                 if preamble != _READY:
                     raise SandboxError("PDF_SANDBOX_UNAVAILABLE")
-                if process.wait(timeout=remaining) != 0 or count == 0:
+                while process.poll() is None:
+                    if cancel is not None and cancel.is_set():
+                        raise LostLease()
+                    remaining=deadline-time.monotonic()
+                    if remaining<=0:
+                        raise SandboxError(f"{prefix}_TIMEOUT")
+                    try:
+                        process.wait(timeout=min(remaining,.1))
+                    except subprocess.TimeoutExpired:
+                        continue
+                if cancel is not None and cancel.is_set():
+                    raise LostLease()
+                if process.returncode != 0 or count == 0:
                     raise SandboxError(f"{prefix}_RESOURCE_LIMIT")
             succeeded = True
     except subprocess.TimeoutExpired:

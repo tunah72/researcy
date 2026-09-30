@@ -237,3 +237,20 @@ except OSError:
 print(json.dumps({"descriptors_denied":descriptors_denied,"file_denied":file_denied}))
 '''
     assert json.loads(_run_probe(tmp_path, monkeypatch, script, output_bytes=1024).read_text()) == {"descriptors_denied": True, "file_denied": True}
+
+def test_lease_cancellation_reaps_silent_child_and_removes_partial_output(tmp_path,monkeypatch):
+    import time
+    from threading import Event,Timer
+    from researcy.ingestion.models import LostLease
+
+    sandbox=_sandbox();child=tmp_path/'slow.py';child.write_text('import time; time.sleep(30)')
+    source=tmp_path/'source.pdf';source.write_bytes(b'%PDF-1.7\n');output=tmp_path/'partial.json'
+    monkeypatch.setattr(sandbox,'_CHILD',child)
+    cancel=Event();timer=Timer(.2,cancel.set);timer.start();started=time.monotonic()
+    try:
+        with pytest.raises(LostLease):
+            sandbox.run_pdf_child('screen',source,output,sandbox.SandboxLimits(),cancel=cancel)
+    finally:
+        timer.cancel();timer.join()
+    assert time.monotonic()-started<2
+    assert not output.exists()

@@ -6,6 +6,7 @@ import json
 import math
 from pathlib import Path
 from typing import Sequence
+from threading import Event
 import sys
 import tempfile
 import time
@@ -20,6 +21,7 @@ from researcy.config import get_settings
 from researcy.db import get_conn
 from researcy.documents.artifacts import verify_artifact
 from researcy.documents.provenance import resolve_range
+from researcy.ingestion.io import cancellable
 from researcy.ingestion.jobs import (
     fenced_transaction,
     record_transition,
@@ -261,7 +263,7 @@ class IndexReceipt:
 
 
 class QdrantClient:
-    def __init__(self, endpoint: str | None = None, deadline: float | None = None):
+    def __init__(self, endpoint: str | None = None, deadline: float | None = None, *, cancel: Event | None=None):
         if endpoint is None:
             endpoint = get_settings().qdrant_endpoint
         parsed = urlsplit(endpoint)
@@ -276,6 +278,7 @@ class QdrantClient:
             raise ValueError("qdrant endpoint must be a plain HTTP origin")
         self.endpoint = f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
         self.deadline = deadline
+        self.cancel=cancel
 
     async def _request(
         self, client: httpx2.AsyncClient, method: str, path: str, payload: dict | None = None
@@ -324,7 +327,7 @@ class QdrantClient:
 
     def _run(self, operation):
         try:
-            return asyncio.run(operation)
+            return asyncio.run(cancellable(operation,self.cancel))
         except (httpx2.TimeoutException, TimeoutError):
             raise StageFailure(
                 "DEPENDENCY_UNAVAILABLE", "temporary", True, retry_after_seconds=5
@@ -697,14 +700,14 @@ def _load_indexing_metadata(lease: Lease):
             return job, profile, source_sha256, prior_stage_tuples, chunks, batch_rows
 
 
-def index_selected(lease: Lease, deadline: float) -> IndexReceipt:
+def index_selected(lease: Lease, deadline: float, *, cancel: Event | None=None) -> IndexReceipt:
     if time.monotonic() >= deadline:
         raise StageFailure("DEPENDENCY_UNAVAILABLE", "temporary", True, retry_after_seconds=5)
 
     job, profile, source_sha256, prior_stage_tuples, chunks, batch_rows = _load_indexing_metadata(lease)
 
     target_collection = collection_name(profile)
-    with QdrantClient(deadline=deadline) as client:
+    with QdrantClient(deadline=deadline,cancel=cancel) as client:
         ensure_collection(profile, client=client)
 
         for batch_row in batch_rows:
@@ -737,7 +740,7 @@ def index_selected(lease: Lease, deadline: float) -> IndexReceipt:
             )
             with tempfile.TemporaryDirectory() as tmp_dir:
                 tmp_path = Path(tmp_dir) / "selected.bin"
-                verify_artifact(ref, tmp_path, deadline=deadline)
+                verify_artifact(ref, tmp_path, deadline=deadline,cancel=cancel)
                 downloaded = tmp_path.read_bytes()
                 if downloaded != selected_bytes:
                     raise IntegrityFailure("PROCESSING_INTEGRITY_FAILURE")
@@ -768,10 +771,10 @@ def index_selected(lease: Lease, deadline: float) -> IndexReceipt:
             if not isinstance(res_data, dict) or res_data.get("status") != "completed":
                 raise IntegrityFailure("PROCESSING_INTEGRITY_FAILURE")
 
-    return verify_index(lease, deadline)
+    return verify_index(lease, deadline,cancel=cancel)
 
 
-def verify_index(lease: Lease, deadline: float) -> IndexReceipt:
+def verify_index(lease: Lease, deadline: float, *, cancel: Event | None=None) -> IndexReceipt:
     if time.monotonic() >= deadline:
         raise StageFailure("DEPENDENCY_UNAVAILABLE", "temporary", True, retry_after_seconds=5)
 
@@ -796,7 +799,7 @@ def verify_index(lease: Lease, deadline: float) -> IndexReceipt:
         ]
     }
 
-    with QdrantClient(deadline=deadline) as client:
+    with QdrantClient(deadline=deadline,cancel=cancel) as client:
         cnt_res = client.request(
             "POST",
             f"/collections/{target_collection}/points/count",
@@ -888,7 +891,7 @@ def verify_index(lease: Lease, deadline: float) -> IndexReceipt:
                     )
                     with tempfile.TemporaryDirectory() as tmp_dir:
                         tmp_path = Path(tmp_dir) / "selected.bin"
-                        verify_artifact(ref, tmp_path, deadline=deadline)
+                        verify_artifact(ref, tmp_path, deadline=deadline,cancel=cancel)
                         downloaded = tmp_path.read_bytes()
                         if downloaded != b_bytes:
                             raise IntegrityFailure("PROCESSING_INTEGRITY_FAILURE")
