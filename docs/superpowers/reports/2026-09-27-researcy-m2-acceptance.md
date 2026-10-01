@@ -591,3 +591,11 @@ Final independent publication/security review and resource-evidence review both 
 | Suites/build | 516 backend passed / 1 opt-in skip; 67 frontend passed; production API/worker/web builds passed |
 
 **Current delivery decision: M2 `Verified` in the isolated implementation worktree.** All preceding in-progress/blocker statements are dated checkpoint history, superseded by this reconciliation; historical failed measurements remain visible. No owner schema/data/worker action was executed: every mutable gate fixture used uniquely named private databases/buckets and scoped collections/points, subsequently cleaned. This is technical milestone verification, not owner-stack cutover or M1/OAuth verification. No push, merge, prune or Reader/public-retrieval/citation claim is included.
+
+### Owner manual acceptance and publication authorization
+
+The owner reported completing manual testing with all results good, then explicitly requested project shutdown, cleanup, commit, push, PR creation and merge into `main`. This is an owner-reported acceptance outcome; no additional per-case IDs/screenshots are invented. The manual `researcy-m2-manual` stack was stopped without deleting volumes or its accepted paper data. Shared native Ollama/9Router and unrelated projects were not stopped.
+
+Fresh pre-publication verification on the feature worktree: deployed Linux backend **516 passed, 1 opt-in skip in 156.04 seconds**; frontend **67 passed**, production Next.js/TypeScript build passed (**7.75 seconds** combined frontend command). `git diff --check main...HEAD` passed. Temporary test infrastructure is separate from preserved manual/owner storage and will be stopped after merged-tree verification.
+
+Next.js-generated untracked `apps/web/AGENTS.md`/`CLAUDE.md` and the main checkout's pre-existing `next-env.d.ts` change are retained rather than silently deleted, stashed or folded into M2. Feature/remote audit history and worktree artifacts remain preserved. Prior “not authorized/published” statements above describe their checkpoints; this explicit authorization supersedes the publication restriction, not owner-stack cutover or M3 scope.

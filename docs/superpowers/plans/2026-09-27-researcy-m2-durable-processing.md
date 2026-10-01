@@ -10,7 +10,7 @@
 
 **Spec:** [Owner-approved M2 child specification](../specs/2026-09-27-researcy-m2-durable-processing-design.md), approved 2026-09-27, subordinate to [master revision 2.0](../specs/2026-09-18-researcy-system-design.md). [Delivery map](../specs/2026-09-18-researcy-delivery-map.md) is authoritative.
 
-**Plan status:** Approved by owner on 2026-09-28. Tasks 1–11 are complete with recorded deployed-suite/build, real-stack G1–G6, resource and browser evidence. M2 is `Verified` in the isolated implementation worktree; owner-stack cutover, push and merge are not authorized/executed. The owner's M1 prerequisite exception remains recorded and does not promote M1 to `Verified`.
+**Plan status:** Approved by owner on 2026-09-28. Tasks 1–11 are complete with recorded deployed-suite/build, real-stack G1–G6, resource and browser evidence. M2 is `Verified`; the owner reported successful manual testing and subsequently authorized shutdown, commit, push, PR and merge. Owner-stack cutover remains a separate execution decision. The owner's M1 prerequisite exception remains recorded and does not promote M1 to `Verified`.
 
 ## Global constraints
 
