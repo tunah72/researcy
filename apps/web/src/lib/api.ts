@@ -45,7 +45,23 @@ export interface PaperListResponse {
   request_id: string;
 }
 
+export interface ReaderPage {
+  page_index: number;
+  media_box: [number, number, number, number];
+  crop_box: [number, number, number, number];
+  rotation: number;
+}
+
+export interface ReaderDocument {
+  document_version: string;
+  source_sha256: string;
+  pdf_url: string;
+  pages: ReaderPage[];
+  outline: { title: string; page: number }[];
+}
+
 export interface PaperDetailResponse extends Paper {
+  reader?: ReaderDocument | null;
   request_id: string;
 }
 

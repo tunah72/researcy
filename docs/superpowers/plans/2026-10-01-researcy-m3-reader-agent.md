@@ -155,8 +155,8 @@ def test_range_returns_exact_original_slice(pdf_client, owned_pdf):
 **Scope/files:** T2 file map; use existing ready detail route. Install/pin actual supported pdfjs-dist version at execution, matching local worker; update package-lock. Read relevant installed Next guides and React skill first.
 **Consumes/produces:** ReaderDocument → ReaderWorkspace/PdfReader; geometry transform utility later reused by citations.
 
-- [ ] RED: role-driven navigation from ready Library item opens Reader page controls and Download; unready remains preparation/retry; too-small Reader offers clear larger-screen message/Back, not crushed panes; unavailable PDF gives safe reload. Delete obsolete ready-has-no-Reader wording/incidental absence tests rather than re-pin them; retain unready honest-state regressions.
-- [ ] Geometry RED: transform all four corners using viewport matrix; test actual mathematical expected rectangles for rotations and crop offsets, independent of utility output.
+- [x] RED: role-driven navigation from ready Library item opens Reader page controls and Download; unready remains preparation/retry; too-small Reader offers clear larger-screen message/Back, not crushed panes; unavailable PDF gives safe reload. Delete obsolete ready-has-no-Reader wording/incidental absence tests rather than re-pin them; retain unready honest-state regressions.
+- [x] Geometry RED: transform all four corners using viewport matrix; test actual mathematical expected rectangles for rotations and crop offsets, independent of utility output. Initial failure was the absent module, not executed mathematical assertions; see the acceptance report.
 
 ```ts
 it('applies a rotated viewport to all evidence corners', () => {
@@ -168,11 +168,11 @@ it('applies a rotated viewport to all evidence corners', () => {
 
 Define `pdfBoxToViewport(box: readonly [number,number,number,number], transform: readonly number[]): {left:number;top:number;width:number;height:number}` in lib/pdf-geometry.ts. Additional tests reject nonfinite/out-of-order geometry, and cover negative MediaBox origin/zoom; no DOM snapshot copy.
 
-- [ ] Run RED: `npm test -- src/components/reader-interaction.test.tsx src/lib/pdf-geometry.test.ts`.
-- [ ] GREEN: client PDF.js pane with local worker, selectable text, fit-width/zoom/page controls, intrinsic outline or canonical exact-page outline, visible+adjacent canvas bounds and cancellation. Fixed 65/35 split, independent scroll and blank honest Discussion introduction; do not fake chat. Existing page shows Reader only from actual ready metadata. Reuse tokens/focus/44px targets and one main; no PDF JS/actions/external fetch.
-- [ ] Focused check + `npm run build`; verify strict types and worker asset packaged locally.
-- [ ] Actual browser smoke on isolated production web/API: original `1706.03762` ready fixture via isolated M2 pipeline; inspect canvas and text selection, next/page input, outline, Download hash, scroll separation, 1024/1280/1440 and small widths. Network evidence proves Range headers/status through Next rewrite, worker URL local and no direct MinIO request. If rewrite demonstrably fails, add only scoped passthrough with cancellation/header allowlist and repeat; report initial failure.
-- [ ] Review actual screenshots/keyboard/geometry/cleanup; commit focused files/evidence. Reader-only success is not M3 Verified.
+- [x] Run RED: `npm test -- src/components/reader-interaction.test.tsx src/lib/pdf-geometry.test.ts`.
+- [x] GREEN: client PDF.js pane with local worker, selectable text, fit-width/zoom/page controls, intrinsic outline or canonical exact-page outline, visible+adjacent canvas bounds and cancellation. Fixed 65/35 split, independent scroll and blank honest Discussion introduction; do not fake chat. Existing page shows Reader only from actual ready metadata. Reuse tokens/focus/44px targets and one main; no PDF JS/actions/external fetch.
+- [x] Focused check + `npm run build`; verify strict types and worker asset packaged locally.
+- [x] Actual browser smoke on isolated production web/API: original `1706.03762` ready fixture via isolated M2 pipeline; inspect canvas and text selection, next/page input, outline, Download hash, scroll separation, 1024/1280/1440 and small widths. Network evidence proves Range headers/status through Next rewrite, worker URL local and no direct MinIO request. If rewrite demonstrably fails, add only scoped passthrough with cancellation/header allowlist and repeat; report initial failure.
+- [x] Review actual screenshots/keyboard/geometry/cleanup; commit focused files/evidence. Reader-only success is not M3 Verified.
 
 ## Task 3: Version-pinned conversations, run reservation and reload
 

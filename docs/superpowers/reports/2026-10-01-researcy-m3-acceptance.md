@@ -22,7 +22,7 @@ No interpretation changes the master, model, two-pass ceiling or any real-route 
 
 ## Current gate ledger
 
-G1–G7: not run. No M3 gate is passed by document approval, M2 evidence or this setup. Historical Q0/Q0.1 and M1 technical status unchanged.
+G1: Reader path partially exercised during T2, not yet a complete gate pass. G2–G7: not run. Historical Q0/Q0.1 and M1 technical status unchanged.
 
 ## T1 implementation evidence
 
@@ -83,3 +83,32 @@ The hard guarantee is the request wall deadline and stream capacity/cleanup, not
 Final affected suite: **61 passed in 97.50s**; final production API build/start successful. Repeated actual backpressured HTTP proof on the final production implementation: eight stalled clients, ninth safe 503, eight safe deadline logs, subsequent 206 exact ten bytes (`18ea669d-cfca-4f6f-abcc-ea362b0eaba7`), all eight slots restored after the cleanup barrier; finite script exited 0 at 32.40s. Temporary listener stopped.
 
 Final ReadyScopeReview and PdfBoundaryReview verdicts: correct, no findings. The transport review briefly returned a stale finding alongside a correct verdict; its corrected payload explicitly removed the stale finding and confirmed the latest dedicated pre-header cleanup. T1 complete; T2 can start. This is not a complete Reader or M3 gate pass: M3 remains Planned and G1–G7 remain open.
+
+## T2 execution — complete
+
+Restored the same worktree without reset/stash or owner-stack changes. T1 remains committed at `521dcd6`; T2 is uncommitted. Pinned `pdfjs-dist@6.3.289` using Node 22.14.0 Alpine and updated the authoritative npm lockfile. Build/dev preparation packages its matching worker, CMaps, fonts, WASM and license under version-specific same-origin public assets; generated assets are ignored.
+
+RED: `npm test -- src/components/reader-interaction.test.tsx` initially failed because a ready Paper had no Download/Reader controls. The geometry contract was initially absent (unresolved module, zero executed tests); that is not a claim of ten failing mathematical tests. Implemented independent rotation/negative-origin/invalid-input geometry cases.
+
+Initial focused Reader/geometry/preparation check: **23 passed**. Initial `npm run build` and isolated production Compose web build/start succeeded. Actual source remains the frozen public original processed through the private native M2 pipeline.
+
+Actual Chromium at `http://localhost:3003/library/93b8811f-43b5-4f39-9578-72aceadf1afb`:
+
+- Original canvas and selectable text rendered; next-page control changed page 1→2 with three page canvases, exact-page outline changed to page 4, and 150% zoom kept zero document-level overflow.
+- PDF.js worker requested `/pdfjs/6.3.289/pdf.worker.min.mjs`, 200. PDF requests travelled through the existing Next rewrite: full metadata request 200, `bytes=0-65535` returned 206 / `bytes 0-65535/2215244`; later ranges likewise returned 206. No direct Minio URL appeared. No binary passthrough handler was added because the experiment showed the existing rewrite works.
+- Actual download URL returned 200, attachment `paper.pdf`, 2,215,244 bytes, SHA-256 `bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697`; request ID `01a4f8a1-7c37-4ff6-8ded-cc0692c70b36`.
+- At widths 375/768/1024/1280/1440: one resolving `main#main-content`, zero document horizontal overflow. Small widths show the explanatory boundary/Back/Download and no canvases; supported widths show the 65/35 Reader. At 1280 the panes measured 832/448 pixels. Measured visible controls met 44×44; the focused skip link measured 198×48 and resolved to main.
+- Browser text selection returned verbatim original text. The page worker count was one while open and zero after crossing below the supported boundary; page canvas counts remained two or three, then zero below the boundary.
+- A controlled browser network abort of original PDF requests produced the safe load failure with Reload PDF and one main. Removing the fault and clicking Reload PDF recovered actual original rendering; this is network-fault UI proof, not a claim of a real provider/storage outage.
+
+The browser caught a real defect absent from component tests: after narrowing below 1024 and restoring desktop, selected page 6 persisted while scrollTop reset to 0, leaving visible page 1 blank. A layout synchronization on width/zoom now preserves the selected page offset without snapping normal scrolling. Rebuilt production verification: select page 6, narrow to 768, return to 1440; observed page 6, scrollTop 5868, selected top = viewport top = 147, three page canvases, zero overflow, and screenshot of actual page 6 content.
+
+Full frontend suite initially failed one new test because it assumed the ambient viewport and queried the Reader before responsive state settled. The test now explicitly sets its supported width and awaits the landmark. Latest full suite: **79 passed in 10.88s**, followed by successful isolated production web rebuild/start. The SDK emits a Node-only legacy-build warning in jsdom; the product uses its browser build, verified in Chromium.
+
+Tool limitations: documented `setCookies` array imports failed with both URL and domain/path cookie objects; private fixture cookies were installed through Chromium's underlying API without logging values. An outline role selector did not match its visible accessible label; the observed text control was then clicked successfully. Neither issue was treated as application evidence.
+
+ReaderGeometryUxReview returned correct, no findings. ReaderLifecycleReview identified three defects: failed documents retained their loading task/worker, retry could lose the selected page offset, and text extraction completed before a cancellable TextLayer existed. Failure now clears the opened document and destroys its loading task; the failure-to-pages transition realigns the retained page; TextLayer consumes `streamTextContent()` and cancels the stream on unmount. Its focused follow-up returned correct, no findings.
+
+Actual RED/GREEN lifecycle proof used the real original PDF with a controlled browser response changing canonical page count from 15 to 14: safe load failure retained **one worker before** the correction and **zero after**. The fault interceptor was removed; reloading the unmodified production response restored selectable text, two page canvases and one active worker. Attempts to induce a renderer error by monkeypatching canvas methods did not produce the intended failure and are not acceptance evidence; the subsequent full page reload removed those temporary patches.
+
+Final full frontend suite: **79 passed in 13.43s**; final isolated production build/start succeeded with strict TypeScript. T2 complete. No conversation mutation or generation request is implemented or triggered by opening Reader. G1–G7 remain open pending complete M3 acceptance; M3 remains Planned.

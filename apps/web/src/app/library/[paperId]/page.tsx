@@ -6,12 +6,13 @@ import { useParams } from 'next/navigation';
 import {
   fetchPaperDetail,
   retryJob,
-  PaperDetailResponse,
   ApiError,
   formatScreeningWarning,
   userErrorMessage,
 } from '@/lib/api';
 import { PaperPreparation } from '@/components/paper-preparation';
+import type { PaperDetailResponse } from '@/lib/api';
+import { ReaderWorkspace } from '@/components/reader-workspace';
 
 export default function PaperDetailPage() {
   const params = useParams();
@@ -341,6 +342,10 @@ export default function PaperDetailPage() {
       setRetryError(userErrorMessage(err, 'Failed to retry preparation. Please try again later.'));
     }
   }, [paper, isRetrying, refreshDetail, scheduleNextPoll, setConflictState]);
+
+  if (!isLoading && !error && paper?.reader && paper.stage === 'ready') {
+    return <ReaderWorkspace paper={paper} source={paper.reader} />;
+  }
 
   const authorText =
     paper?.authors && paper.authors.length > 0
