@@ -525,3 +525,43 @@ Read-only audit of the actual official arXiv accepted version additionally verif
 Stopped only private production API/web and the port-4000 host preview after recording evidence. Cleanup verified the exact acceptance database and bucket absent, removed **145 private objects**, and deleted only the **seven** document scopes' three-key-filtered Qdrant points. Labels were checked against run-owned fixture prefixes before removal; root owner resources were not accessed/mutated. No `down -v`, owner migration, publishing, merge, push or branch/worktree deletion.
 
 The plan's Task 11 remains open: resource failure and incomplete worker-peak/cold-load measurement prevent final acceptance. Recorded successful fault/security journeys are not promoted into blanket gate or six-gate/resource acceptance. The approved model/runtime, M1 technical evidence and historical Q0 evidence are unchanged.
+
+### Resource prerequisite remediation and complete rerun — 2026-10-01
+
+The owner requested prerequisite remediation and a complete unchanged resource rerun. No product code, model, batching, sandbox, limits or machine budget was changed. Native desktop inspection/launch failed to address Activity Monitor (`BackgroundUnavailable`/`InputFailed`); read-only binary measurements were then used. No owner application was closed. Managed-browser cleanup found zero remaining managed tabs. Only the run-owned PostgreSQL/MinIO/Qdrant containers were restarted **before** measurement, reducing sampled idle memory from **151.8/195.6/409.2 MiB** to **65.36/105.1/206.7 MiB**. This released accumulated test-service memory; it does not establish sole causation for the later swap difference. All earlier failed runs remain historical evidence.
+
+Frozen `/tmp` corpus copies were SHA-verified against the unchanged hashes above. A fresh private database/bucket and production API/web/worker images were used without build/test overlap. Web listener was restricted to private `:4001`; no owner-stack cutover. Observed Ollama `/api/ps` initially reported **`models: []`**: cold loading was natural, not forced unload/restart.
+
+**Cold-load observation, reported separately:** exact `bge-m3:567m` embedding request with `truncate=false` returned 1,024 dimensions in **5.041280 seconds**, reported model-load duration **4.415989 seconds**. Five resource samples; swap baseline **10,257.44 MiB**, sampled peak **11,788.75 MiB**, increase **1,531.31 MiB**. An intermediate after-load sample alone would have understated the peak at 11,667.38 MiB; the retained maximum is used. Cold-start overhead is substantial and is not represented as a ≤512-MiB warm result.
+
+**Warm gate: PASS against the unchanged approved criteria.** Warm baseline was taken after cold load and queued intake preparation. Actual production worker `run_once` processed the two queued frozen corpus papers serially; authenticated HTTP samples observed every processing stage and final `ready/succeeded`. Elapsed worker claims: **50.813667 / 73.291480 seconds**. Concurrent third PDF intake returned **202 in 2.206255 seconds**, request `1a2116ae-d38d-4c22-bc03-1114035af092`; it is intake latency, not a status-request measurement.
+
+| Criterion | Observed |
+|---|---|
+| Warm swap growth ≤512 MiB | **11,786.00→12,046.25 MiB; +260.25 MiB** |
+| Every recorded status/Library request <2 seconds | **147 requests; maximum 1.751655 seconds** |
+| Native model identity unchanged | `bge-m3:567m`, F16, digest `7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab`; checked in all model samples |
+| Native reported allocation / process resident target ≤2 GiB | **1,209,536,512 bytes** reported model allocation; sampled aggregate native server/runner RSS **710,688 KiB**; not summed as independent physical allocations |
+| Non-critical host pressure | Numeric level **2** in every cold/warm sample; Apple's [XNU memorystatus documentation](https://github.com/apple-oss-distributions/xnu/blob/main/doc/vm/memorystatus_notify.md) describes 2 as Urgent/synonymous with Warning, below Critical 3; not claimed Normal |
+| No warm OOM/restart | All six inspected containers: OOM false, restart count zero; existing service start times predate warm baseline; worker exited 0; native server/runner PID set remained unchanged |
+| Worker-inclusive and service measurements | **50 warm snapshots**, worker present in **47**; fixed explicit worker-name filter |
+| Same machine envelope | Host 8 GiB; Docker VM **4,108,828,672 bytes**, 8 vCPUs |
+
+Sampled cgroup memory maxima (worker includes its sandbox descendants), not continuous instantaneous peaks:
+
+| Service | Sampled MiB | Cap MiB |
+|---|---:|---:|
+| Worker + children | 76.46 | 1,024 |
+| PostgreSQL | 151.40 | 384 |
+| MinIO | 145.90 | 256 |
+| Qdrant | 305.40 | 512 |
+| API + intake child | 74.60 | 512 |
+| Production web | 62.35 | 256 |
+
+Command mechanism: `docker compose --env-file /dev/null -p researcy-m2-test` with the existing isolated override and task-private resource/ports overrides; production images only, `up -d --no-deps api web`; named one-shot worker `run --no-deps -T --name m2-resource-worker-rerun worker python -` executes two real worker claims. Sampler uses `sysctl kern.memorystatus_vm_pressure_level vm.swapusage`, native process RSS, `docker stats --no-stream --format '{{json .}}'`, native `/api/ps`, and actual same-origin proxy `/api/jobs/{id}` / `/api/papers`; final `docker inspect` checks caps/OOM/restarts/start times/exit status. No forced swap purge, reboot, service stop during measurement, synthetic model response, hidden failed-request exclusion or threshold change.
+
+A preparation attempt lacking the CSRF cookie returned 403 before the warm baseline; corrected harness sent both session-bound CSRF cookie and header. This was a harness-auth failure, not a passing intake or a relaxed application boundary.
+
+Cleanup verified the new private database and bucket absent, removed **54 objects** and only its **three** document scopes' filtered Qdrant points; stopped private API/web and removed the exited measurement worker and private overrides. Owner applications, 9Router, native server/model and owner data were untouched.
+
+The prior resource blocker is resolved for the recorded warm-run criterion and missing cold/worker sampling evidence. Absolute swap remains high and cold-load cost remains recorded; this is not a claim of a pristine host or universally guaranteed fit. M2 remains `Implemented` pending full Task 11 gate/traceability closeout; this resource-only rerun does not silently promote every other checklist item to Verified.

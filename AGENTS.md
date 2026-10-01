@@ -48,7 +48,7 @@ Core boundaries:
 - Backend code derives owner, paper, version, and retrieval filters. Never trust client- or model-supplied ownership/filter values.
 - Product model configuration is separate from development-agent tooling. Keep the approved product route unless an approved specification changes it.
 
-Current worktree code implements M2 durable processing, owner-scoped index, and honest Library preparation/retry states. M2 is `Implemented`, not `Verified`: the measured resource gate failed; see the delivery map and M2 acceptance report. Owner-stack M2 cutover has not been authorized/executed. Reader, public retrieval, agent answers and citations remain M3+ and must not be presented as implemented.
+Current worktree code implements M2 durable processing, owner-scoped index, and honest Library preparation/retry states. M2 is `Implemented`, not `Verified`: the resource rerun passed the unchanged warm criteria with cold-load evidence separately recorded, but full Task 11 gate/traceability closeout remains open; see the delivery map and M2 acceptance report. Owner-stack M2 cutover has not been authorized/executed. Reader, public retrieval, agent answers and citations remain M3+ and must not be presented as implemented.
 
 ## Non-negotiable contracts
 
