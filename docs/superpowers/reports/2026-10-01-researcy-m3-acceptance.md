@@ -142,3 +142,28 @@ Final production API image rebuilt and became healthy. Actual canonical-publicat
 ### Read-only T6 prerequisite update
 
 The earlier stopped/candidate gateway observation is historical. Current `lsof` found node listening on 20128; its working directory identifies installed `/opt/homebrew/lib/node_modules/9router/app`. Installed 9Router 0.5.81 docs establish `/v1`; read-only `/v1/models` contains `ag/gemini-3.8-flash-low`. A safe local DB aggregate found active client-key metadata, including a `researcy` record, without reading/logging credential values. These are endpoint/catalog facts, not upstream entitlement, real generation, usage or pricing qualification. No route change or generation request was performed; T6 still needs authorized product credential wiring and real bounded qualification with measurement provenance.
+
+T3 committed as `ef32e7d`.
+
+## T4 execution — complete
+
+LSP references unavailable (no Python language server). Literal symbol search mapped all `search_owned` callers. Removed that exported path; `search_dense(ReadyDocument,query,limit)` now consumes the already authenticated immutable publication. Migrated owned-retrieval and stage consumers without a production alias. New generated `simple` lexical vector and ordinary GIN live in forward `0006_m3_lexical`; SQL applies owner/paper/version/profile before lexical ranking. Both branches rehydrate PostgreSQL text/raw provenance.
+
+Initial hybrid tests: three failures from absent module, not executed wrong mathematical output. Initial affected suite: six failed/29 passed; five failures were missed old test callers, and one incorrectly expected a foreign-owner point excluded by the real Qdrant server filter to return an error. Migrated remaining callers and distinguished excluded-empty from returned-poisoned output; returned poison fails safely with `EVIDENCE_UNAVAILABLE`. Subsequent migrated suite: **35 passed in 167.48s**.
+
+Actual native/container/Qdrant/PostgreSQL smoke on pinned `1706.03762` passed preflight and both natural-language queries. Identity: Ollama 0.18.2, approved `bge-m3:567m` digest `7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab`, 1024 dimensions/F16, actual embedding readiness probe. Natural-language conjunctions returned no lexical hits, with genuine dense evidence; this is observed `websearch_to_tsquery` behavior, not a lexical recall claim. Exact `parallelization` and quoted `scaled dot-product attention` probes returned both branches. Every packed source matched paper `93b8811f-43b5-4f39-9578-72aceadf1afb` / immutable version `81492edc-6d44-4602-840f-124f4504cdf9`.
+
+Applied `0006` twice in the private acceptance DB. All 68 existing chunk checksums/raw mappings verified through the actual provenance resolver; zero generated vectors differed from `to_tsvector('simple',text)`. Original frozen source hash remains the T1/T2 identity. No owner stack or generation route was touched.
+
+Ranking review identified discarded RRF totals and rank-six backfill when top-five chunks exceeded budget. Permanent regression RED: **two failed/one passed in 12.15s**; actual overlap score was 0.1 instead of `2/61`, and rank-six entered the packed set. Corrected returned hit scores to fused RRF and restricted candidates to fused top five before whole-chunk packing. Final suite/deployment/real-path recheck and source-integrity review remain pending; T4 is not complete.
+
+Source-integrity review corrected the earlier empty-dense interpretation: because the ready publication proves a nonempty set and the search has no score threshold, a successful empty Qdrant response is a poisoned/missing live index, not legitimate insufficiency. It also identified uncaught lexical PostgreSQL failures. Real RED: two failed in 10.09s (foreign-owner corruption excluded all points without safe failure; actual refused PostgreSQL socket escaped). Dense now requires at least one returned point; lexical query and hydration map `psycopg.Error` to safe `503 DEPENDENCY_UNAVAILABLE`. Existing foreign/poison fixtures assert that source failure. Stale caller review findings had already been corrected.
+
+An intermediate suite timed out at 240 seconds after 34 progress dots; it is not a pass. Final affected retrieval/stage suite: **36 passed in 167.58s**. Both focused reviewers returned correct, no findings. Final production API rebuilt/healthy. Actual final deployed hybrid:
+
+| Query | Dense / lexical / packed | Normalized / raw code points | Top RRF score |
+|---|---|---|---|
+| `parallelization` | 5 / 1 / 5 | 3513 / 3444 | 0.032266458495966696 |
+| `"scaled dot-product attention"` | 5 / 4 / 5 | 6984 / 6847 | 0.03252247488101534 |
+
+Pinned source and native identity match the preceding proof; no answer, semantic recall percentage or citation/UI gate is inferred. T4 complete; all M3 final gates remain open.

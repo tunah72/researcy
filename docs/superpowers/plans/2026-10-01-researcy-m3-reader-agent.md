@@ -206,8 +206,8 @@ def test_duplicate_submission_does_not_reserve_second_run(run_db):
 **Scope/files:** T4 file map plus references of exported search_owned. No BM25 extension/reranker/index model change.
 **Consumes/produces:** `load_ready_document`, `search_dense`, `retrieve_same_paper`, catalog-ready EvidenceHit sequence.
 
-- [ ] Before changing search_owned, use LSP references and migrate every test/internal caller, including publication probe dependencies if present; keep prepublication internal index verifier separate from ready-only user boundary.
-- [ ] RED: same term in owned and foreign versions returns only server-pinned source; unavailable/poisoned publication fails safely before evidence; deterministic RRF includes overlap and stable ties; punctuation query/empty lexical result does not error; context drops whole lower-ranked chunks only, never incomplete provenance. Query cardinality and profile remain bounded.
+- [x] Before changing search_owned, use LSP references and migrate every test/internal caller, including publication probe dependencies if present; keep prepublication internal index verifier separate from ready-only user boundary. LSP unavailable; known-symbol search used and no obsolete caller remains.
+- [x] RED: absent hybrid implementation plus review-driven failing RRF/top-five/poisoned-empty/DB-outage regressions; existing scope and canonical poisoning cases retained. See acceptance report for exact commands/failures, not an inferred suite RED.
 
 ```python
 def test_rrf_overlap_can_outrank_single_branch_top_hit():
@@ -215,11 +215,11 @@ def test_rrf_overlap_can_outrank_single_branch_top_hit():
     assert fuse_ranks([a, b], [c, b]) == (b, a, c)
 ```
 
-- [ ] Run RED: `uv run --frozen pytest tests/test_hybrid_retrieval.py tests/test_owned_retrieval.py -q`.
-- [ ] GREEN: one authorized ready/version boundary preserves full M2 checks; pure rank fusion; PostgreSQL parameterized FTS with `simple` generated vector and plain GIN in `0006_m3_lexical`; SQL owner/version/profile predicates before rank. Existing dense HTTP/native contract reused; hydrate IDs via PostgreSQL. No silent source widening on missing dense result. Pack whole bounded chunks and raw provenance catalog, history separate.
-- [ ] Focused check: migration twice on isolated M2 populated DB; all caller tests and negative publication poisoning pass.
-- [ ] Actual native/Qdrant/PostgreSQL smoke: fixed public Transformer parallelization + scaled-attention questions, record lexical/dense/fused refs, source identity and original hash; source-qualified evidence check, not invented recall claim. Foreign/unready run yields zero embedding/search calls. Native preflight must confirm exact digest/1024 dimensions/container reachability, not tags alone.
-- [ ] Review ownership/profile/ranking and measured resource buffers; commit.
+- [x] Run RED in restricted frozen Linux harness: hybrid tests initially failed on absent module; review regressions then failed on concrete behavior. `test_hybrid_retrieval`/`test_owned_retrieval`/`test_stages` final suite passed.
+- [x] GREEN: one authorized ready/version boundary preserves full M2 checks; pure rank fusion; PostgreSQL parameterized FTS with `simple` generated vector and plain GIN in `0006_m3_lexical`; SQL owner/version/profile predicates before rank. Existing dense HTTP/native contract reused; hydrate IDs via PostgreSQL. No silent source widening on missing dense result. Pack whole bounded chunks and raw provenance catalog, history separate.
+- [x] Focused check: migration twice on isolated M2 populated DB; all caller tests and negative publication poisoning pass.
+- [x] Actual native/Qdrant/PostgreSQL smoke: fixed public Transformer parallelization + scaled-attention questions, record lexical/dense/fused refs, source identity and original hash; source-qualified evidence check, not invented recall claim. Foreign/unready run yields zero embedding/search calls. Native preflight must confirm exact digest/1024 dimensions/container reachability, not tags alone.
+- [x] Review ownership/profile/ranking and measured resource buffers; commit.
 
 ## Task 5: Exact raw quote resolution and accepted citation reads
 

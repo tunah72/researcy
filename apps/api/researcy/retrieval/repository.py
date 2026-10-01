@@ -135,33 +135,19 @@ def load_ready_document(
 
 
 
-def search_owned(
-    owner_id: UUID,
-    paper_id: UUID,
+def search_dense(
+    document: ReadyDocument,
     query: str,
     limit: int = 5,
 ) -> list[EvidenceHit]:
-    """Execute an owner-scoped dense query against ready published evidence.
-
-    Authorization and readiness must validate in PostgreSQL before any model or
-    Qdrant call. Foreign/nonexistent papers return 404. Unready papers or poisoned
-    payloads return safe unavailable evidence ([]). Expensive work runs outside
-    database transactions.
-    """
-    if not isinstance(owner_id, UUID) or not isinstance(paper_id, UUID):
-        raise ValueError("owner_id and paper_id must be UUID instances")
+    """Search one authenticated immutable publication, never index-supplied text."""
+    if not isinstance(document, ReadyDocument):
+        raise ValueError("document must be an authorized ReadyDocument")
     if type(query) is not str or not (1 <= len(query) <= 2400):
         raise ValueError("query must be a string between 1 and 2400 code points")
-    if type(limit) is not int or isinstance(limit, bool) or not (1 <= limit <= 5):
+    if type(limit) is not int or not (1 <= limit <= 5):
         raise ValueError("limit must be an integer between 1 and 5")
-
-    with get_conn() as conn:
-        try:
-            document = load_ready_document(conn, owner_id, paper_id, None)
-        except APIError as error:
-            if error.status_code == 404:
-                raise
-            return []
+    owner_id, paper_id = document.scope.owner_id, document.scope.paper_id
     scope = document.scope
     active_version_id = scope.document_version_id
     profile = document.profile
@@ -211,8 +197,8 @@ def search_owned(
     if not isinstance(response, dict) or response.get("status") != "ok":
         raise APIError(503, "DEPENDENCY_UNAVAILABLE", "The search service is temporarily unavailable.")
     result_points = response.get("result")
-    if not isinstance(result_points, list) or len(result_points) > limit:
-        return []
+    if not isinstance(result_points, list) or not 1 <= len(result_points) <= limit:
+        raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
 
     # 4. Strict result point and payload validation
     candidate_hits: list[tuple[UUID, float]] = []
@@ -220,26 +206,26 @@ def search_owned(
 
     for point in result_points:
         if not isinstance(point, dict):
-            return []
+            raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
 
         point_id_val = point.get("id")
         score = point.get("score")
         payload = point.get("payload")
 
         if point_id_val is None or score is None or not isinstance(payload, dict):
-            return []
+            raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
 
         if isinstance(score, bool) or not isinstance(score, (int, float)):
-            return []
+            raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
         try:
             score_val = float(score)
         except (ValueError, TypeError, OverflowError):
-            return []
+            raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
         if not math.isfinite(score_val) or not (-1.0 - 1e-5 <= score_val <= 1.0 + 1e-5):
-            return []
+            raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
 
         if set(payload.keys()) != {"chunk_id", "owner_id", "paper_id", "document_version_id", "section_type"}:
-            return []
+            raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
 
         chunk_id_str = payload.get("chunk_id")
         owner_id_str = payload.get("owner_id")
@@ -254,7 +240,7 @@ def search_owned(
             or not isinstance(version_id_str, str)
             or not isinstance(section_type, str)
         ):
-            return []
+            raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
 
         if (
             owner_id_str != str(owner_id)
@@ -262,30 +248,38 @@ def search_owned(
             or version_id_str != str(active_version_id)
             or section_type != "body"
         ):
-            return []
+            raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
 
         try:
             chunk_uuid = UUID(chunk_id_str)
             point_uuid = UUID(str(point_id_val))
         except (ValueError, TypeError):
-            return []
+            raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
         if chunk_id_str != str(chunk_uuid):
-            return []
+            raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
 
         expected_point = index.point_id(profile.index_version, chunk_uuid)
         if point_uuid != expected_point:
-            return []
+            raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
 
         if chunk_uuid not in selected_chunk_ids or chunk_uuid in seen_chunk_ids:
-            return []
+            raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
         seen_chunk_ids.add(chunk_uuid)
 
         candidate_hits.append((chunk_uuid, score_val))
 
-    # 5. Canonical rehydration and provenance verification
+    return hydrate_hits(document, candidate_hits)
+
+
+def hydrate_hits(document: ReadyDocument, candidate_hits: list[tuple[UUID, float]]) -> list[EvidenceHit]:
+    scope = document.scope
+    owner_id, paper_id = scope.owner_id, scope.paper_id
+    active_version_id, job_profile_hash = scope.document_version_id, document.profile_hash
     evidence_hits: list[EvidenceHit] = []
     with get_conn() as conn:
         for chunk_uuid, score_val in candidate_hits:
+            if chunk_uuid not in document.chunk_ids:
+                raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
             # Read chunk metadata in a short transaction that completes and leaves conn IDLE
             with short_transaction(conn):
                 with conn.cursor(row_factory=dict_row) as cur:
@@ -307,7 +301,7 @@ def search_owned(
                     chunk_data = cur.fetchone()
 
             if chunk_data is None:
-                return []
+                raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
 
             section_id = chunk_data["section_id"]
             chunk_text = chunk_data["text"]
@@ -316,10 +310,10 @@ def search_owned(
             try:
                 locations = resolve_range(conn, scope, chunk_uuid, 0, len(chunk_text))
             except (IntegrityFailure, StageFailure, APIError):
-                return []
+                raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.") from None
 
             if not locations:
-                return []
+                raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
 
             evidence_hits.append(
                 EvidenceHit(
