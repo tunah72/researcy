@@ -417,7 +417,7 @@ Resource sampling during this run, with no concurrent test/build, recorded host 
 
 ### Owned frozen-gold dense evidence and exact source geometry
 
-The known-hash frozen uploaded original produced actual native top-five attention evidence at page label **3**, bottom-left PDF user-space points. PostgreSQL range resolution yielded five verbatim source fragments with zero-based half-open Unicode offsets; each fragment satisfied `source_end − source_start = quote code points = character boxes`. Grouped source-line unions:
+The known-hash frozen uploaded original produced actual native top-five attention evidence at zero-based **`page_index=3`**, physical one-based page **4** (printed footer **4**, no PDF page-label entry), bottom-left PDF user-space points. The earlier “page label 3” description was a reporting error, corrected after inspecting the unchanged frozen PDF; no gold record or source geometry was shifted. PostgreSQL range resolution yielded five verbatim source fragments with zero-based half-open Unicode offsets; each fragment satisfied `source_end − source_start = quote code points = character boxes`. Grouped source-line unions:
 
 1. `[366.239105, 198.408936, 504.000000, 208.396423]`.
 2. `[108.000000, 186.894409, 503.998383, 197.699036]`.
@@ -565,3 +565,29 @@ A preparation attempt lacking the CSRF cookie returned 403 before the warm basel
 Cleanup verified the new private database and bucket absent, removed **54 objects** and only its **three** document scopes' filtered Qdrant points; stopped private API/web and removed the exited measurement worker and private overrides. Owner applications, 9Router, native server/model and owner data were untouched.
 
 The prior resource blocker is resolved for the recorded warm-run criterion and missing cold/worker sampling evidence. Absolute swap remains high and cold-load cost remains recorded; this is not a claim of a pristine host or universally guaranteed fit. M2 remains `Implemented` pending full Task 11 gate/traceability closeout; this resource-only rerun does not silently promote every other checklist item to Verified.
+
+### Task 11 final evidence reconciliation
+
+Final explicit replay smoke compared ordered full JSON row snapshots for pages **15**, sections **62**, blocks **1,051**, spans **1,048**, chunks **68**, and chunk-span mappings **12,176** before/after actual selected-index replay and after publication. All six row hashes were unchanged; normalized actual Qdrant payload/vector fingerprint was unchanged. Original document-version UUID/SHA remained stable and publication count was exactly one. Native top-five gold retrieval and foreign-owner 404 were also observed in this final actual run. Its uniquely created DB/bucket/collection were removed in `finally`; the added throwaway script was removed.
+
+This actual smoke completed in **42.225 seconds**. Ordered chunk-row SHA `b929fa20b7cf053834c19d6c6bbe69d8e6a53da9d8e3d616ab0a1d08ad794f20`, mapping-row SHA `7e757b5ddedef5ca3499d59249d88689c44be413e4a9fe1f968e459a3d723897`, and normalized Qdrant fingerprint `0ff2e4b4fd0bf525f82e8b32e5acc6c1256248a141ccd4652829f69ffad4546a` were stable across replay. These are isolated-scope fingerprints, not replacements for historical corpus results.
+
+This closes the explicit full mapping comparison gap rather than inferring it from point counts. It supplements the actual partial-upsert/final-ack-loss and delayed explicit-retry-revision replay evidence above, not substitutes a same-process replay for crash/lease recovery.
+
+Source page convention is now explicit: gold `page_index=3` is zero-based and refers to physical/printed page **4**. Master/child shorthand “page 3 region” is interpreted as the frozen gold index, not a reason to shift offsets/boxes or rewrite historical Q0 evidence. The first annotation rectangle's 1.499-point excess remains recorded; exact source-character boxes were not widened to match an annotation envelope.
+
+Final independent publication/security review and resource-evidence review both **PASS**, no blocking findings. Reviewers verified full-set scoped provenance, short transactions/fencing/deadlines, bounded writable scratch, exact resource threshold semantics and source measurements. They ran no additional tests/builds or host actions.
+
+| Final gate | Observed result / evidence above |
+|---|---|
+| G1 | PASS: official 202 intake, every durable stage to ready, immutable original/artifact audit, populated M1 schema upgrade twice unchanged |
+| G2 | PASS: actual SIGKILL and actual pause/reclaim/resume; unchanged 90-second lease, generation fencing, one publication, selected external bytes stable |
+| G3 | PASS: actual partial/final-ack faults, full ordered canonical/mapping and normalized vector comparison, explicit revision replay after completed retry without new cycle |
+| G4 | PASS: seven actual integrity failures terminal/non-ready/non-retryable; transient outage recovers via supported retries |
+| G5 | PASS: frozen-hash native top-five gold evidence, exact scoped offsets/character boxes and correct indexed page/column; annotation-envelope difference and page-index correction explicitly retained |
+| G6 | PASS: actual intake and worker invalid/resource inputs, containment probes, bounded failure/reaping/no partial publication, native rotated/cropped success |
+| Resource | PASS for unchanged warm criteria; separate cold-load cost retained, sampled peaks not continuous maxima, pressure Warning/Urgent not Normal |
+| Browser | PASS: persisted states and keyboard/retry journeys, four widths, one main/no overflow, reduced motion; controlled injections labelled separately |
+| Suites/build | 516 backend passed / 1 opt-in skip; 67 frontend passed; production API/worker/web builds passed |
+
+**Current delivery decision: M2 `Verified` in the isolated implementation worktree.** All preceding in-progress/blocker statements are dated checkpoint history, superseded by this reconciliation; historical failed measurements remain visible. No owner schema/data/worker action was executed: every mutable gate fixture used uniquely named private databases/buckets and scoped collections/points, subsequently cleaned. This is technical milestone verification, not owner-stack cutover or M1/OAuth verification. No push, merge, prune or Reader/public-retrieval/citation claim is included.
