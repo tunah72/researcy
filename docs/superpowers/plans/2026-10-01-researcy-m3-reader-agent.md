@@ -181,7 +181,7 @@ Define `pdfBoxToViewport(box: readonly [number,number,number,number], transform:
 **Scope/files:** T3 file map. Composite owner/paper/version FKs, run-state and citation tables per spec; T5 adds citation repository behavior, not a second schema convention.
 **Consumes/produces:** ReadyDocument; Conversation/Message/RunReservation and owned paginated read/create routes.
 
-- [ ] RED real DB: create conversation pins current immutable ready version; foreign/random conversation/messages 404; unready/CSRF/hostile Origin rejected before body/quota/network; duplicate submission same UUID/bytes yields one reservation, changed bytes 409; concurrent connections reserve at most one owner/conversation run; expired run becomes interrupted, cannot be overwritten by completion. Persist full question and history, no generated summary.
+- [x] Initial RED: actual authenticated production create expected 201 but returned 404. Real DB/API regressions cover pinned version, indistinguishable ownership, security/readiness precedence, duplicate/changed UUID, concurrency, quota and expiry; see acceptance report for the distinction between initial HTTP RED and later GREEN regressions.
 
 ```python
 def test_duplicate_submission_does_not_reserve_second_run(run_db):
@@ -193,11 +193,11 @@ def test_duplicate_submission_does_not_reserve_second_run(run_db):
 
 `run_db` is a test-local real-DB helper constructed in T3, calls actual reserve_run with distinct committed connections; count queries authoritative quota table. Add different-payload and state-transition tests, not helper forwarding assertions.
 
-- [ ] Run RED: `uv run --frozen pytest tests/test_reader_schema.py tests/test_conversations.py -q`.
-- [ ] GREEN: `0005_m3_reader` migration with scoped relations/state checks/partial uniqueness, repositories and paginated GET/create routes; bounded question body parsed only after auth; no network in transaction. Persist run lease expiry and lazy interrupted reconciliation. Central Pydantic responses/request IDs.
-- [ ] Focused checks: upgrade disposable populated M2 DB twice, verify original IDs/hash/profile/canonical row fingerprints unchanged; attempt cross-owner/version FK violations and observe rejection. Check OpenAPI.
-- [ ] Actual HTTP smoke: create/list/read history with two opaque sessions against isolated API, reload expired run and observe interrupted state; database dropped only by exact test identity.
-- [ ] Review transaction/races/security, scoped commit and evidence. Stream route delivered in T7, not a stub here.
+- [x] RED evidence recorded: actual production HTTP assertion before implementation; NUL/canonical-publication review regressions failed before fixes. The planned `test_reader_schema`/`test_conversations` pytest RED command was not run before implementation; no such result is claimed.
+- [x] GREEN: `0005_m3_reader` migration with scoped relations/state checks/partial uniqueness, repositories and paginated GET/create routes; bounded question body parsed only after auth; no network in transaction. Persist run lease expiry and lazy interrupted reconciliation. Central Pydantic responses/request IDs.
+- [x] Focused checks: upgrade disposable populated M2 DB twice, verify original IDs/hash/profile/canonical row fingerprints unchanged; attempt cross-owner/version FK violations and observe rejection. Check OpenAPI.
+- [x] Actual HTTP smoke: create/list/read history with two opaque sessions against isolated API, reload expired run and observe interrupted state; database dropped only by exact test identity.
+- [x] Review transaction/races/security, scoped commit and evidence. Stream route delivered in T7, not a stub here.
 
 ## Task 4: Active-version hybrid retrieval and deterministic packing
 

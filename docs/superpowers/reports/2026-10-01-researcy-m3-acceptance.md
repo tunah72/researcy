@@ -112,3 +112,33 @@ ReaderGeometryUxReview returned correct, no findings. ReaderLifecycleReview iden
 Actual RED/GREEN lifecycle proof used the real original PDF with a controlled browser response changing canonical page count from 15 to 14: safe load failure retained **one worker before** the correction and **zero after**. The fault interceptor was removed; reloading the unmodified production response restored selectable text, two page canvases and one active worker. Attempts to induce a renderer error by monkeypatching canvas methods did not produce the intended failure and are not acceptance evidence; the subsequent full page reload removed those temporary patches.
 
 Final full frontend suite: **79 passed in 13.43s**; final isolated production build/start succeeded with strict TypeScript. T2 complete. No conversation mutation or generation request is implemented or triggered by opening Reader. G1–G7 remain open pending complete M3 acceptance; M3 remains Planned.
+
+T2 committed as `389c972`. Final streamed-text browser check selected page 2, retained three canvases and one main without horizontal overflow, and selected actual text from the new streaming TextLayer. The managed proof tab was closed.
+
+## T3 execution — complete
+
+Controller owns schema, transactions and integration. A delegated test-writing agent failed with provider retry exhaustion and left no files; its work is not implementation or test evidence. Controller wrote the real DB/API regressions inline.
+
+RED through actual production same-origin API with an opaque private session and CSRF: owned ready `POST /api/papers/{paperId}/conversations` with `{}` expected 201 but returned 404; request ID `a16d0ab0-23cf-472b-93cd-6a06db427156`. Implemented forward `0005_m3_reader`, pinned conversations/messages/runs/citations and rolling request quota, owned paginated read/create routes, owner-serialized short reservation/terminal transactions and lazy lease reconciliation. Stream remains T7, not a placeholder endpoint. First production startup failed on an unterminated action-serialization key; corrected and rebuilt before behavioral proof.
+
+Applied the migration twice only on the isolated acceptance database. Compared counts and order-independent row fingerprints for thirteen existing M2 tables before/after: identical, including 15 pages and 68 chunks. Original/version/profile/jobs/manifests/publications remain unchanged.
+
+Actual production HTTP/runtime proof:
+
+- Conversation create: 201 pinned version `81492edc-6d44-4602-840f-124f4504cdf9`; request ID `087089c8-82b2-473b-aadb-845e2dabf4f8`. Conversation list: 200 with the same pinned identity (`b2e62f01-f276-4d66-ba1c-9986a4bd4937`).
+- Same client UUID/exact question returned the same run with one quota row and zero generation calls. Expired lease rejected late refusal completion with `READER_RUN_NOT_ACTIVE`; persisted state remained interrupted. Actual history GET returned completed user/interrupted assistant (`5f463b73-1e07-480f-ac28-0d56352afd8a`).
+- A separate expired run was still running before HTTP reload; history GET lazily persisted interrupted (`77468a63-ea34-4787-9bb2-3f1c37972ba2`).
+- Second fixture session was initially expired (401), then explicitly refreshed only in the private acceptance DB. Foreign and random conversation histories both returned identical 404 `RESOURCE_NOT_FOUND`/safe message (`3fa825cf-7301-4964-b1a2-5bc49994580c`, `837aa980-d605-4eb2-9790-0e78cfbc1f4e`).
+- Malformed body did not override security: unsigned 401, hostile Origin 403, foreign/random paper 404 before JSON parsing. Generated OpenAPI advertises empty-object-only creation and concrete pagination responses.
+
+ReaderSchemaApiReview returned correct. ReaderRunPersistenceReview found NUL-bearing questions reached PostgreSQL and accepted citations were not authoritatively rebound to their raw spans. Four permanent regressions failed before correction (9.04s): NUL accepted, nonexistent span/unrelated quote/unrelated boxes accepted. The initial citation test fixture had not published readiness; corrected using real index/verify/publish, not a fake ready loader.
+
+Questions now reject NUL. Citation publication rehydrates owner/paper/version/page-local nonexcluded canonical spans, verifies exact offsets/fragment quotes/boxes, derives public quote/geometry and persists original fragment quotes. Same short transaction rolls back answer/citations on mismatch. Focused regressions: **four passed in 9.04s**. Focused review follow-up: correct, no findings.
+
+Affected suite (`test_reader_schema`, `test_conversations`, `test_reader_citation_publication`, `test_library`, `test_owned_retrieval`, `test_pdf_delivery`): **73 passed in 120.41s**. Added context-budget/cursor/unready-precedence regressions afterward; final focused T3 suite: **15 passed in 23.89s**. Those later regressions were not observed failing before implementation; the actual initial RED was the production HTTP assertion, and review defects have explicit failing-before/passing-after tests. No claim of an unexecuted pytest RED run.
+
+Final production API image rebuilt and became healthy. Actual canonical-publication smoke rejected a nonexistent fragment atomically, then accepted/reloaded an exact canonical fragment including stored raw quote; zero generation calls. This controlled claim validates persistence, not semantic entailment or a model answer. First throwaway smoke invocation was broken by Eval's SQL-placeholder transformation; rebuilding the preserved placeholder string yielded exit 0. No repository scaffold was added. T3 complete; stream/generation/citation resolver remain their approved subsequent tasks.
+
+### Read-only T6 prerequisite update
+
+The earlier stopped/candidate gateway observation is historical. Current `lsof` found node listening on 20128; its working directory identifies installed `/opt/homebrew/lib/node_modules/9router/app`. Installed 9Router 0.5.81 docs establish `/v1`; read-only `/v1/models` contains `ag/gemini-3.8-flash-low`. A safe local DB aggregate found active client-key metadata, including a `researcy` record, without reading/logging credential values. These are endpoint/catalog facts, not upstream entitlement, real generation, usage or pricing qualification. No route change or generation request was performed; T6 still needs authorized product credential wiring and real bounded qualification with measurement provenance.

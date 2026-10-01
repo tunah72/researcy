@@ -13,6 +13,7 @@ from .config import get_settings
 from .errors import APIError, error_payload
 from .papers.routes import router as papers_router
 from .ingestion.routes import router as jobs_router
+from .conversations.routes import router as conversations_router
 
 
 class UploadBodyTooLarge(Exception):
@@ -65,6 +66,7 @@ app.add_middleware(UploadBodyLimitMiddleware)
 app.include_router(auth_router)
 app.include_router(papers_router)
 app.include_router(jobs_router)
+app.include_router(conversations_router)
 
 
 @app.middleware("http")
