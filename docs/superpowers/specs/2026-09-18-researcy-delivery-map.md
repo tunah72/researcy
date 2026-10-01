@@ -167,7 +167,9 @@ The sequence follows the reader-first product dependency: identity and a ready o
 - provider timeout, rate limit, provider failure, and interrupted stream states are actionable and recorded;
 - the first demo journey works with keyboard input at supported desktop widths and shows a citation jump to the exact passage.
 
-**Status:** Not started
+**Status:** Planned
+
+**Owner approval — 2026-10-01:** The owner approved the [M3 child specification](./2026-10-01-researcy-m3-reader-agent-design.md) and [implementation plan](../plans/2026-10-01-researcy-m3-reader-agent.md): “Tôi phê duyệt specification và implement plan.” M3 execution is authorized in an isolated worktree, including the presented prerequisite exception while M1 remains `Implemented`. Approval establishes design/planning, not passing implementation/real-route/browser evidence. Owner-data cutover and publishing/integration require separate authorization.
 
 ### M4 — DiscoveryAgent Recommendations and Explicit Add
 
@@ -236,11 +238,11 @@ The sequence follows the reader-first product dependency: identity and a ready o
 | RET-01 | Lexical + dense retrieval with RRF | 9 | M3 | Designed | Q0.1 report: hybrid Recall@5 6/8; final delivery remains M3 |
 | GEN-01 | Vendor-hosted streaming grounded generation | 10 | M3 | Designed | Q0.1 report: three generation cases passed; final delivery remains M3 |
 | CIT-01 | Citation validation and quote-to-geometry resolution | 10 | M3 | Designed | Q0.1 report and one-case display evidence; final exact-PDF delivery remains M3 |
-| AGENT-01 | ReaderAgent — `POST /api/conversations/:conversationId/messages:stream` | 15 | M3 | Not started | Real-route structured next-action qualification, exact-PDF reader journey, agent trace, cost, and latency |
+| AGENT-01 | ReaderAgent — `POST /api/conversations/:conversationId/messages:stream` | 15 | M3 | Designed | [Approved M3 specification](./2026-10-01-researcy-m3-reader-agent-design.md); real-route structured-action, exact-PDF, trace/cost/latency gates remain required |
 | AGENT-02 | DiscoveryAgent — `POST /api/papers/:paperId/related:search` | 15 | M4 | Not started | Real-route structured next-action qualification, metadata-only rationales, explicit add, agent trace, cost, and latency |
 | AGENT-03 | ResearchAgent — `POST /api/papers/:paperId/research-directions:stream` | 15 | M5 | Not started | Selected-ready-paper citation journey, hypothesis labeling, agent trace, cost, latency, and evaluation |
 | UX-01 | Simplified editorial Library experience | 12, 13 | M1 | Implemented | [M1 acceptance report](../reports/2026-09-24-researcy-m1-acceptance.md); Chromium responsive/state checks passed; real OAuth gate pending |
-| UX-02 | Evidence-linked PDF and Discussion workspace | 12–14 | M3 | Not started | Reader UI and exact PDF citation acceptance remain M3 |
+| UX-02 | Evidence-linked PDF and Discussion workspace | 12–14 | M3 | Designed | [Approved M3 specification](./2026-10-01-researcy-m3-reader-agent-design.md); Reader and exact-PDF browser acceptance not yet performed |
 | EVAL-01 | Fixed corpus and separated quality metrics | 11 | M5 | Not started | — |
 | OPS-01 | Reproducible interview deployment and health checks | 19–21 | M5 | Not started | — |
 
@@ -265,3 +267,5 @@ Master specification revision 2.0 and this delivery map were approved on 2026-09
 **Execution authorization — 2026-09-28:** The owner approved the M2 implementation plan and explicitly permits implementation while the M1 record is supplemented separately. M2 is `Planned`; its requirement rows retain design evidence until implementation/verification evidence exists. The prior prerequisite documentation gap no longer blocks starting M2. M1 technical status and all M2 exit gates remain unchanged.
 
 **M2 final verification — 2026-10-01:** M2 and SEC-01/JOB-01/DOC-01/PARSE-01/EMB-01/IDX-01 are `Verified` based on the isolated worktree's complete recorded G1–G6/resource/browser gates and final reviews. This supersedes the earlier M2 control statuses, not historical evidence. Owner-stack migration/worker startup and publishing/integration still require separate authorization. M1 remains `Implemented`; M3–M5, product generation route and Q0 evidence are unchanged.
+
+**M3 execution authorization — 2026-10-01:** M3 is `Planned` following owner approval of both documents and their named decisions. M1 remains `Implemented`, M2 `Verified`, M4/M5 unchanged. All M3 acceptance gates, product route and historical Q0 evidence are unchanged.
