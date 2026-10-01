@@ -108,9 +108,11 @@ def selected_index(pg_conn,job_connections,tmp_path,monkeypatch,private_bucket,r
     import hashlib
     import time
 
-    conn,_=job_connections;profile=ProcessingProfile(**getattr(request,'param',{}))
+    options=dict(getattr(request,'param',{}))
+    texts=options.pop('source_texts',('Owned exact source for indexed evidence.',))
+    conn,_=job_connections;profile=ProcessingProfile(**options)
     scope=DocumentScope(uuid4(),uuid4(),uuid4())
-    original=_pdf(tmp_path/'original.pdf',texts=('Owned exact source for indexed evidence.',))
+    original=_pdf(tmp_path/'original.pdf',texts=texts)
     screen_pdf(original,'application/pdf');source_bytes=original.read_bytes();source_hash=hashlib.sha256(source_bytes).digest()
     key=put_original(scope.owner_id,scope.document_version_id,original,source_hash.hex())
     _insert_owned_version(conn,scope.owner_id,scope.paper_id,scope.document_version_id,key,source_hash.hex(),len(source_bytes))

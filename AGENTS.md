@@ -33,7 +33,7 @@ Repository layout:
 
 - `apps/web/`: Next.js 16, React 19, strict TypeScript, Vitest/Testing Library.
 - `apps/api/`: Python 3.12, FastAPI, Pydantic, psycopg, Alembic, pytest.
-- `compose.yaml`: current local M1 stack (`web`, `api`, PostgreSQL, MinIO, bucket init). Later services must be added only by their owning milestone.
+- `compose.yaml`: local stack with `web`, `api`, PostgreSQL, MinIO/bucket init, and M2 `processing` profile (`worker`, Qdrant). Native ARM64 Ollama is outside Docker; no later-milestone services.
 - `qualification/`: immutable qualification corpora/results; evidence, not production code.
 - `docs/superpowers/`: approved specifications, plans, and acceptance reports.
 
@@ -48,7 +48,7 @@ Core boundaries:
 - Backend code derives owner, paper, version, and retrieval filters. Never trust client- or model-supplied ownership/filter values.
 - Product model configuration is separate from development-agent tooling. Keep the approved product route unless an approved specification changes it.
 
-Current implemented boundary is M1: sign-in, owner-scoped Library, and PDF/arXiv intake ending in persisted `queued` state. Do not present M2+ behavior such as processing, `ready`, Reader, retrieval, or citations unless its milestone is implemented and accepted.
+Current worktree code implements M2 durable processing, owner-scoped index, and honest Library preparation/retry states. M2 is `Implemented`, not `Verified`: the measured resource gate failed; see the delivery map and M2 acceptance report. Owner-stack M2 cutover has not been authorized/executed. Reader, public retrieval, agent answers and citations remain M3+ and must not be presented as implemented.
 
 ## Non-negotiable contracts
 
@@ -147,6 +147,8 @@ docker compose --profile web down
 ```
 
 Do not add `-v` unless the user explicitly intends to delete local PostgreSQL and MinIO data.
+
+M2 processing setup (only after owner-stack cutover authorization): configure native Ollama with the approved `bge-m3:567m` digest; build the `processing` profile, apply migrations twice before worker startup, start Qdrant, and run `docker compose --profile processing run --rm --no-deps worker python -m researcy.ingestion.preflight --check`. This checks dependencies without claiming jobs. Starting `worker` consumes existing queued papers; do not start it on owner data implicitly. Resource acceptance must run without builds/tests and meet the approved host swap/pressure and service/native limits.
 
 ### Backend
 

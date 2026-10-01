@@ -74,6 +74,40 @@ def test_real_corrupt_point_set_cannot_publish(selected_index,corruption):
         assert fixture['conn'].execute('SELECT document_version_id FROM index_publications WHERE owner_id=%s',(lease.scope.owner_id,)).fetchall()==[]
 
 
+@pytest.mark.parametrize('selected_index',[{
+    'chunk_target':30,'chunk_maximum':60,'chunk_overlap':0,
+    'source_texts':(
+        'Attention weights compare query and key vectors.',
+        'Residual connections retain a direct signal path.',
+        'Position encodings represent token order explicitly.',
+        'Decoder masking excludes future sequence tokens.',
+        'Feedforward layers transform each position separately.',
+        'Encoder outputs provide context to decoder attention.',
+    ),
+}],indirect=True)
+def test_corrupt_provenance_outside_search_probe_cannot_publish(selected_index):
+    import time
+    from researcy.ingestion.jobs import short_transaction
+    from researcy.retrieval.index import index_selected,verify_index,publish_ready
+
+    fixture=selected_index;lease=fixture['lease'];conn=fixture['conn']
+    index_selected(lease,time.monotonic()+60)
+    hits=fixture['client'].request('POST','/collections/'+fixture['collection']+'/points/search',
+        {'vector':[1.0]+[0.0]*1023,'limit':5,'with_payload':True})['result']
+    probe_ids={hit['payload']['chunk_id'] for hit in hits}
+    outside=next(chunk for chunk in fixture['chunks'] if str(chunk.id) not in probe_ids)
+    with short_transaction(conn):
+        conn.execute('ALTER TABLE chunk_span_mappings DISABLE TRIGGER USER')
+        conn.execute('DELETE FROM chunk_span_mappings WHERE owner_id=%s AND chunk_id=%s',(lease.scope.owner_id,outside.id))
+        conn.execute('ALTER TABLE chunk_span_mappings ENABLE TRIGGER USER')
+    with pytest.raises(IntegrityFailure):
+        receipt=verify_index(lease,time.monotonic()+60)
+        publish_ready(conn,lease,receipt)
+    with short_transaction(conn):
+        assert conn.execute('SELECT stage,status FROM ingestion_jobs WHERE id=%s',(lease.job_id,)).fetchone()==('indexing','running')
+        assert conn.execute('SELECT document_version_id FROM index_publications WHERE owner_id=%s',(lease.scope.owner_id,)).fetchall()==[]
+
+
 def test_stale_verified_receipt_cannot_publish(selected_index,job_connections):
     import time
     from researcy.retrieval.index import index_selected,publish_ready

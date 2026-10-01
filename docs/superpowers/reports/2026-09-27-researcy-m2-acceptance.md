@@ -404,3 +404,124 @@ Final quota boundary RED: one consumer failure in 110 ms showed a 429 deadline l
 Final affected frontend: **67 passed across six files in 1.91 seconds**; isolated-origin production build passed (combined test/build **6.91 seconds**). Final scoped Library review PASS (0.96), detail review PASS (0.99). Rebuilt production surface retained two real completed papers with one main. A labelled controlled **main-world fetch-response probe**, not persisted processing evidence, exercised retry quota 429 during pending sign-out followed by logout 503: the retry remained disabled with its server-response cooldown, showed honest “Try again,” and safe wait guidance. Original fetch was restored and the actual persisted Library reloaded; screenshot inspected.
 
 Task 10 is complete. Task 11 final six-gate, resource, containment and traceability acceptance remains pending; M2 remains `Planned`. Actual worker/HTTP/native/UI evidence above does not substitute for those remaining gates.
+
+## Task 11 actual-stack acceptance — in progress
+
+### Official arXiv intake and durable stage journey
+
+Actual official `1706.03762` intake through production Next.js same-origin proxy returned **202**, edition `v7`, request `c673e5dc-0432-4bdd-ba03-8abb2fa6187b`, paper `4d1bb529-53e4-46c5-bb7a-d89720f9e76d`, document version `01c86577-f843-44c6-a6f2-7bc452ef0f48`, job `5f68bf26-3530-48aa-be49-74ef4ca71417`, persisted queued. The HTTP response was closed before worker startup; this proves independence after accepted intake, not a mid-upload disconnect experiment.
+
+Started the actual constrained worker only on the disposable database/bucket. Observed all stages through actual status HTTP reads: `queued/pending → validating/running → parsing/running → normalizing/running → chunking/running → embedding/running → indexing/running → ready/succeeded`. Run elapsed **49.975 seconds**, 24 status reads, maximum latency **0.176633 seconds**. PostgreSQL afterward reported original SHA `bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697`, **2,215,244 bytes**, pinned model digest, **five sealed stage manifests**, **68 chunks**, **one publication**. Exact point/artifact-set and populated M1 upgrade acceptance are still pending.
+
+Resource sampling during this run, with no concurrent test/build, recorded host swap **8350.19→8817.25 MiB** (growth **467.06 MiB**) and actual Docker memory/PID samples. This is not full resource acceptance: native allocation, host pressure, OOM/restart flags, cold loading and the prescribed warm two-corpus-paper/bounded-intake scenario remain unmeasured. Host RAM is 8 GiB; Docker VM reports 4,108,828,672 bytes.
+
+### Owned frozen-gold dense evidence and exact source geometry
+
+The known-hash frozen uploaded original produced actual native top-five attention evidence at page label **3**, bottom-left PDF user-space points. PostgreSQL range resolution yielded five verbatim source fragments with zero-based half-open Unicode offsets; each fragment satisfied `source_end − source_start = quote code points = character boxes`. Grouped source-line unions:
+
+1. `[366.239105, 198.408936, 504.000000, 208.396423]`.
+2. `[108.000000, 186.894409, 503.998383, 197.699036]`.
+3. `[108.000000, 171.332947, 459.462646, 188.376282]`, including the fraction/equation fragments.
+
+The annotated gold's first line rectangle extends approximately **1.499 points** below the exact returned character union; remaining grouped rectangles differ by less than **0.005 points**. A first naive fragment-only comparison omitted fraction fragments and was rejected as an invalid comparison rather than changing geometry. Private red-gold/blue-source rendering on the unchanged frozen PDF was visually inspected: correct region/column and complete quoted sentence, with raw per-character boxes preserved rather than stretched to match an annotation rectangle.
+
+Actual foreign-owner and nonexistent-paper internal lookups both returned **404 `RESOURCE_NOT_FOUND`**; instrumentation observed **zero native-client constructions** for those denied calls. No Reader citation, dense Recall@5 qualification or answer-quality acceptance is inferred.
+
+Remaining G2/G3/G4/G6 and full resource/traceability checks are pending. Private crash and selected-index fault harnesses are being prepared without execution or production changes; parent execution remains serial to preserve resource evidence.
+
+### G6 containment defect found and corrected during actual smoke
+
+The actual malicious-child `sandbox.run_pdf_child` probe under the deployed ARM64 Compose profile confirmed UID 65534, no service environment/parent private marker, no `/proc`, and no connection to a verified live parent listener. It also exposed a real gap: an invented child could write `/escape` inside the namespace's writable root. This was isolated namespace storage, not a demonstrated host-write escape; it nevertheless violated the bounded-scratch write boundary.
+
+Permanent regression `test_child_writes_only_to_bounded_scratch_mount` was **RED**: `/escape=True`, `/tmp/scratch=True`. Minimal fix: `bwrap --remount-ro /` after mounting dependencies/devices and the separately size-limited `/tmp`. No parser/output fallback or fault flag was added. The same actual malicious-child smoke then observed outside-write **false**. CPU/output/memory limits returned `PDF_SCREEN_RESOURCE_LIMIT` at **1.007/0.089/0.099 seconds**; wall limit returned `PDF_SCREEN_TIMEOUT` at **0.302 seconds**; every failure removed partial parent output.
+
+Affected deployed suites (`tests/test_parser_sandbox.py tests/test_screening.py tests/test_parser.py`, read-only source/test mounts, `-p no:cacheprovider`) passed **65 tests in 18.59 seconds**. An earlier command incorrectly named `test_document_parser.py` and ran no tests; it is not verification evidence. Production rebuild, total affected suite and remaining G6 intake/reaping/cleanup assertions are still pending.
+
+### G6 actual same-origin invalid intake and proxy truncation correction
+
+The production Next.js `:4000 /api/papers/upload` → isolated API `:18001` route rejected real corrupt/encrypted/image-only/101-page fixtures with safe JSON 422s. A **25 MiB + 10 bytes** PDF-prefixed body instead returned **500**, no JSON content type, 21-byte response. Actual production web log confirmed Next.js's default **10 MB** request-body buffering truncated the rewrite and the upstream connection reset. This was a real end-to-end boundary defect, not a mocked status response.
+
+Installed Next 16.3.6 documentation specifies `experimental.proxyClientMaxBodySize`; set it to **26 MiB**, preserving the existing default API's 25 MiB PDF cap plus multipart overhead, without moving authentication/intake validation into Next.js. This is a transport buffer limit, not a second accepted-upload limit. Production rebuild and restart changed only the private port-4000 preview.
+
+Repeated smoke initially hit the honest import quota on the prior UI fixture; no quota rows or owner policy were weakened. A distinct disposable fixture identity in the same private database then exercised all five actual cases:
+
+| Input | HTTP / safe code | Safe request ID |
+|---|---|---|
+| Corrupt PDF-prefixed bytes | 422 `PDF_INVALID` | `1dc8620a-a4bb-4190-8e04-a0464dd46784` |
+| AES-256 encrypted PDF | 422 `PDF_ENCRYPTED` | `1bbd67e3-ab93-44f4-a125-903585a71582` |
+| Actual image-only PDF | 422 `PDF_NO_TEXT` | `00bffa0d-12f5-4046-bf42-48d80689f2cc` |
+| Actual 101-page PDF | 422 `PDF_TOO_MANY_PAGES` | `a6b98a73-ff1a-4a2f-ae8a-ad1035bdb8ea` |
+| PDF-prefixed bytes exceeding 25 MiB | 413 `PDF_TOO_LARGE` | `a55d77ff-a75c-43ea-84ab-383d6f4fcb43` |
+
+Persisted document versions changed by **zero** across the successful rejection smoke. The result does not claim worker-entry corruption, full G6 cleanup/reaping or arbitrary larger-than-proxy-buffer safe handling.
+
+Final post-sandbox-fix Linux affected suite passed **515 tests, 1 opt-in skip in 133.76 seconds**. Genuine production API target and production worker both rebuilt; the separately tagged test image was also rebuilt. Frontend suite passed **67 tests in six files** and production Next/TypeScript build passed (combined command **6.70 seconds**) after the body-buffer fix. Actual same-origin intake confirms the changed transport path independently of these suites.
+
+### Resumed Task 11: populated M1, actual Compose crash and stale worker
+
+Worktree recovery confirmed branch `feat-m2-durable-processing`, Task 1–10 commits through `e4eda60`, and uncommitted acceptance fixes; no reset, push, merge or owner-stack worker startup. Both delegated harness agents failed provider DNS (`daily-cloudcode-pa.googleapis.com`) without delivered gate evidence; their output is not counted.
+
+Private fixtures copied and SHA-verified the already accepted official original from private storage, seeded an actual `0002_m1_source_guards` schema with paper/version/job/idempotency outcome, applied `head` twice, and checked unchanged identity/hash/byte count/private key/outcome and `queued/pending`. No owner database was upgraded.
+
+Actual isolated Compose worker was killed with `kill -s SIGKILL worker` after four sealed prior manifests and 68 chunks. Heartbeat `2026-10-01 02:32:26.550987+00:00`, expiry `02:33:56.550977+00:00`: exactly the production 90-second interval. Replacement claim was observed only after that database-time expiry, generation/attempts **1→2**, then `ready/succeeded`, **one publication**. Ordered chunk ID/checksum hash and prior manifest hashes remained identical. The first reclaim sample was 53.541 seconds after replacement observation began, not a shortened lease: startup/command interval had already consumed part of the original 90 seconds.
+
+Separate actual Compose pause/resume run kept A paused past its unmodified expiry. Initial B harness mistakenly inherited only the partial override and started Uvicorn; that interval is a harness failure, not worker evidence. B was corrected using the fully rendered production worker command/UID/read-only root/seccomp/capability/PID/memory/tmpfs profile. Actual B then reclaimed generation 2 and completed. A's saved generation-1 heartbeat returned false and `fenced_transaction` raised `LostLease` before admitting a statement. After unpausing A and observing 16 seconds, publication remained one and exact selected-content fingerprint was unchanged:
+
+`03be977605970ce7fd96ba75fc2c1ac834d61593a590bd192df2979f028d94a5`.
+
+Readback verified original SHA, five sealed manifests, **19 unique stored artifacts**, **17 selected batches**, exact ordered **68 chunks**, and actual Qdrant IDs/payload/normalized vectors. Each private gate database/bucket and only its three-key scoped points was removed after observation. Stopped run-owned `worker_b` container was removed explicitly; no orphan-wide prune.
+
+### G3/G4 real selected-index fault replay and publication defect
+
+A private process-boundary harness intercepted actual Qdrant requests only after they completed: first four-point upsert and final upsert acknowledgement. Replaying the sealed selected bytes produced the same receipt and exact 68-point vector/payload fingerprint; no publication existed before final verification. There are no committed production fault switches.
+
+Initial fault run correctly kept missing/wrong-ID/extra/wrong-payload/wrong-vector cases terminal, but deleting a mapping from a chunk outside the top-five publication probe incorrectly reached **`ready/succeeded`**. Permanent real-store regression `test_corrupt_provenance_outside_search_probe_cannot_publish` was **RED**, `DID NOT RAISE IntegrityFailure`. Root cause: readback validated provenance only for search-probe hits, not the complete selected chunk set.
+
+Minimal fix reuses `resolve_range` for each exact readback point, with one reused PostgreSQL connection and short per-chunk transactions; removed the now-redundant probe-hit provenance pass. No second validator, fallback, compatibility path or dependency was introduced. Affected index/transport suites passed **65 tests in 18.00 seconds**.
+
+Actual post-fix worker `run_once` and separate real FastAPI HTTP service observed **seven** terminal integrity/non-ready cases: missing point, equal-count wrong ID, extra point, wrong payload, wrong vector, corrupted non-probe mapping and corrupted manifest. Each returned safe `PROCESSING_INTEGRITY_FAILURE`, no publication, and public retry **409 `JOB_NOT_RETRYABLE`**. Mapping/manifest injection temporarily disabled user triggers only in the disposable database; explicit operator restoration isolated each scenario, never public retry.
+
+Actual unreachable Qdrant endpoint produced `indexing/pending`, `DEPENDENCY_UNAVAILABLE` (request `c44f7931-743f-4f84-b44b-a8026f2a1ca3`). Restoring the endpoint and waiting actual DB `run_after` allowed supported automatic retry to complete with one publication and unchanged selected point fingerprint. Explicit retry revision replay remains a separate outstanding G3 check; automatic recovery is not substituted for it.
+
+### G6 worker entry and complete rotated/cropped processing
+
+Privileged queued fixtures in a separate disposable database/bucket exercised the real worker entry independently of accepted intake: corrupt/encrypted/image-only/101-page/26-MiB inputs each ended terminal with the respective safe code, non-retryable, **zero chunks/publications**. Production `put_original` correctly rejected the oversize fixture before the worker; direct private-storage injection was explicitly used only to test worker defense, not treated as accepted intake.
+
+Actual readable three-page PDF with rotations **90/180/270** and non-zero crop offset completed the entire native pipeline with one publication; each resolved fragment satisfied exact quote/source-offset/character-box cardinality. Final malicious-child smoke separately observed fork denial and reaped direct child/launcher, no network/secret/parent-file/outside-root write, bounded CPU/wall/output/memory failure and no partial output. A body exceeding the new 26-MiB proxy buffer also returned actual safe JSON **413 `PDF_TOO_LARGE`**, request `c5ef1018-6b5d-4567-8a09-98f4bcf0686f`.
+
+All fault/security fixtures above were cleaned by exact private identity. Full post-publication-fix suite/build, final resource/browser checks and explicit-retry replay are still outstanding; M2 is not `Verified`.
+
+### Explicit retry revision replay after actual terminal outage
+
+Repeated private selected-index run exhausted all five real unreachable-Qdrant attempts using unchanged production backoffs and actual DB `run_after`; waited the final cooldown without mutating timestamps. Actual HTTP retry returned **202** for revision 0, **200** for its immediate duplicate, and **200** for delayed replay after the recovered job completed. Stored revision **1**, total attempts **6**, cycle attempts **1**, one publication, unchanged vector/payload fingerprint; no new cycle was created by either replay. Safe request IDs: `8b1dc021-fb4c-4e9b-8e95-aede91bb1050`, `35506357-bc6b-473e-93ab-c25bb6bb4d5b`, `9f22b49e-23f2-445b-819d-0ef14c4295e3`. All seven integrity cases also remained terminal/non-retryable in this run.
+
+Fresh actual persisted Library screenshot after backend acceptance showed honest complete rows with no Reader action or preparation badge. At **375/768/1024/1440**, one main, no horizontal overflow, and reduced-motion media query true. This refresh does not replace the earlier actual keyboard/failure/retry journeys.
+
+### Final production build and resource acceptance blocker
+
+Post-publication-fix complete deployed Linux suite: **516 passed, 1 opt-in skip in 144.37 seconds** (149.09-second command). Production API, worker and web container builds passed, total **92.76 seconds**. No test/build ran concurrently with the subsequent measurement.
+
+Actual inspection exposed missing PostgreSQL/MinIO/web memory ceilings in Compose. Applied the approved provisional **384/256/256 MiB** caps; existing API/worker/Qdrant remain **512/1024/512 MiB**. Applied caps only to the running private PostgreSQL/MinIO without restart and started private production API/web (`:4001`). Root owner ports/services were untouched.
+
+Warm sequential actual corpus processing used the production worker profile and frozen original hashes:
+
+| Original | Observed completion | Elapsed |
+|---|---|---|
+| `1706.03762`, `bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697` | `ready/succeeded`, first attempt | 26.056 s |
+| `2005.11401`, `23e3249e9a1e75418d82efecab0ea8c4d033b89c93742f63208d47ce01f21233` | `ready/succeeded`, first attempt | 36.478 s |
+
+Concurrent actual bounded PDF intake through the capped production web returned **202 in 1.681 seconds**. Sixteen samples recorded host swap/pressure, Docker service usage, native `/api/ps` allocation, native process RSS and authenticated actual Library HTTP latency. Host RAM **8,589,934,592 bytes**; Docker VM allocation **4,108,828,672 bytes**, 8 vCPUs. Native pinned F16 model reported unified/model allocation **1,209,536,512 bytes**; peak sampled server/runner RSS total **232,592 KiB**, which does not establish unswapped physical allocation.
+
+**RESOURCE FAIL:** baseline swap **8,413.31 MiB**, peak **9,672.00 MiB**, growth **1,258.69 MiB**, exceeding **512 MiB**. Recorded host pressure level **2** throughout; no critical-pressure claim is inferred beyond these sampled numeric values. Maximum authenticated Library latency **0.247077 seconds**. Post-run PostgreSQL/MinIO/API/Qdrant/web inspection: OOM false, restart count zero. Sampled maximum cgroup usage percentages: **52.44/93.94/11.80/80.73/24.27** respectively.
+
+Measurement limitations: worker one-shot container name did not match the sampler's service-name filter, so worker+child peak/OOM flag was not retained; native cold load was not performed because the shared model was already loaded and no unload/restart was authorized. These remain missing evidence, not implied passes. No shared 9Router/model/owner application was stopped; no model/parser change or declared-machine increase was attempted.
+
+Read-only audit of the actual official arXiv accepted version additionally verified original SHA, **19 unique stored artifacts**, **five manifests**, **17 selected batches**, ordered **68 chunks** and exact actual Qdrant IDs/payload/selected vectors. Its point fingerprint was `d7dbb2b45c5d8438c73c458e9e0a9e7d8440968384379548128ff26f6cd22253`.
+
+**Delivery decision:** code/configuration is `Implemented`; M2 is **not Verified**. Task 11 remains blocked on resource prerequisite/acceptance and missing cold/worker-peak evidence. A later resource run requires a host environment meeting the approved prerequisite; this report does not authorize closing owner applications, changing the qualified model, or weakening the limit.
+
+### Cleanup and blocked acceptance handoff
+
+Stopped only private production API/web and the port-4000 host preview after recording evidence. Cleanup verified the exact acceptance database and bucket absent, removed **145 private objects**, and deleted only the **seven** document scopes' three-key-filtered Qdrant points. Labels were checked against run-owned fixture prefixes before removal; root owner resources were not accessed/mutated. No `down -v`, owner migration, publishing, merge, push or branch/worktree deletion.
+
+The plan's Task 11 remains open: resource failure and incomplete worker-peak/cold-load measurement prevent final acceptance. Recorded successful fault/security journeys are not promoted into blanket gate or six-gate/resource acceptance. The approved model/runtime, M1 technical evidence and historical Q0 evidence are unchanged.

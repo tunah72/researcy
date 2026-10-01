@@ -488,6 +488,8 @@ Server alone decides preparation success; accepted import says saved/queued, not
 
 **Files:** complete new M2 acceptance report; update delivery map and root `AGENTS.md` implemented-boundary/setup text only when accurate. Temporary fault/measurement harnesses remain private and are removed after evidence. No standalone fake acceptance app or permanent production fault switch.
 
+**Execution checkpoint — 2026-10-01:** code and actual fault/security/UI journeys are recorded in the [M2 acceptance report](../reports/2026-09-27-researcy-m2-acceptance.md#task-11-actual-stack-acceptance--in-progress). Complete backend suite: 516 passed, one opt-in skip; frontend 67 passed; final production API/worker/web builds passed. **Task 11 remains open:** warm resource run measured swap growth 1,258.69 MiB against the 512-MiB gate, and cold-load/worker-peak measurements are incomplete. M2 status is `Implemented`, never `Verified`; private acceptance fixtures have been cleaned. Do not rerun against owner data or unload shared models to conceal this blocker.
+
 **Dependencies:** T1–T10 reviewed/committed; plan and M1 prerequisite decisions recorded; native runtime and private storage available. Announce that starting the worker on owner stack consumes pre-existing queued jobs before cutover. Do not migrate/start that worker without the owner's recorded execution authorization.
 
 ### Reproducible commands

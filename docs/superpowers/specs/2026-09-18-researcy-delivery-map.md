@@ -133,9 +133,11 @@ The sequence follows the reader-first product dependency: identity and a ready o
 - a gold query retrieves evidence that maps back to page geometry;
 - parser resource-bound and invalid-input cases have recorded security evidence.
 
-**Status:** Planned
+**Status:** Implemented
 
 **Approved specification and plan:** [M2 child specification](./2026-09-27-researcy-m2-durable-processing-design.md) approved 2026-09-27; [implementation plan](../plans/2026-09-27-researcy-m2-durable-processing.md) approved 2026-09-28. The owner explicitly authorizes implementation while completing the M1 record separately. This is a prerequisite exception, not M1 verification or a passing M2 exit gate.
+
+**Implementation evidence — 2026-10-01:** Tasks 1–10 and acceptance-discovered containment, proxy-body and full-set provenance fixes are implemented in the M2 worktree. The [M2 acceptance report](../reports/2026-09-27-researcy-m2-acceptance.md#task-11-actual-stack-acceptance--in-progress) records actual import, crash/stale-worker recovery, selected-vector replay, terminal integrity failures, owned geometry, security and UI journeys. **Not Verified:** measured warm-run swap growth **1,258.69 MiB** exceeds the approved **512 MiB** limit; full worker-peak/cold-load evidence remains incomplete. Owner stack cutover was not performed. Task 11 acceptance remains open; no model change or shared-service shutdown is authorized by this blocker.
 
 ### M3 — ReaderAgent and Evidence-Linked PDF Reader
 

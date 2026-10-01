@@ -799,7 +799,7 @@ def verify_index(lease: Lease, deadline: float, *, cancel: Event | None=None) ->
         ]
     }
 
-    with QdrantClient(deadline=deadline,cancel=cancel) as client:
+    with QdrantClient(deadline=deadline,cancel=cancel) as client, get_conn() as provenance_conn:
         cnt_res = client.request(
             "POST",
             f"/collections/{target_collection}/points/count",
@@ -913,6 +913,8 @@ def verify_index(lease: Lease, deadline: float, *, cancel: Event | None=None) ->
                     "vector": expected_vector,
                 }
                 validate_point_set([expected_pt], [pt])
+                # A search probe cannot establish provenance for the entire publication.
+                resolve_range(provenance_conn, lease.scope, cid, 0, len(chunks[cord][3]))
 
             offset = res_dict.get("next_page_offset")
             if offset is None:
@@ -946,30 +948,13 @@ def verify_index(lease: Lease, deadline: float, *, cancel: Event | None=None) ->
         )
         if type(search_res) is not dict or search_res.get("status") != "ok":
             raise IntegrityFailure("PROCESSING_INTEGRITY_FAILURE")
-        hit_cids = validate_search_hits(
+        validate_search_hits(
             search_res.get("result"),
             lease.scope,
             profile.index_version,
             set(chunk_ids),
             min(5, len(chunk_ids)),
         )
-        for hit_cid in hit_cids:
-            with get_conn() as conn:
-                with short_transaction(conn):
-                    require_owned(conn, lease)
-                    text_row = conn.execute(
-                        """SELECT text FROM document_chunks
-                           WHERE id=%s AND owner_id=%s AND paper_id=%s AND document_version_id=%s AND profile_hash=%s""",
-                        (hit_cid, lease.scope.owner_id, lease.scope.paper_id, lease.scope.document_version_id, job["profile_hash"]),
-                    ).fetchone()
-                    if text_row is None:
-                        raise IntegrityFailure("PROCESSING_INTEGRITY_FAILURE")
-                    chunk_text = text_row[0]
-
-            with get_conn() as conn:
-                locations = resolve_range(conn, lease.scope, hit_cid, 0, len(chunk_text))
-                if not locations:
-                    raise IntegrityFailure("PROCESSING_INTEGRITY_FAILURE")
         schema_res = client.request("GET", f"/collections/{target_collection}")
         schema_result = _validate_collection_schema(schema_res, profile)
         payload_schema = schema_result.get("payload_schema", {})

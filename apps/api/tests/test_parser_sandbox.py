@@ -45,6 +45,21 @@ print(json.dumps({{"secret":os.getenv("SESSION_LOOKUP_KEY"),"file_visible":file_
     assert result == {"secret": None, "file_visible": False, "proc_visible": False, "uid": 65534}
 
 
+def test_child_writes_only_to_bounded_scratch_mount(tmp_path, monkeypatch):
+    script = '''import json
+results={}
+for path in ("/escape", "/tmp/scratch"):
+    try:
+        with open(path,"w") as target:
+            target.write("bounded-test-marker")
+        results[path]=True
+    except OSError:
+        results[path]=False
+print(json.dumps(results))
+'''
+    assert json.loads(_run_probe(tmp_path, monkeypatch, script).read_text()) == {"/escape": False, "/tmp/scratch": True}
+
+
 def test_child_cannot_connect_to_parent_network(tmp_path, monkeypatch):
     import socket
 
