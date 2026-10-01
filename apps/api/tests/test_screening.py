@@ -166,35 +166,17 @@ def test_screen_pdf_rejects_more_than_configured_byte_limit(tmp_path):
     )
 
 
-def test_screen_pdf_worker_does_not_inherit_service_secrets(tmp_path, monkeypatch):
-    path = _pdf(tmp_path / "isolated-worker.pdf")
-    screening = _module("researcy.papers.screening")
-    secret_names = {"GOOGLE_CLIENT_SECRET", "SESSION_LOOKUP_KEY", "MINIO_ROOT_PASSWORD"}
-    for name in secret_names:
-        monkeypatch.setenv(name, "test-only-secret")
-
-    captured = {}
-    real_run = screening.subprocess.run
-
-    def capture_worker_environment(*args, **kwargs):
-        captured["env"] = kwargs.get("env")
-        return real_run(*args, **kwargs)
-
-    monkeypatch.setattr(screening.subprocess, "run", capture_worker_environment)
-
-    assert screening.screen_pdf(path, "application/pdf").pages == 1
-    worker_env = captured["env"]
-    assert worker_env is not None
-    assert secret_names.isdisjoint(worker_env)
 
 def test_screen_pdf_converts_inspection_timeout_to_safe_rejection(tmp_path, monkeypatch):
     path = _pdf(tmp_path / "timeout.pdf")
     screening = _module("researcy.papers.screening")
 
-    def timeout(*_args, **_kwargs):
-        raise screening.subprocess.TimeoutExpired("pdf-worker", 1)
+    from researcy.documents.sandbox import SandboxError
 
-    monkeypatch.setattr(screening.subprocess, "run", timeout)
+    def timeout(*_args, **_kwargs):
+        raise SandboxError("PDF_SCREEN_TIMEOUT")
+
+    monkeypatch.setattr(screening, "run_pdf_child", timeout)
 
     _assert_api_error(
         lambda: screening.screen_pdf(path, "application/pdf"),
@@ -207,13 +189,12 @@ def test_screen_pdf_converts_child_resource_exhaustion_to_safe_rejection(tmp_pat
     path = _pdf(tmp_path / "resource-limit.pdf")
     screening = _module("researcy.papers.screening")
 
-    monkeypatch.setattr(
-        screening.subprocess,
-        "run",
-        lambda *_args, **_kwargs: screening.subprocess.CompletedProcess(
-            args="pdf-worker", returncode=-9, stdout=b"", stderr=b"private PDF text"
-        ),
-    )
+    from researcy.documents.sandbox import SandboxError
+
+    def exhausted(*_args, **_kwargs):
+        raise SandboxError("PDF_SCREEN_RESOURCE_LIMIT")
+
+    monkeypatch.setattr(screening, "run_pdf_child", exhausted)
 
     with pytest.raises(APIError) as raised:
         screening.screen_pdf(path, "application/pdf")

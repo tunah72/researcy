@@ -12,6 +12,7 @@ from .auth.routes import router as auth_router
 from .config import get_settings
 from .errors import APIError, error_payload
 from .papers.routes import router as papers_router
+from .ingestion.routes import router as jobs_router
 
 
 class UploadBodyTooLarge(Exception):
@@ -52,7 +53,10 @@ async def lifespan(app: FastAPI):
     if not logger.handlers:
         logger.addHandler(logging.StreamHandler())
     logger.setLevel(logging.INFO)
-    app.state.settings = get_settings()
+    settings = get_settings()
+    if settings.app_role != "api":
+        raise ValueError(f"cannot boot api with APP_ROLE={settings.app_role}")
+    app.state.settings = settings
     yield
 
 
@@ -60,6 +64,7 @@ app = FastAPI(lifespan=lifespan)
 app.add_middleware(UploadBodyLimitMiddleware)
 app.include_router(auth_router)
 app.include_router(papers_router)
+app.include_router(jobs_router)
 
 
 @app.middleware("http")

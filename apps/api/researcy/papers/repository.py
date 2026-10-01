@@ -1,8 +1,7 @@
 from ..config import get_settings
 from ..errors import APIError
+from ..ingestion.presentation import preparation
 from .models import MAX_SEARCH_LENGTH
-
-
 class ImportQuotaExceeded(APIError):
     __slots__ = ("retry_after",)
 
@@ -17,7 +16,16 @@ class ImportQuotaExceeded(APIError):
 
 _PAPER_SELECT = """
 SELECT p.id, p.title, p.authors, p.year, p.source, j.stage,
-       v.id, v.source_version, v.screening_warning
+       v.id, v.source_version, v.screening_warning,
+       j.id AS job_id, j.status, j.attempts, j.failure_kind, j.retryable, j.retry_revision,
+       GREATEST(0, ceil(extract(epoch FROM j.run_after - clock_timestamp())))::bigint AS retry_after_seconds,
+       EXISTS(
+           SELECT 1 FROM index_publications ip
+           WHERE ip.owner_id = j.owner_id
+             AND ip.paper_id = p.id
+             AND ip.document_version_id = j.document_version_id
+             AND ip.profile_hash = j.profile_hash
+       ) AS published, j.lease_generation
 FROM papers AS p
 JOIN document_versions AS v
   ON v.owner_id = p.owner_id
@@ -37,12 +45,45 @@ _PAPER_FIELDS = (
     "active_version_id",
     "source_version",
     "screening_warning",
+    "job_id",
+    "status",
+    "attempts",
+    "failure_kind",
+    "retryable",
+    "retry_revision",
+    "retry_after_seconds",
+    "published",
+    "lease_generation",
 )
 
 
 def _paper(row) -> dict:
-    return dict(zip(_PAPER_FIELDS, row, strict=True))
-
+    raw = dict(zip(_PAPER_FIELDS, row, strict=True))
+    prep = preparation(
+        stage=raw["stage"],
+        status=raw["status"],
+        attempts=raw["attempts"],
+        retry_revision=raw["retry_revision"],
+        lease_generation=raw["lease_generation"],
+        failure_kind=raw["failure_kind"],
+        retryable=raw["retryable"],
+        retry_after_seconds=raw["retry_after_seconds"],
+        published=raw["published"],
+    )
+    return {
+        "paper_id": raw["paper_id"],
+        "title": raw["title"],
+        "authors": raw["authors"],
+        "year": raw["year"],
+        "source": raw["source"],
+        "stage": raw["stage"],
+        "active_version_id": raw["active_version_id"],
+        "source_version": raw["source_version"],
+        "screening_warning": raw["screening_warning"],
+        "job_id": raw["job_id"],
+        "retry_revision": raw["retry_revision"],
+        "preparation": prep,
+    }
 
 def get_paper(conn, owner_id, paper_id) -> dict | None:
     row = conn.execute(

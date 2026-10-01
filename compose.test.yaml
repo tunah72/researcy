@@ -1,0 +1,11 @@
+services:
+  api:
+    image: researcy-api:test
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+      target: test
+    environment:
+      APP_ENV: test
+      APP_ROLE: api
+      TEST_DATABASE_ADMIN_URL: "postgresql://${POSTGRES_USER:-researcy}:${POSTGRES_PASSWORD:-local-postgres-password}@postgres:5432/postgres"

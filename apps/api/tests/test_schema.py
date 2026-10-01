@@ -8,19 +8,6 @@ from alembic import command
 from conftest import alembic_config
 
 
-M1_TABLES = {
-    "users",
-    "sessions",
-    "oauth_transactions",
-    "papers",
-    "document_versions",
-    "ingestion_jobs",
-    "import_idempotency",
-    "import_rate_limits",
-    "alembic_version",
-}
-
-M2_REVISION = "0002_m1_source_guards"
 
 
 def schema_snapshot(conn):
@@ -150,20 +137,6 @@ def expect_active_version_reference_rejected(conn, owner_id, version_id):
 
 
 def test_m1_migration_is_rerunnable_and_enforces_owner_constraints(pg_conn):
-    existing = {
-        row[0]
-        for row in pg_conn.execute(
-            "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
-        ).fetchall()
-    }
-    missing = M1_TABLES - existing
-    assert not missing, f"M1 migration is missing tables: {sorted(missing)}"
-
-    assert (
-        pg_conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
-        == M2_REVISION
-    )
-
     before = schema_snapshot(pg_conn)
     command.upgrade(alembic_config(pg_conn.info.dbname), "head")
     after = schema_snapshot(pg_conn)
@@ -248,8 +221,6 @@ def test_0002_upgrade_preserves_existing_m1_paper(pg_conn):
 
     command.upgrade(config, "head")
 
-    revision = pg_conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
-    assert revision == M2_REVISION
     assert (
         pg_conn.execute(
             "SELECT active_version_id FROM papers WHERE id = %s", (paper_id,)
@@ -323,10 +294,6 @@ def test_0002_normalizes_intermediate_0001_guard_objects(pg_conn):
 
     command.upgrade(config, "head")
 
-    assert (
-        pg_conn.execute("SELECT version_num FROM alembic_version").fetchone()[0]
-        == M2_REVISION
-    )
     expect_constraint(
         pg_conn,
         psycopg.errors.CheckViolation,

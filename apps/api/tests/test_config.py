@@ -104,3 +104,47 @@ def test_import_quota_limit_must_be_positive(monkeypatch, value):
 
     with pytest.raises(ValueError, match="IMPORT_QUOTA_LIMIT"):
         Settings.from_env()
+
+
+def test_worker_production_does_not_require_browser_credentials(monkeypatch):
+    set_production_env(monkeypatch)
+    monkeypatch.setenv("APP_ROLE", "worker")
+    for name in ("SESSION_LOOKUP_KEY", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI"):
+        monkeypatch.delenv(name)
+    settings = Settings.from_env()
+    assert settings.app_role == "worker"
+    assert settings.google_client_secret == ""
+
+
+def test_worker_settings_cannot_boot_api(monkeypatch):
+    from fastapi.testclient import TestClient
+    from researcy.main import app
+
+    monkeypatch.setenv("APP_ENV", "test")
+    monkeypatch.setenv("APP_ROLE", "worker")
+    with pytest.raises(ValueError, match="APP_ROLE"):
+        with TestClient(app):
+            pass
+
+
+def test_invalid_runtime_role_is_rejected(monkeypatch):
+    monkeypatch.setenv("APP_ROLE", "parser")
+    with pytest.raises(ValueError, match="APP_ROLE"):
+        Settings.from_env()
+
+
+@pytest.mark.parametrize("name,value", [
+    ("JOB_LEASE_SECONDS","0"), ("JOB_LOCK_TIMEOUT_MS","6000"),
+    ("PROCESSING_EMBEDDING_DEADLINE_SECONDS","901"),
+])
+def test_worker_bounds_cannot_disable_fencing_or_exceed_deadlines(monkeypatch, name, value):
+    monkeypatch.setenv(name, value)
+    with pytest.raises(ValueError):
+        Settings.from_env()
+
+
+def test_worker_heartbeat_must_precede_lease_expiry(monkeypatch):
+    monkeypatch.setenv("JOB_LEASE_SECONDS", "10")
+    monkeypatch.setenv("JOB_HEARTBEAT_SECONDS", "10")
+    with pytest.raises(ValueError):
+        Settings.from_env()
