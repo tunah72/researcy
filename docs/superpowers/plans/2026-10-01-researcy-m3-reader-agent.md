@@ -130,7 +130,7 @@ Exact HTTP bodies/status/pagination/SSE payloads and URL semantics are in spec �
 **Scope/files:** T1 file map, extend detail metadata contract. No parsing/reindexing or owner cutover.
 **Produces:** PDF route, Ready Reader metadata and ByteSelection/PDFStream.
 
-- [ ] RED: real temporary PostgreSQL version + unique private MinIO bucket, supported PDF bytes. Using authenticated TestClient requests prove foreign/random paper/version both 404 and never touch storage, owned unready 409, full/download bytes exactly equal original, HEAD empty, Range exact subset, suffix/open-ended/If-Range and 416 envelope. Revoked session rejects subsequent Range. Assert no object keys/MinIO URLs in successful JSON/header/error payloads.
+- [x] RED: real temporary PostgreSQL version + unique private MinIO bucket, supported PDF bytes. Using authenticated TestClient requests prove foreign/random paper/version both 404 and never touch storage, owned unready 409, full/download bytes exactly equal original, HEAD empty, Range exact subset, suffix/open-ended/If-Range and 416 envelope. Revoked session rejects subsequent Range. Assert no object keys/MinIO URLs in successful JSON/header/error payloads.
 
 ```python
 def test_range_returns_exact_original_slice(pdf_client, owned_pdf):
@@ -142,11 +142,11 @@ def test_range_returns_exact_original_slice(pdf_client, owned_pdf):
 
 `owned_pdf` fixture is created in this task through real persisted source/version/job/publication fixtures and unique MinIO data, with url/original fields; no mocked original echo. `pdf_client` has a real application-issued opaque test session. Add separate zero-suffix/multi-range/overlong-header/storage-early-failure and actual disconnected-response closure cases.
 
-- [ ] Run RED: `uv run --frozen pytest tests/test_pdf_delivery.py tests/test_library.py -q` in isolated Linux test image; observe consumer contract missing/failing, not an unrelated environment failure.
-- [ ] GREEN: implement bounded Range parsing, scoped DB lookup/metadata, MinIO offset/length access and resource cleanup; stream reads ≤64 KiB under total deadline/capacity limit. Reuse original storage client rather than second credential mechanism. Close object/DB on every route exit and HEAD; get metadata before headers. Add Content-Type/Length/Disposition/Range/ETag/cache/nosniff and safe request-ID errors. Blocking work uses existing threadpool path.
-- [ ] Focused check: rerun named tests; inspect actual generated OpenAPI types and owner/nonexistent outcomes.
-- [ ] Actual smoke: start only isolated API/storage, read original through real HTTP full/HEAD/single-range/download; SHA-256 full/download match accepted source, concatenated ranges reconstruct exact bytes. Abort slow client, observe open stream count/resources released; store safe observations in new acceptance report.
-- [ ] Review security/resource/contract, correct findings, commit only T1 files and accurate evidence.
+- [x] Run RED: `uv run --frozen pytest tests/test_pdf_delivery.py tests/test_library.py -q` in isolated Linux test image; observe consumer contract missing/failing, not an unrelated environment failure. Actual execution used the image's already-frozen installed environment via `python -m pytest`; exact commands/outcomes are in the M3 report.
+- [x] GREEN: implement bounded Range parsing, scoped DB lookup/metadata, MinIO offset/length access and resource cleanup; stream reads ≤64 KiB under total deadline/capacity limit. Reuse original storage client rather than second credential mechanism. Close object/DB on every route exit and HEAD; get metadata before headers. Add Content-Type/Length/Disposition/Range/ETag/cache/nosniff and safe request-ID errors. Blocking work uses existing threadpool path.
+- [x] Focused check: rerun named tests; inspect actual generated OpenAPI types and owner/nonexistent outcomes.
+- [x] Actual smoke: start only isolated API/storage, read original through real HTTP full/HEAD/single-range/download; SHA-256 full/download match accepted source, concatenated ranges reconstruct exact bytes. Abort slow client, observe open stream count/resources released; store safe observations in new acceptance report.
+- [x] Review security/resource/contract, correct findings, commit only T1 files and accurate evidence.
 
 ## Task 2: Real PDF Reader before chat
 

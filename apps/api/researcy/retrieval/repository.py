@@ -37,6 +37,102 @@ class EvidenceHit:
     locations: tuple[EvidenceLocation, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class ReadyDocument:
+    scope: DocumentScope
+    profile: ProcessingProfile
+    collection: str
+    profile_hash: bytes
+    chunk_ids: frozenset[UUID]
+
+
+def load_ready_document(
+    conn: psycopg.Connection,
+    owner_id: UUID,
+    paper_id: UUID,
+    version_id: UUID | None,
+) -> ReadyDocument:
+    """Authorize one immutable published scope before any external work."""
+    unavailable = APIError(503, "EVIDENCE_UNAVAILABLE", "The paper evidence is unavailable.")
+    with short_transaction(conn):
+        with conn.cursor(row_factory=dict_row) as cur:
+            paper = cur.execute(
+                "SELECT active_version_id FROM papers WHERE id=%s AND owner_id=%s",
+                (paper_id, owner_id),
+            ).fetchone()
+            if paper is None:
+                raise APIError(404, "RESOURCE_NOT_FOUND", "The requested resource was not found.")
+            version_id = version_id or paper["active_version_id"]
+            version = cur.execute(
+                "SELECT id FROM document_versions WHERE id=%s AND paper_id=%s AND owner_id=%s",
+                (version_id, paper_id, owner_id),
+            ).fetchone()
+            if version is None:
+                raise APIError(404, "RESOURCE_NOT_FOUND", "The requested resource was not found.")
+            job = cur.execute(
+                """SELECT stage,status,profile_hash FROM ingestion_jobs
+                   WHERE owner_id=%s AND document_version_id=%s""",
+                (owner_id, version_id),
+            ).fetchone()
+            if job is None or job["stage"] != "ready" or job["status"] != "succeeded":
+                raise APIError(409, "PAPER_NOT_READY", "This paper is not ready for reading.")
+            if job["profile_hash"] is None:
+                raise unavailable
+            profile_hash = bytes(job["profile_hash"])
+            args = (owner_id, paper_id, version_id, profile_hash)
+            processing = cur.execute(
+                """SELECT profile,index_version FROM document_processing
+                   WHERE owner_id=%s AND paper_id=%s AND document_version_id=%s AND profile_hash=%s""",
+                args,
+            ).fetchone()
+            if processing is None:
+                raise unavailable
+            try:
+                profile = ProcessingProfile(**processing["profile"])
+            except (TypeError, ValueError):
+                raise unavailable from None
+            if profile.profile_hash != profile_hash or profile.index_version != bytes(processing["index_version"]):
+                raise unavailable
+            publication = cur.execute(
+                """SELECT collection,point_count,point_set_hash,chunk_set_hash,embedding_manifest_hash
+                   FROM index_publications
+                   WHERE owner_id=%s AND paper_id=%s AND document_version_id=%s AND profile_hash=%s""",
+                args,
+            ).fetchone()
+            if publication is None or publication["point_count"] <= 0 or publication["collection"] != index.collection_name(profile):
+                raise unavailable
+            manifest = cur.execute(
+                """SELECT record_count FROM stage_manifests
+                   WHERE owner_id=%s AND paper_id=%s AND document_version_id=%s AND profile_hash=%s
+                     AND stage='embedding' AND content_hash=%s""",
+                (*args, bytes(publication["embedding_manifest_hash"])),
+            ).fetchone()
+            chunks = cur.execute(
+                """SELECT id FROM document_chunks
+                   WHERE owner_id=%s AND paper_id=%s AND document_version_id=%s AND profile_hash=%s
+                   ORDER BY ordinal""",
+                args,
+            ).fetchall()
+            ids = [row["id"] for row in chunks]
+            if manifest is None or not ids or not len(ids) == manifest["record_count"] == publication["point_count"]:
+                raise unavailable
+            if bytes(publication["chunk_set_hash"]) != index.chunk_set_hash(ids):
+                raise unavailable
+            points = [index.point_id(profile.index_version, chunk_id) for chunk_id in ids]
+            if bytes(publication["point_set_hash"]) != index.point_set_hash(points):
+                raise unavailable
+            batches = cur.execute(
+                """SELECT chunk_ids FROM embedding_batches
+                   WHERE owner_id=%s AND paper_id=%s AND document_version_id=%s AND profile_hash=%s""",
+                args,
+            ).fetchall()
+            selected = {UUID(str(chunk_id)) for batch in batches for chunk_id in batch["chunk_ids"]}
+            if set(ids) != selected:
+                raise unavailable
+    return ReadyDocument(DocumentScope(owner_id, paper_id, version_id), profile,
+                         publication["collection"], profile_hash, frozenset(ids))
+
+
 
 
 def search_owned(
@@ -59,123 +155,19 @@ def search_owned(
     if type(limit) is not int or isinstance(limit, bool) or not (1 <= limit <= 5):
         raise ValueError("limit must be an integer between 1 and 5")
 
-    # 1. Authoritative ownership, readiness, publication, and manifest check in PostgreSQL
     with get_conn() as conn:
-        with short_transaction(conn):
-            with conn.cursor(row_factory=dict_row) as cur:
-                cur.execute(
-                    "SELECT id, active_version_id FROM papers WHERE id = %s AND owner_id = %s",
-                    (paper_id, owner_id),
-                )
-                paper_row = cur.fetchone()
-                if paper_row is None:
-                    raise APIError(404, "RESOURCE_NOT_FOUND", "The requested resource was not found.")
-
-                active_version_id = paper_row["active_version_id"]
-                if active_version_id is None:
-                    return []
-
-                cur.execute(
-                    """SELECT stage, status, profile_hash
-                       FROM ingestion_jobs
-                       WHERE owner_id = %s AND document_version_id = %s""",
-                    (owner_id, active_version_id),
-                )
-                job_row = cur.fetchone()
-                if (
-                    job_row is None
-                    or job_row["stage"] != "ready"
-                    or job_row["status"] != "succeeded"
-                    or job_row["profile_hash"] is None
-                ):
-                    return []
-                job_profile_hash = bytes(job_row["profile_hash"])
-
-                cur.execute(
-                    """SELECT profile, index_version
-                       FROM document_processing
-                       WHERE owner_id = %s AND paper_id = %s AND document_version_id = %s AND profile_hash = %s""",
-                    (owner_id, paper_id, active_version_id, job_profile_hash),
-                )
-                proc_row = cur.fetchone()
-                if proc_row is None:
-                    return []
-
-                try:
-                    profile = ProcessingProfile(**proc_row["profile"])
-                except (TypeError, ValueError):
-                    return []
-
-                if (
-                    profile.profile_hash != job_profile_hash
-                    or profile.index_version != bytes(proc_row["index_version"])
-                ):
-                    return []
-
-                cur.execute(
-                    """SELECT collection, point_count, point_set_hash, chunk_set_hash, embedding_manifest_hash
-                       FROM index_publications
-                       WHERE owner_id = %s AND paper_id = %s AND document_version_id = %s AND profile_hash = %s""",
-                    (owner_id, paper_id, active_version_id, job_profile_hash),
-                )
-                pub_row = cur.fetchone()
-                if pub_row is None or pub_row["point_count"] <= 0:
-                    return []
-
-                pub_collection = pub_row["collection"]
-                expected_collection = index.collection_name(profile)
-                if pub_collection != expected_collection:
-                    return []
-
-                pub_embedding_manifest_hash = bytes(pub_row["embedding_manifest_hash"])
-
-                cur.execute(
-                    """SELECT content_hash, record_count
-                       FROM stage_manifests
-                       WHERE owner_id = %s AND paper_id = %s AND document_version_id = %s AND profile_hash = %s
-                         AND stage = 'embedding' AND content_hash = %s""",
-                    (owner_id, paper_id, active_version_id, job_profile_hash, pub_embedding_manifest_hash),
-                )
-                manifest_row = cur.fetchone()
-                if manifest_row is None or manifest_row["record_count"] <= 0:
-                    return []
-
-                cur.execute(
-                    """SELECT id, ordinal
-                       FROM document_chunks
-                       WHERE owner_id = %s AND paper_id = %s AND document_version_id = %s AND profile_hash = %s
-                       ORDER BY ordinal""",
-                    (owner_id, paper_id, active_version_id, job_profile_hash),
-                )
-                chunk_rows = cur.fetchall()
-                ordered_chunk_ids = [UUID(str(r["id"])) for r in chunk_rows]
-
-                if not (len(ordered_chunk_ids) == manifest_row["record_count"] == pub_row["point_count"]):
-                    return []
-
-                expected_chunk_set_hash = index.chunk_set_hash(ordered_chunk_ids)
-                if bytes(pub_row["chunk_set_hash"]) != expected_chunk_set_hash:
-                    return []
-
-                ordered_point_ids = [index.point_id(profile.index_version, cid) for cid in ordered_chunk_ids]
-                expected_point_set_hash = index.point_set_hash(ordered_point_ids)
-                if bytes(pub_row["point_set_hash"]) != expected_point_set_hash:
-                    return []
-
-                cur.execute(
-                    """SELECT chunk_ids FROM embedding_batches
-                       WHERE owner_id = %s AND paper_id = %s AND document_version_id = %s AND profile_hash = %s""",
-                    (owner_id, paper_id, active_version_id, job_profile_hash),
-                )
-                batch_rows = cur.fetchall()
-                selected_chunk_ids: set[UUID] = set()
-                for row in batch_rows:
-                    selected_chunk_ids.update(UUID(str(c)) for c in row["chunk_ids"])
-
-                if len(selected_chunk_ids) != len(ordered_chunk_ids) or set(ordered_chunk_ids) != selected_chunk_ids:
-                    return []
-
-    scope = DocumentScope(owner_id=owner_id, paper_id=paper_id, document_version_id=active_version_id)
+        try:
+            document = load_ready_document(conn, owner_id, paper_id, None)
+        except APIError as error:
+            if error.status_code == 404:
+                raise
+            return []
+    scope = document.scope
+    active_version_id = scope.document_version_id
+    profile = document.profile
+    job_profile_hash = document.profile_hash
+    expected_collection = document.collection
+    selected_chunk_ids = document.chunk_ids
 
     # 2. Expensive embedding work outside database transaction
     try:

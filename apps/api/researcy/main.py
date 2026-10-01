@@ -99,6 +99,9 @@ async def api_error_handler(request: Request, exc: APIError):
     retry_after = getattr(exc, "retry_after", None)
     if retry_after is not None:
         headers["Retry-After"] = str(retry_after)
+    content_range = getattr(exc, "content_range", None)
+    if content_range is not None:
+        headers["Content-Range"] = content_range
     return JSONResponse(
         status_code=exc.status_code,
         content=error_payload(exc.code, exc.message, request.state.request_id),

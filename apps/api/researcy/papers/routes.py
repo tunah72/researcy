@@ -1,9 +1,13 @@
 import hashlib
+from functools import partial
 from uuid import UUID
+import time
 
 from fastapi import APIRouter, Header, Query, Request, Response
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile
+import anyio
+import psycopg
 
 from ..auth.sessions import get_current_user, require_csrf
 from ..db import get_conn
@@ -17,8 +21,10 @@ from .models import (
     PaperListResponse,
 )
 from .repository import get_paper, list_papers, take_import_slot
+from .pdf import reader_document, open_owned_pdf, PDFResponse, bounded_database
 
 router = APIRouter()
+PDF_WALL_SECONDS = 30
 
 
 def _authenticate_mutation(request: Request) -> UUID:
@@ -103,13 +109,66 @@ def papers(
 
 
 @router.get("/api/papers/{paper_id}", response_model=PaperDetailResponse)
-def paper_detail(request: Request, paper_id: UUID):
+def paper_detail(request: Request, paper_id: UUID, document_version: UUID | None = None):
     with get_conn() as conn:
         owner_id = get_current_user(request, conn)
         paper = get_paper(conn, owner_id, paper_id)
-    if paper is None:
-        raise APIError(404, "NOT_FOUND", "The requested resource was not found.")
-    return {**paper, "request_id": request.state.request_id}
+        if paper is None:
+            raise APIError(404, "NOT_FOUND", "The requested resource was not found.")
+        conn.commit()
+        reader = None
+        if document_version is not None or paper["stage"] == "ready":
+            reader = reader_document(conn, owner_id, paper_id, document_version)
+    return {**paper, "reader": reader, "request_id": request.state.request_id}
+
+
+@router.api_route(
+    "/api/papers/{paper_id}/versions/{document_version}/pdf",
+    methods=["GET", "HEAD"],
+    response_class=Response,
+    responses={
+        200: {"description": "Authorized original PDF",
+              "content": {"application/pdf": {"schema": {"type": "string", "format": "binary"}}}},
+        206: {"description": "Authorized single range of the original PDF",
+              "content": {"application/pdf": {"schema": {"type": "string", "format": "binary"}}}},
+        416: {"description": "Invalid or unsatisfiable PDF range"},
+    },
+)
+async def paper_pdf(request: Request, paper_id: UUID, document_version: UUID,
+                    download: str | None = None):
+    deadline = time.monotonic()+PDF_WALL_SECONDS
+
+    def authorize():
+        with get_conn() as conn:
+            with bounded_database(conn, deadline):
+                owner_id = get_current_user(request, conn)
+                conn.commit()
+                return owner_id
+
+    try:
+        with anyio.fail_after(max(0, deadline-time.monotonic())):
+            owner_id = await anyio.to_thread.run_sync(authorize, abandon_on_cancel=True)
+            if download not in (None, "1"):
+                raise APIError(422, "INVALID_REQUEST", "The download option is invalid.")
+            ranges = request.headers.getlist("range")
+            validators = request.headers.getlist("if-range")
+            stream = await anyio.to_thread.run_sync(
+                partial(open_owned_pdf, owner_id, paper_id, document_version,
+                        ",".join(ranges) if ranges else None,
+                        validators[0] if len(validators) == 1 else ('"invalid"' if validators else None),
+                        download=download == "1", head=request.method == "HEAD", deadline=deadline),
+                abandon_on_cancel=True,
+            )
+        if time.monotonic() >= deadline:
+            await stream.aclose()
+            raise TimeoutError()
+    except TimeoutError:
+        raise APIError(503, "ORIGINAL_STORAGE_UNAVAILABLE", "The original PDF is unavailable.") from None
+    except psycopg.Error:
+        if time.monotonic() >= deadline:
+            raise APIError(503, "ORIGINAL_STORAGE_UNAVAILABLE", "The original PDF is unavailable.") from None
+        raise
+    return PDFResponse(stream, request.state.request_id)
 
 
 @router.post("/api/papers/upload", response_model=IntakeResponse, status_code=202)

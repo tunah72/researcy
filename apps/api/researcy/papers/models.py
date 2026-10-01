@@ -28,8 +28,29 @@ class PaperListResponse(BaseModel):
     request_id: str
 
 
+class ReaderPage(BaseModel):
+    page_index: int
+    media_box: tuple[float, float, float, float]
+    crop_box: tuple[float, float, float, float]
+    rotation: int
+
+
+class ReaderOutlineEntry(BaseModel):
+    title: str
+    page: int
+
+
+class ReaderDocument(BaseModel):
+    document_version: UUID
+    source_sha256: str
+    pdf_url: str
+    pages: list[ReaderPage]
+    outline: list[ReaderOutlineEntry]
+
+
 class PaperDetailResponse(Paper):
     request_id: str
+    reader: ReaderDocument | None = None
 
 
 class ArxivImportRequest(BaseModel):
