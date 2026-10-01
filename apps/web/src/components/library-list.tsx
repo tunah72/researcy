@@ -3,6 +3,13 @@
 import React from 'react';
 import Link from 'next/link';
 import { Paper, formatScreeningWarning } from '@/lib/api';
+import { PaperPreparation } from '@/components/paper-preparation';
+
+export interface ProcessingRetryState {
+  isRetrying?: boolean;
+  retryError?: string | null;
+  retryDeadline?: number;
+}
 
 interface LibraryListProps {
   papers: Paper[];
@@ -11,6 +18,9 @@ interface LibraryListProps {
   onRetry?: () => void;
   searchQuery?: string;
   onClearSearch?: () => void;
+  onProcessingRetry?: (paper: Paper) => void;
+  retryStates?: Record<string, ProcessingRetryState>;
+  isLoggingOut?: boolean;
 }
 
 export function LibraryList({
@@ -20,6 +30,9 @@ export function LibraryList({
   onRetry,
   searchQuery,
   onClearSearch,
+  onProcessingRetry,
+  retryStates,
+  isLoggingOut = false,
 }: LibraryListProps) {
   if (isLoading) {
     return (
@@ -195,6 +208,16 @@ export function LibraryList({
                       <strong>About this PDF:</strong>{' '}
                       {formatScreeningWarning(paper.screening_warning)}
                     </div>
+                  )}
+                  {paper.preparation && (
+                    <PaperPreparation
+                      preparation={paper.preparation}
+                      isRetrying={retryStates?.[paper.job_id]?.isRetrying}
+                      disabled={isLoggingOut}
+                      retryError={retryStates?.[paper.job_id]?.retryError}
+                      retryDeadline={retryStates?.[paper.job_id]?.retryDeadline}
+                      onRetry={onProcessingRetry ? () => onProcessingRetry(paper) : undefined}
+                    />
                   )}
                 </div>
               </div>

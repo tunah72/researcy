@@ -10,7 +10,7 @@
 
 **Spec:** [Owner-approved M2 child specification](../specs/2026-09-27-researcy-m2-durable-processing-design.md), approved 2026-09-27, subordinate to [master revision 2.0](../specs/2026-09-18-researcy-system-design.md). [Delivery map](../specs/2026-09-18-researcy-delivery-map.md) is authoritative.
 
-**Plan status:** Approved by owner on 2026-09-28. The owner explicitly permits M2 implementation while the M1 acceptance record is completed separately. M2 is `Planned`; Tasks 1–9 are complete with recorded runtime/schema/queue/parser/provenance/native-embedding/exact-index/worker-recovery/owned-status-retry smoke and review evidence; Task 10 is in progress. All final exit gates are pending. This permission does not promote M1 to `Verified`.
+**Plan status:** Approved by owner on 2026-09-28. The owner explicitly permits M2 implementation while the M1 acceptance record is completed separately. M2 is `Planned`; Tasks 1–10 are complete with recorded backend, native-worker, owned-API and production browser preparation/retry evidence; Task 11 is in progress. Final exit-gate completion is pending. This permission does not promote M1 to `Verified`.
 
 ## Global constraints
 
@@ -457,7 +457,7 @@ def test_retry_replay_after_terminal_state_does_not_start_cycle(job_api_fixture)
 
 **Interfaces:** §2.3 types in central API file, `fetchJob(jobId: string): Promise<JobResponse>` and `retryJob(jobId: string, revision: number): Promise<JobResponse>` through existing helpers. `PaperPreparation` receives persisted `Preparation`, retry state and callback, not owner IDs or arbitrary backend text.
 
-- [ ] **RED:** user retries terminal failure and sees server-backed pending state; countdown disables only relevant retry; stale poll cannot overwrite newer retry/search; refresh failure retains metadata; hidden tab stops requests; 401 clears private state; complete item has no preparation badge or fake Reader. Test accessible behavior, not exact copy.
+- [x] **RED:** user retries terminal failure and sees server-backed pending state; countdown disables only relevant retry; stale poll cannot overwrite newer retry/search; refresh failure retains metadata; hidden tab stops requests; 401 clears private state; complete item has no preparation badge or fake Reader. Test accessible behavior, not exact copy.
 
 ```tsx
 it('keeps confirmed metadata when a status refresh fails', async () => {
@@ -470,8 +470,8 @@ it('keeps confirmed metadata when a status refresh fails', async () => {
 ```
 
 `renderProcessingLibrary` is a local test helper rendering the real Library component with the existing fetch-mocking convention; it controls only HTTP responses and timer advancement, not component state or expected outputs.
-- [ ] **Run RED:** `npm test -- src/components/processing-interaction.test.tsx` in `apps/web`.
-- [ ] **GREEN:** add allowlisted status/reason copy, never `error.message` or raw diagnostics. Reuse request sequence guards. Separate initial loading from background refresh so rows/focus do not disappear every five seconds. Poll one list/detail request every five seconds only when visible and processing items exist; no `/api/me` call every poll, row fanout or overlap. Pause hidden/unmount/401, refresh visible, network backoff 30 seconds. Invalidate in-flight sequence on search and retry. Keep active search query during polling. Preserve local per-job request state and countdown without assertive tick announcements.
+- [x] **Run RED:** `npm test -- src/components/processing-interaction.test.tsx` demonstrated five initial failures; further recovery regressions and exact results are recorded in the acceptance report.
+- [x] **GREEN:** allowlisted status/reason copy, no raw diagnostics; bounded visible single-flight polling, metadata preservation, network backoff, request sequence guards, revision-based per-job retry/cooldowns and polite meaningful status updates.
 
 ```tsx
 const seq = ++requestSeqRef.current;
@@ -481,8 +481,8 @@ if (seq === requestSeqRef.current) setPapers(result.papers);
 ```
 
 Server alone decides preparation success; accepted import says saved/queued, not processing started. Detail explains reading is not yet available even when preparation complete. Retry controls ≥44×44, visible focus, one main, polite meaningful announcements and reduced motion.
-- [ ] **GREEN check/smoke:** run focused frontend checks, then real Chromium against the production stack at 375/768/1024/1440. Observe actual worker pending/running/complete and exhausted dependency failure/retry; separately label injected browser network errors as controlled probes. Check keyboard focus through polling/retry, hidden-tab request cessation, overflow and safe reader copy; visually inspect screenshots. Browser checks require actual surface, not source assertions.
-- [ ] **Review/commit:** review persistence honesty and stale-response races; commit `feat(web): show honest paper preparation and retry states`.
+- [x] **GREEN check/smoke:** affected frontend suite and production build passed. Real Chromium production surface exercised actual imported/worker waiting, preparing, exhausted dependency failure, cooldown, keyboard retry and native completion; four-width landmark/target/overflow checks passed. Controlled network/visibility/fetch probes are separately labelled; native hidden-tab behavior is not inferred from headless foregrounding.
+- [x] **Review/commit:** Library and detail scoped reviews passed after demonstrated recovery regressions were fixed; commit `feat(web): show honest paper preparation and retry states`.
 
 ## Task 11: Full-stack six-gate acceptance and delivery evidence
 

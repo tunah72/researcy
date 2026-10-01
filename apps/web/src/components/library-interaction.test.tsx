@@ -44,6 +44,9 @@ describe('Library UI Consumer Interaction Tests', () => {
       active_version_id: '22222222-2222-2222-2222-222222222222',
       source_version: 'v7',
       screening_warning: null,
+      job_id: '11111111-1111-1111-1111-111111111111',
+      retry_revision: 0,
+      preparation: { state: 'waiting', reason: null, retryable: false, retry_after_seconds: 0 },
     };
 
     render(<LibraryList papers={[queuedPaper]} />);
@@ -65,6 +68,9 @@ describe('Library UI Consumer Interaction Tests', () => {
       active_version_id: '44444444-4444-4444-4444-444444444444',
       source_version: null,
       screening_warning: 'LOW_TEXT: Total extracted characters under 200 (libmagic err 0x88f2)',
+      job_id: '33333333-3333-3333-3333-333333333333',
+      retry_revision: 0,
+      preparation: { state: 'waiting', reason: null, retryable: false, retry_after_seconds: 0 },
     };
 
     render(<LibraryList papers={[warnedPaper]} />);
@@ -89,6 +95,9 @@ describe('Library UI Consumer Interaction Tests', () => {
       active_version_id: '55555555-5555-5555-5555-555555555555',
       source_version: null,
       screening_warning: 'PDF_OCR_EXCEPTION: libtesseract failed at memory address 0x00ff41',
+      job_id: '44444444-4444-4444-4444-444444444444',
+      retry_revision: 0,
+      preparation: { state: 'waiting', reason: null, retryable: false, retry_after_seconds: 0 },
     };
 
     render(<LibraryList papers={[warnedPaper]} />);
@@ -111,6 +120,9 @@ describe('Library UI Consumer Interaction Tests', () => {
       active_version_id: '66666666-6666-6666-6666-666666666666',
       source_version: null,
       screening_warning: null,
+      job_id: '55555555-5555-5555-5555-555555555555',
+      retry_revision: 0,
+      preparation: { state: 'waiting', reason: null, retryable: false, retry_after_seconds: 0 },
     };
 
     render(<LibraryList papers={[honestPaper]} />);
@@ -831,6 +843,9 @@ describe('Library UI Consumer Interaction Tests', () => {
                 active_version_id: 'v-slow',
                 source_version: 'v1',
                 screening_warning: null,
+                job_id: 'job-slow',
+                retry_revision: 0,
+                preparation: { state: 'complete', reason: null, retryable: false, retry_after_seconds: 0 },
               },
             ],
             request_id: 'req-slow',
@@ -854,6 +869,9 @@ describe('Library UI Consumer Interaction Tests', () => {
                 active_version_id: 'v-fast',
                 source_version: null,
                 screening_warning: null,
+                job_id: 'job-fast',
+                retry_revision: 0,
+                preparation: { state: 'complete', reason: null, retryable: false, retry_after_seconds: 0 },
               },
             ],
             request_id: 'req-fast',
@@ -1033,5 +1051,184 @@ describe('Library UI Consumer Interaction Tests', () => {
     expect(mockFetch).toHaveBeenCalledTimes(2);
     const secondKey = new Headers(mockFetch.mock.calls[1]?.[1]?.headers).get('Idempotency-Key');
     expect(secondKey).toBe(firstKey);
+  });
+
+  it('retry 409 conflict triggers background refresh retaining paper metadata', async () => {
+    const failedPaper: Paper = {
+      paper_id: 'conflict-id',
+      title: 'Conflict Paper',
+      authors: ['Author'],
+      year: 2021,
+      source: 'upload',
+      stage: 'failed',
+      active_version_id: 'v-conflict',
+      source_version: null,
+      screening_warning: null,
+      job_id: 'job-conflict',
+      retry_revision: 0,
+      preparation: { state: 'failed', reason: 'temporary', retryable: true, retry_after_seconds: 0 },
+    };
+    const refreshedPaper: Paper = {
+      ...failedPaper,
+      stage: 'validating',
+      retry_revision: 1,
+      preparation: { state: 'preparing', reason: null, retryable: false, retry_after_seconds: 0 },
+    };
+    let refreshCalls = 0;
+    const mockFetch = vi.fn().mockImplementation((url: string) => {
+      if (url === '/api/me') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'x-request-id': 'req-me' }),
+          json: async () => ({ id: 'u1', email: 'u@example.com', name: 'User', request_id: 'req-me' }),
+        });
+      }
+      if (url === '/api/papers') {
+        refreshCalls++;
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'x-request-id': `req-p-${refreshCalls}` }),
+          json: async () => ({ papers: [refreshCalls === 1 ? failedPaper : refreshedPaper], request_id: `req-p-${refreshCalls}` }),
+        });
+      }
+      if (url.endsWith('/retry')) {
+        return Promise.resolve({
+          ok: false,
+          status: 409,
+          headers: new Headers({ 'x-request-id': 'req-409' }),
+          json: async () => ({ code: 'RETRY_REVISION_CONFLICT', message: 'Revision conflict', request_id: 'req-409' }),
+        });
+      }
+      return Promise.reject(new Error(`Unexpected url: ${url}`));
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    render(<LibraryPage />);
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /try again/i })).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /try again/i }));
+
+    await waitFor(() => {
+      expect(refreshCalls).toBe(2);
+      expect(screen.queryByRole('button', { name: /try again/i })).not.toBeInTheDocument();
+    });
+    expect(screen.getByRole('link', { name: 'Conflict Paper' })).toBeInTheDocument();
+  });
+
+  it('allows retrying independent failed papers concurrently without one blocking the other', async () => {
+    const paper1: Paper = {
+      paper_id: 'p1',
+      title: 'Paper One',
+      authors: ['A1'],
+      year: 2020,
+      source: 'upload',
+      stage: 'failed',
+      active_version_id: 'v1',
+      source_version: null,
+      screening_warning: null,
+      job_id: 'j1',
+      retry_revision: 0,
+      preparation: { state: 'failed', reason: 'temporary', retryable: true, retry_after_seconds: 0 },
+    };
+    const paper2: Paper = {
+      paper_id: 'p2',
+      title: 'Paper Two',
+      authors: ['A2'],
+      year: 2021,
+      source: 'upload',
+      stage: 'failed',
+      active_version_id: 'v2',
+      source_version: null,
+      screening_warning: null,
+      job_id: 'j2',
+      retry_revision: 0,
+      preparation: { state: 'failed', reason: 'temporary', retryable: true, retry_after_seconds: 0 },
+    };
+
+    const { promise: retry1Promise, resolve: resolveRetry1 } = Promise.withResolvers<unknown>();
+
+    const mockFetch = vi.fn().mockImplementation((url: string) => {
+      if (url === '/api/me') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'x-request-id': 'req-me' }),
+          json: async () => ({ id: 'u1', email: 'u@example.com', name: 'User', request_id: 'req-me' }),
+        });
+      }
+      if (url === '/api/papers') {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'x-request-id': 'req-p' }),
+          json: async () => ({ papers: [paper1, paper2], request_id: 'req-p' }),
+        });
+      }
+      if (url.includes('/api/jobs/j1/retry')) {
+        return retry1Promise;
+      }
+      if (url.includes('/api/jobs/j2/retry')) {
+        return Promise.resolve({
+          ok: true,
+          status: 202,
+          headers: new Headers({ 'x-request-id': 'req-ret-2' }),
+          json: async () => ({
+            job_id: 'j2',
+            paper_id: 'p2',
+            document_version: 'v2',
+            stage: 'validating',
+            status: 'pending',
+            retry_revision: 1,
+            preparation: { state: 'delayed', reason: null, retryable: false, retry_after_seconds: 0 },
+            request_id: 'req-ret-2',
+          }),
+        });
+      }
+      return Promise.reject(new Error(`Unexpected url: ${url}`));
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    render(<LibraryPage />);
+    await waitFor(() => {
+      expect(screen.getAllByRole('button', { name: /try again/i })).toHaveLength(2);
+    });
+
+    const buttons = screen.getAllByRole('button', { name: /try again/i });
+    await userEvent.click(buttons[0]);
+
+    expect(buttons[0]).toBeDisabled();
+
+    const remainingRetry = buttons[1];
+    expect(remainingRetry).toBeEnabled();
+
+    await userEvent.click(remainingRetry);
+
+    await waitFor(() => {
+      expect(remainingRetry).not.toBeInTheDocument();
+    });
+
+    resolveRetry1({
+      ok: true,
+      status: 202,
+      headers: new Headers({ 'x-request-id': 'req-ret-1' }),
+      json: async () => ({
+        job_id: 'j1',
+        paper_id: 'p1',
+        document_version: 'v1',
+        stage: 'validating',
+        status: 'pending',
+        retry_revision: 1,
+        preparation: { state: 'delayed', reason: null, retryable: false, retry_after_seconds: 0 },
+        request_id: 'req-ret-1',
+      }),
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /retrying/i })).not.toBeInTheDocument();
+    });
   });
 });

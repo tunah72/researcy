@@ -5,16 +5,39 @@ export interface UserProfile {
   request_id: string;
 }
 
+export type ProcessingStage = 'queued' | 'validating' | 'parsing' | 'normalizing' | 'chunking' | 'embedding' | 'indexing' | 'ready' | 'failed';
+export interface Preparation {
+  state: 'waiting' | 'preparing' | 'delayed' | 'failed' | 'complete';
+  reason: 'temporary' | 'unsupported' | 'resource_limit' | 'integrity' | null;
+  retryable: boolean;
+  retry_after_seconds: number;
+}
+export interface JobResponse {
+  job_id: string;
+  paper_id: string;
+  document_version: string;
+  stage: ProcessingStage;
+  status: 'pending' | 'running' | 'succeeded' | 'failed';
+  failed_stage: ProcessingStage | null;
+  error_code: string | null;
+  retry_revision: number;
+  preparation: Preparation;
+  request_id: string;
+}
+
 export interface Paper {
   paper_id: string;
   title: string | null;
   authors: string[] | null;
   year: number | null;
   source: string;
-  stage: string;
+  stage: ProcessingStage;
   active_version_id: string;
   source_version: string | null;
   screening_warning: string | null;
+  job_id: string;
+  retry_revision: number;
+  preparation: Preparation;
 }
 
 export interface PaperListResponse {
@@ -30,7 +53,7 @@ export interface IntakeResponse {
   paper_id: string;
   document_version: string;
   job_id: string;
-  stage: string;
+  stage: ProcessingStage;
   screening_warning: string | null;
   source_version: string | null;
   arxiv_version?: string | null;
@@ -186,6 +209,16 @@ export async function fetchPapers(search?: string): Promise<PaperListResponse> {
 export async function fetchPaperDetail(paperId: string): Promise<PaperDetailResponse> {
   const res = await fetch(`/api/papers/${encodeURIComponent(paperId)}`, { method: 'GET', credentials: 'same-origin' });
   return parseResponse<PaperDetailResponse>(res);
+}
+
+export async function fetchJob(jobId: string): Promise<JobResponse> {
+  const res = await fetch(`/api/jobs/${encodeURIComponent(jobId)}`, { method: 'GET', credentials: 'same-origin' });
+  return parseResponse<JobResponse>(res);
+}
+
+export async function retryJob(jobId: string, revision: number): Promise<JobResponse> {
+  const res = await mutate(`/api/jobs/${encodeURIComponent(jobId)}/retry`, JSON.stringify({ retry_revision: revision }));
+  return parseResponse<JobResponse>(res);
 }
 
 export async function importArxiv(arxivIdOrUrl: string, idempotencyKey: string): Promise<IntakeResponse> {
