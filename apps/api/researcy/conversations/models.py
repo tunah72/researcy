@@ -101,3 +101,12 @@ class CompletedAnswer:
     run_id: UUID
     message: Message
     citations: tuple[ResolvedCitation, ...]
+
+
+class MessageStreamReplayResponse(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+
+    run_id: UUID
+    message_id: UUID
+    state: RunState
+    request_id: UUID

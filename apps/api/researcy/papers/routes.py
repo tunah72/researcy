@@ -122,9 +122,15 @@ def paper_detail(request: Request, paper_id: UUID, document_version: UUID | None
     return {**paper, "reader": reader, "request_id": request.state.request_id}
 
 
-@router.api_route(
+@router.head(
     "/api/papers/{paper_id}/versions/{document_version}/pdf",
-    methods=["GET", "HEAD"],
+    response_class=Response,
+    responses={200: {"description": "Authorized original PDF metadata"},
+               206: {"description": "Authorized single-range PDF metadata"},
+               416: {"description": "Invalid or unsatisfiable PDF range"}},
+)
+@router.get(
+    "/api/papers/{paper_id}/versions/{document_version}/pdf",
     response_class=Response,
     responses={
         200: {"description": "Authorized original PDF",

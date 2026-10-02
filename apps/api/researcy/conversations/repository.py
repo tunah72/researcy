@@ -338,3 +338,23 @@ def load_history(conn: psycopg.Connection, owner_id: UUID, conversation_id: UUID
             rows = cur.execute(f'''SELECT {_MESSAGE_COLUMNS} FROM messages WHERE owner_id=%s
                 AND conversation_id=%s AND id=ANY(%s) ORDER BY sequence''', (owner_id,conversation_id,ids)).fetchall()
         return tuple(_messages(conn, owner_id, rows))
+
+
+def record_generation_attempt(conn: psycopg.Connection,reservation: RunReservation) -> None:
+    with short_transaction(conn):
+        row = _locked_run(conn,reservation)
+        changed = conn.execute('''UPDATE reader_runs SET generation_calls=generation_calls+1
+            WHERE owner_id=%s AND id=%s AND state='running' AND generation_calls<2
+              AND lease_expires_at>clock_timestamp() RETURNING id''',
+            (row['owner_id'],row['id'])).fetchone()
+        if changed is None:
+            raise APIError(409,'READER_RUN_NOT_ACTIVE','This answer is no longer running.')
+
+
+def record_run_metrics(conn: psycopg.Connection,reservation: RunReservation,usage: dict,
+    latency_ms: int,first_delta_ms: int | None) -> None:
+    with short_transaction(conn):
+        conn.execute('''UPDATE reader_runs SET usage=%s,latency_ms=%s,first_delta_ms=%s
+            WHERE owner_id=%s AND conversation_id=%s AND id=%s''',
+            (Jsonb(usage),latency_ms,first_delta_ms,reservation.scope.owner_id,
+             reservation.conversation_id,reservation.run_id))
