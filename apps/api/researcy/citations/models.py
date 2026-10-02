@@ -2,10 +2,17 @@ from dataclasses import dataclass
 import math
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
 from researcy.documents.canonical import EvidenceLocation
 from researcy.documents.models import Box
+
+
+class ProposedCitation(BaseModel):
+    model_config = ConfigDict(extra='forbid', frozen=True)
+
+    source_ref: str = Field(min_length=1, max_length=64)
+    evidence_quote: str = Field(min_length=1, max_length=2000)
 
 
 class ResolvedCitation(BaseModel):
@@ -19,6 +26,12 @@ class ResolvedCitation(BaseModel):
     page: int = Field(ge=1)
     boxes: tuple[Box, ...] = Field(min_length=1)
     section: str | None = None
+    _raw_fragments: tuple[EvidenceLocation, ...] = PrivateAttr(default=())
+
+    @property
+    def raw_fragments(self) -> tuple[EvidenceLocation, ...]:
+        """Internal resolver provenance; absent from HTTP schemas and serialization."""
+        return self._raw_fragments
 
     @field_validator('boxes')
     @classmethod
@@ -34,3 +47,8 @@ class StoredCitation:
     citation: ResolvedCitation
     claim_index: int
     raw_fragments: tuple[EvidenceLocation, ...]
+
+
+class CitationResponse(BaseModel):
+    citation: ResolvedCitation
+    request_id: UUID

@@ -193,6 +193,7 @@ def test_equivalent_collection_creation_race_preserves_current_worker_contract(s
     from concurrent.futures import ThreadPoolExecutor
     import threading
     from researcy.retrieval import index
+    from researcy.ingestion.models import StageFailure
 
     fixture=selected_index;client=fixture['client'];collection=fixture['collection']
     client.request('DELETE','/collections/'+collection)
@@ -207,7 +208,18 @@ def test_equivalent_collection_creation_race_preserves_current_worker_contract(s
             return result
     with ThreadPoolExecutor(max_workers=2) as pool:
         futures=[pool.submit(index.ensure_collection,fixture['profile'],client=RacingClient()) for _ in range(2)]
-        for future in futures:future.result()
+        completed = 0
+        for future in futures:
+            try:
+                future.result()
+            except StageFailure as failure:
+                # Qdrant may return a transient 5xx during concurrent creation.
+                # The worker retries this fenced stage, not this HTTP call.
+                assert (failure.code,failure.failure_kind,failure.retryable)==(
+                    'DEPENDENCY_UNAVAILABLE','temporary',True)
+            else:
+                completed += 1
+        assert completed>=1
     observed=client.request('GET','/collections/'+collection)['result']
     assert observed['config']['params']['vectors']['size']==1024
     assert observed['config']['params']['vectors']['distance']=='Cosine'

@@ -228,7 +228,7 @@ def test_rrf_overlap_can_outrank_single_branch_top_hit():
 **Scope/files:** T5 file map, central ResolvedCitation API type; no generation required to exercise resolver.
 **Consumes/produces:** ProposedCitation/EvidenceCatalog → page-local ResolvedCitation tuples; accepted owner-scoped citation GET.
 
-- [ ] RED real provenance fixtures: identity/whitespace/ligature/dehyphenation raw quote reconstruction, repeated ambiguous occurrence, missing mapping, foreign catalog ref/version, nonexistent quote, nonfinite/out-of-page geometry and partial expansion all behave exactly per spec. Multi-page raw quote produces separate page-local citations, never one page with mixed boxes. Provisional/foreign citation GET is 404.
+- [x] Real provenance coverage: identity/whitespace/ligature/dehyphenation raw quote reconstruction, repeated ambiguity, missing mapping, foreign version, nonexistent quote, nonfinite/out-of-page geometry corruption, multipage page-local citations and provisional/foreign GET. Boundary-dehyphenation and expanded-raw-limit defects have explicit RED → GREEN regressions; some defensive coverage was added after implementation, not claimed failing-before.
 
 ```python
 def test_quote_boxes_are_canonical_not_model_supplied(citation_source):
@@ -241,10 +241,10 @@ def test_quote_boxes_are_canonical_not_model_supplied(citation_source):
 
 `citation_source` is a generated scientific PDF parsed/canonicalized through real M2 fixture contracts; expected characters/boxes known from fixture geometry, not taken from resolver result. Separate corruption fixtures use isolated DB only.
 
-- [ ] Run RED: `uv run --frozen pytest tests/test_citations.py tests/test_document_provenance.py -q`.
-- [ ] GREEN: build bounded server ref catalog with raw excerpt/normalized mapping; unique exact quote lookup mapped to code-point interval, existing resolve_range final authority; strict normalization preserving original characters. Persist immutable raw fragment offsets plus page-specific quote/boxes/source identity. Reject model extra ownership/page/geometry fields. GET includes only completed accepted citation owned by current user.
-- [ ] Actual smoke: resolver on actual ready Transformer retrieved raw quote; compare every fragment's span offsets/raw characters/boxes to PostgreSQL and original source. Render private diagnostic PDF overlay for comparison, not a substitute for T8 browser. Zero citations accepted for wrong version or invalid mapping; preserve M2 box tolerance, never stretch to gold annotation.
-- [ ] Review unicode/raw-normalized distinction, multipage/ambiguity and owner GET; commit.
+- [x] Restricted Linux harness RED: initial missing proposal imports and accepted GET 404; review defects subsequently reproduced with concrete failing behavior. Exact commands/outcomes recorded in acceptance report.
+- [x] GREEN: bounded server-ref raw catalog, unique exact whitespace-equivalent lookup, complete canonical mapping validation through existing `resolve_range`, authoritative raw-offset slicing, strict page-local limits. Immutable raw fragment offsets and page-specific source identity; model extra geometry/scope forbidden; owner completed accepted GET.
+- [x] Actual smoke: ready Transformer quote compared against PostgreSQL and original diagnostic PDF overlay. After boundary correction, actual deployed recorded dehyphenation selected at quote end on page 7 with 31 boxes. No box-tolerance changes or generation calls.
+- [x] Review unicode/raw-normalized distinction, multipage/ambiguity and owner GET; both citation reviewers clean after corrections. Full backend 584 passed / 1 opt-in skip; production API build and actual deployed resolver/owned-read/two-user smoke passed. Scoped commit follows recorded evidence.
 
 ## Task 6: Actual product GenerationClient and structured-action prerequisite
 

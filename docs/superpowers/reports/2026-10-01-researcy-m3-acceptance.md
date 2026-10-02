@@ -167,3 +167,47 @@ An intermediate suite timed out at 240 seconds after 34 progress dots; it is not
 | `"scaled dot-product attention"` | 5 / 4 / 5 | 6984 / 6847 | 0.03252247488101534 |
 
 Pinned source and native identity match the preceding proof; no answer, semantic recall percentage or citation/UI gate is inferred. T4 complete; all M3 final gates remain open.
+
+T4 committed as `cbcd999`.
+
+## T5 execution — review in progress
+
+Initial citation suite RED: six missing-ProposedCitation import failures, fourteen existing provenance tests passed (25.64s). Implemented strict two-field proposals; bounded server ref/raw catalog; unique raw matching with whitespace-run equivalence only; inverse normalized mapping followed by authoritative `resolve_range`; exact page-local quote/boxes. Private resolver raw fragments never enter HTTP schema/serialization. Initial focused GREEN: twenty passed in 12.32s.
+
+Accepted owner citation GET RED: actual test HTTP returned 404 instead of expected 200 (one failed in 2.78s). Added concrete accepted/completed-message/owner/conversation/version checks and shared ready publication check. Final focused resolver/provenance/publication suite so far: **28 passed in 20.38s**, including repeated ambiguity, ligature/dehyphenation, raw whitespace retention, distinct page-local citations, and owned/provisional/foreign read behavior.
+
+Unicode/multipage tests reuse canonical source-record fixtures in real temporary PostgreSQL; they are exact mapping tests, not claims of ready source publication. Generated PDF/API fixtures separately exercise actual M2-ready publication.
+
+Actual production smoke retrieved Transformer `parallelization` evidence through native/Qdrant/lexical hybrid, resolved a unique raw line and compared every selected offset/quote/box to authoritative spans. A first very short fragment was correctly ambiguous and rejected; selecting the longest bounded actual fragment resolved page 2 with 104 exact boxes. Persisted a controlled citation with zero generation calls, then rendered a private diagnostic overlay onto the immutable original. Visual inspection showed character boxes on the exact original line; no gold-box tolerance changed. This is source/geometry proof, not a semantic model-answer or T8 browser-citation gate.
+
+Production API rebuilt/healthy. First same-origin accepted citation GET used an expired fixture session and returned 401. Refreshed only the private acceptance session; actual GET returned 200 pinned version `81492edc-6d44-4602-840f-124f4504cdf9`, page 2 / 104 boxes, no raw fragments in response; request ID `7e0d4018-203c-4f6c-8b34-10a287225110`. Docker archive copying could not see the live tmpfs overlay; rendering/readback through the existing container produced the diagnostic image. Review and full affected checks remain pending; T5 is not complete.
+
+### T5 integration and review corrections
+
+Full backend run found two preflight consumers pinned to the old `0004_m2_safe_counters` schema: **2 failed, 574 passed, 1 skipped in 321.36s**. Updated the existing required-head constant to `0006_m3_lexical`; no migration discovery abstraction added. Focused preflight/citation/provenance/publication: **43 passed in 65.35s**.
+
+Review found whitespace-run equivalence could reconstruct a page-local raw quote longer than the public 2,000-code-point bound. Real canonical PostgreSQL regression failed with an uncaught Pydantic validation error (**1 failed in 3.38s**). Added the raw page-local bound before response construction; safe `EVIDENCE_UNRESOLVED` without relaxing the contract. Focused suite: **29 passed in 33.37s**.
+
+Independent review found normalized intervals cannot represent a selected deleted hyphen at a raw quote boundary. Real mapping regressions for `hy-`, `-phenated`, and `-` failed; excluding the hyphen in `phenated` passed (**3 failed, 1 passed in 3.27s**). The resolver now validates the complete immutable chunk through existing `resolve_range`, selects its authoritative raw offsets, and compares exact fragments. Complete transformation coverage and partial-expansion rejection remain required; M2 normalized range semantics are unchanged. Focused citation/provenance/publication suite: **33 passed in 26.34s**.
+
+The next full backend run was **1 failed, 575 passed, 1 skipped in 320.47s**: concurrent Qdrant collection creation received a server-side 5xx on the immediate collection re-read. This is not a passing suite or a diagnosed production defect; investigation is open. T5 final review/deployed correction smoke remain pending. No M3 gate or milestone status is elevated.
+
+Both targeted citation reviewers subsequently found no remaining concrete introduced defect. Corrected production API image rebuilt and became healthy. Actual deployed Transformer resolver selected a recorded dehyphenation at the end of a unique raw quote on page 7, returning 31 exact character boxes for pinned version `81492edc-6d44-4602-840f-124f4504cdf9`; zero generation calls. An earlier throwaway invocation used incorrect repository arguments and a later SQL string had invalid quoting; corrected invocations exited 0. No smoke script was written into the repository.
+
+Additional corruption coverage initially hit the production PostgreSQL check constraint when injecting a string `NaN` coordinate (**1 failed, 35 passed in 22.10s**); this is a fixture failure, not a resolver defect. The disposable corruption fixture now explicitly removes that constraint only in its temporary test database, to exercise the resolver's independent rejection after impossible persisted corruption. Production constraints remain unchanged.
+
+### T6 static usage prerequisite evidence
+
+Read-only installed 9Router bundle inspection (`app/.next-cli-build/server/chunks/8895.js`) found a Gemini-shaped usage conversion: prompt count includes `thoughtsTokenCount`, completion uses `candidatesTokenCount`, and thinking is separately emitted as reasoning details. This is static converter evidence, not live route usage or billing authority. No cached-token provenance or `stream_options.include_usage` handling was established. Google Developer API pricing at `https://ai.google.dev/gemini-api/docs/pricing.md.txt` lists Gemini 3.8 Flash standard USD rates, but those do not establish applicability to the fixed Antigravity route. Actual usage and applicable estimated-cost provenance remain unqualified; no free/zero-cost claim.
+
+Final focused corruption/resolver/provenance/publication suite: **36 passed in 21.93s**. This includes independent fail-closed behavior with missing mapping and invalid/out-of-page persisted geometry in disposable databases.
+
+Qdrant investigation identified the exact previously failing race in v1.19.0 server logs at `2026-10-01T19:05:16`: two missing-collection GETs, concurrent create results 409/200, then `Service internal error: 0 of 0 read operations failed` on one GET (500); the other creator successfully built all four indexes and read the final collection (200). Precise Qdrant internals were not established. The application already correctly classifies 5xx as temporary retryable failure for the durable worker's fenced stage retry. Corrected only the race test's overstrong synchronous-success assumption: at least one creator must finish, the other may only raise that exact temporary dependency failure, and final dimension/distance/four keyword-index assertions remain mandatory. No production retry, fallback, timeout increase or exception suppression was added. Final full-suite verification is pending.
+
+### T5 final checkpoint — complete
+
+Final full backend suite in the restricted private Linux harness: **584 passed, 1 skipped in 287.61s** (`python -m pytest tests -q --tb=short -p no:cacheprovider`, private Compose project/overrides described above). The skipped case is opt-in real arXiv, not generation or browser acceptance. Race-contract reviewer found no remaining defect after the test correction.
+
+Final actual same-origin accepted citation GET returned 200, page 2 / 104 boxes, exact pinned version, no private fragments; request ID `957f8196-5317-4e64-afa6-923c6661509a`. Initial read used an expired fixture and returned 401; only isolated fixture sessions were refreshed. A second isolated owner received identical 404 code/message for the actual accepted citation and a nonexistent ID. Deployed OpenAPI exposes the prescribed citation fields without private provenance. OpenAPI generation also surfaced the existing combined PDF GET/HEAD duplicate-operation-ID warning; it does not prevent citation schema generation, and unique PDF operation metadata remains an integration issue to address before final M3 delivery.
+
+T5 complete. T6 real generation, T7 bounded graph, T8 Discussion/citation UI and T9 final M3 gates remain unimplemented/unverified; M3 status remains Planned.

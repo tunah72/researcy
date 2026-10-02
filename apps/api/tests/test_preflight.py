@@ -33,7 +33,7 @@ def _create_known_probe_pdf(path: Path) -> tuple[Path, bytes, str]:
 def test_check_migrations_accepts_head_and_rejects_unmigrated(pg_conn):
     from researcy.ingestion import preflight
 
-    # Current head migration for M2 durable processing
+    # The worker requires the current application schema, including M3 additions.
     preflight.check_migrations(pg_conn)
 
     # If database is rolled back or points to older migration, preflight fails safely
