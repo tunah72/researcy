@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from os import environ
 from urllib.parse import urlsplit
 import re
@@ -102,6 +102,32 @@ def _validate_production_google_redirect(
             "production GOOGLE_REDIRECT_URI must be the trusted HTTPS /auth/google/callback"
         )
 
+def _validate_generation_endpoint(endpoint: str, production: bool) -> str:
+    value = endpoint.strip()
+    if not value:
+        return ""
+    try:
+        parsed = urlsplit(value)
+        valid = (
+            parsed.scheme in ("http", "https")
+            and bool(parsed.hostname)
+            and parsed.username is None
+            and parsed.password is None
+            and parsed.path == "/v1"
+            and not parsed.query
+            and not parsed.fragment
+            and not any(char.isspace() for char in value)
+            and "\\" not in value
+        )
+        _ = parsed.port
+    except ValueError:
+        valid = False
+    if not valid:
+        raise ValueError("GENERATION_ENDPOINT must be a valid base URL ending in /v1 with no userinfo, query, or fragment")
+    if production and parsed.scheme != "https":
+        raise ValueError("production GENERATION_ENDPOINT must use HTTPS")
+    return value
+
 
 @dataclass(frozen=True, slots=True)
 class Settings:
@@ -144,6 +170,13 @@ class Settings:
     storage_bucket: str = "researcy-originals"
     embedding_endpoint: str = "http://host.docker.internal:11434"
     qdrant_endpoint: str = "http://qdrant:6333"
+    generation_endpoint: str = ""
+    generation_api_key: str = field(default="", repr=False)
+    generation_model: str = "ag/gemini-3.8-flash-low"
+    generation_max_output_tokens: int = 8192
+    generation_max_output_bytes: int = 262144
+    generation_connect_seconds: int = 5
+    generation_pass_seconds: int = 60
 
     @property
     def max_upload_request_bytes(self) -> int:
@@ -222,6 +255,28 @@ class Settings:
             or queue["worker_idle_min_seconds"] > queue["worker_idle_max_seconds"]
             or max(limit for _,limit in deadlines) > queue["worker_claim_deadline_seconds"]):
             raise ValueError("inconsistent worker deadlines")
+        generation_endpoint = ""
+        generation_api_key = ""
+        generation_model = "ag/gemini-3.8-flash-low"
+        generation_max_output_tokens = 8192
+        generation_max_output_bytes = 262144
+        generation_connect_seconds = 5
+        generation_pass_seconds = 60
+
+        if app_role == "api":
+            raw_endpoint = environ.get("GENERATION_ENDPOINT", "").strip()
+            generation_endpoint = _validate_generation_endpoint(raw_endpoint, production)
+            generation_api_key = environ.get("GENERATION_API_KEY", "").strip()
+
+            configured_model = environ.get("GENERATION_MODEL", "ag/gemini-3.8-flash-low").strip()
+            if configured_model != "ag/gemini-3.8-flash-low":
+                raise ValueError("GENERATION_MODEL must be ag/gemini-3.8-flash-low")
+            generation_model = configured_model
+
+            generation_max_output_tokens = _bounded_int("GENERATION_MAX_OUTPUT_TOKENS", 8192, 8192)
+            generation_max_output_bytes = _bounded_int("GENERATION_MAX_OUTPUT_BYTES", 262144, 262144)
+            generation_connect_seconds = _bounded_int("GENERATION_CONNECT_SECONDS", 5, 5)
+            generation_pass_seconds = _bounded_int("GENERATION_PASS_SECONDS", 60, 60)
         database_url = environ.get("DATABASE_URL", "").strip()
         session_lookup_key = environ.get("SESSION_LOOKUP_KEY", "").encode()
         if production:
@@ -273,6 +328,13 @@ class Settings:
             storage_bucket=storage_bucket,
             embedding_endpoint=endpoints["OLLAMA_BASE_URL"],
             qdrant_endpoint=endpoints["QDRANT_URL"],
+            generation_endpoint=generation_endpoint,
+            generation_api_key=generation_api_key,
+            generation_model=generation_model,
+            generation_max_output_tokens=generation_max_output_tokens,
+            generation_max_output_bytes=generation_max_output_bytes,
+            generation_connect_seconds=generation_connect_seconds,
+            generation_pass_seconds=generation_pass_seconds,
             **queue,
         )
 
