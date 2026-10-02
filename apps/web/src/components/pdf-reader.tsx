@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { PDFDocumentProxy, PDFDocumentLoadingTask } from 'pdfjs-dist';
 import type * as PdfRuntime from 'pdfjs-dist';
-import type { ReaderDocument } from '@/lib/api';
+import type { ReaderDocument, ResolvedCitation } from '@/lib/api';
 import { PdfPage } from './pdf-page';
 
 type Runtime = typeof PdfRuntime;
@@ -29,10 +29,12 @@ async function outlinePages(document: PDFDocumentProxy, entries: NativeOutline[]
   return result;
 }
 
-export function PdfReader({ source, page, onPageChange }: {
+export function PdfReader({ source, page, onPageChange, citation, onCitationReady }: {
   source: ReaderDocument;
   page: number;
   onPageChange: (page: number) => void;
+  citation: ResolvedCitation | null;
+  onCitationReady?: (citationId: string) => void;
 }) {
   const [opened, setOpened] = useState<OpenPdf | null>(null);
   const [failure, setFailure] = useState(false);
@@ -109,7 +111,7 @@ export function PdfReader({ source, page, onPageChange }: {
   useLayoutEffect(() => {
     if (width > 0) pageRefs.current[page - 1]?.scrollIntoView({ block: 'start', behavior: 'auto' });
     // Resizing/remounting changes offsets; normal scroll must not snap back.
-  }, [width, zoom, failure]);
+  }, [width, zoom, failure, citation?.citation_id]);
 
   useEffect(() => () => {
     if (frame.current !== null) cancelAnimationFrame(frame.current);
@@ -125,6 +127,8 @@ export function PdfReader({ source, page, onPageChange }: {
     if (frame.current !== null) return;
     frame.current = requestAnimationFrame(() => {
       frame.current = null;
+      // The narrow CSS layout can expand before React unmounts the unsupported reader.
+      if (window.innerWidth < 1024) return;
       const element = scrollRef.current;
       if (!element) return;
       const reference = element.scrollTop + element.clientHeight / 3;
@@ -177,7 +181,8 @@ export function PdfReader({ source, page, onPageChange }: {
               {opened && Math.abs(index + 1 - page) <= 1 && width > 0 && <PdfPage
                 key={`${width}:${zoom}`} metadata={metadata}
                 document={opened.document} runtime={opened.runtime} pageNumber={index + 1}
-                width={width} zoom={zoom} onError={showFailure} />}
+                width={width} zoom={zoom} onError={showFailure}
+                citation={citation?.page === index + 1 ? citation : null} onCitationReady={onCitationReady} />}
               <span className="pdf-sheet-number" aria-hidden="true">{index + 1}</span>
             </div>;
           })}

@@ -93,7 +93,7 @@ export default function PaperDetailPage() {
     const seq = ++requestSeqRef.current;
 
     try {
-      const data = await fetchPaperDetail(paperId);
+      const data = await fetchPaperDetail(paperId, new URLSearchParams(window.location.search).get('document_version') ?? undefined);
       if (seq !== requestSeqRef.current || !isMountedRef.current) return;
       setPaper(data);
       setRefreshError(null);
@@ -231,7 +231,7 @@ export default function PaperDetailPage() {
     const seq = ++requestSeqRef.current;
 
     try {
-      const data = await fetchPaperDetail(paperId);
+      const data = await fetchPaperDetail(paperId, new URLSearchParams(window.location.search).get('document_version') ?? undefined);
       if (seq !== requestSeqRef.current || !isMountedRef.current) return;
       setPaper(data);
       backoffRef.current = false;
@@ -270,6 +270,16 @@ export default function PaperDetailPage() {
   useEffect(() => {
     loadDetail();
   }, [loadDetail]);
+
+  useEffect(() => {
+    const restoreVersion = () => {
+      const selected = new URLSearchParams(window.location.search).get('document_version') ?? paper?.active_version_id;
+      const displayed = paper?.reader?.document_version ?? paper?.active_version_id;
+      if (selected !== displayed) void loadDetail();
+    };
+    window.addEventListener('popstate', restoreVersion);
+    return () => window.removeEventListener('popstate', restoreVersion);
+  }, [paper, loadDetail]);
 
   const handleRetry = useCallback(async () => {
     if (!paper || !paper.job_id || isRetrying || conflictRefreshRef.current) return;

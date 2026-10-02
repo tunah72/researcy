@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { PDFDocumentProxy, PDFPageProxy, RenderTask, TextLayer } from 'pdfjs-dist';
 import type * as PdfRuntime from 'pdfjs-dist';
-import type { ReaderPage } from '@/lib/api';
+import type { ReaderPage, ResolvedCitation } from '@/lib/api';
+import { pdfBoxToViewport } from '@/lib/pdf-geometry';
 
 type Runtime = typeof PdfRuntime;
 
-export function PdfPage({ document, runtime, metadata, pageNumber, width, zoom, onError }: {
+export function PdfPage({ document, runtime, metadata, pageNumber, width, zoom, onError, citation, onCitationReady }: {
   document: PDFDocumentProxy;
   runtime: Runtime;
   metadata: ReaderPage;
@@ -15,9 +16,12 @@ export function PdfPage({ document, runtime, metadata, pageNumber, width, zoom, 
   width: number;
   zoom: number;
   onError: () => void;
+  citation: ResolvedCitation | null;
+  onCitationReady?: (citationId: string) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
+  const [transform, setTransform] = useState<number[] | null>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -27,6 +31,7 @@ export function PdfPage({ document, runtime, metadata, pageNumber, width, zoom, 
     const canvas = canvasRef.current;
     const text = textRef.current;
     if (!canvas || !text || width <= 0) return;
+    setTransform(null);
 
     void (async () => {
       page = await document.getPage(pageNumber);
@@ -52,6 +57,7 @@ export function PdfPage({ document, runtime, metadata, pageNumber, width, zoom, 
         textContentSource: page.streamTextContent(), container: text, viewport,
       });
       await Promise.all([rendering.promise, textLayer.render()]);
+      if (!disposed) setTransform([...viewport.transform]);
     })().catch(() => { if (!disposed) onError(); });
 
     return () => {
@@ -66,8 +72,18 @@ export function PdfPage({ document, runtime, metadata, pageNumber, width, zoom, 
     };
   }, [document, runtime, metadata, pageNumber, width, zoom, onError]);
 
+  useEffect(() => {
+    if (transform && citation) onCitationReady?.(citation.citation_id);
+  }, [transform, citation, onCitationReady]);
+
   return <>
     <canvas ref={canvasRef} aria-hidden="true" />
     <div ref={textRef} className="pdf-text-layer" />
+    {transform && citation && <div className="pdf-evidence-overlay" aria-hidden="true">
+      {citation.boxes.map((box, index) => {
+        const geometry = pdfBoxToViewport(box, transform);
+        return <span key={index} className="pdf-evidence-box" style={geometry} />;
+      })}
+    </div>}
   </>;
 }
