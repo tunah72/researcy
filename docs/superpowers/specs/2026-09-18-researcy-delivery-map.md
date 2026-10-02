@@ -167,9 +167,11 @@ The sequence follows the reader-first product dependency: identity and a ready o
 - provider timeout, rate limit, provider failure, and interrupted stream states are actionable and recorded;
 - the first demo journey works with keyboard input at supported desktop widths and shows a citation jump to the exact passage.
 
-**Status:** Planned
+**Status:** Implemented
 
 **Owner approval — 2026-10-01:** The owner approved the [M3 child specification](./2026-10-01-researcy-m3-reader-agent-design.md) and [implementation plan](../plans/2026-10-01-researcy-m3-reader-agent.md): “Tôi phê duyệt specification và implement plan.” M3 execution is authorized in an isolated worktree, including the presented prerequisite exception while M1 remains `Implemented`. Approval establishes design/planning, not passing implementation/real-route/browser evidence. Owner-data cutover and publishing/integration require separate authorization.
+
+**Implementation evidence — 2026-10-02:** The isolated M3 worktree implements immutable PDF delivery/Reader, pinned conversations, owner-scoped FTS+dense RRF, exact raw quote resolution, bounded fixed-route generation/LangGraph, committed-only citation events, claim-level SSE and the Discussion/keyboard evidence journey. See the [M3 execution report](../reports/2026-10-01-researcy-m3-acceptance.md#final-productionbrowser-corrections-and-awake-host-verification--2026-10-02) for production builds, affected suites, real answer/refusal/reload and exact original-PDF geometry/browser evidence. **Not Verified:** applicable documented Antigravity tariff/cost evidence and actual two-pass `search_same_paper` graph qualification remain open; controlled branches and standalone client qualification do not substitute. Independent backend review also failed to complete. M1/M2 and historical Q0 statuses/evidence are unchanged. No owner-stack cutover, publishing, push, merge or prune performed.
 
 ### M4 — DiscoveryAgent Recommendations and Explicit Add
 

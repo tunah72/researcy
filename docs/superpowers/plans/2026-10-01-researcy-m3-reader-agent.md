@@ -253,8 +253,8 @@ def test_quote_boxes_are_canonical_not_model_supplied(citation_source):
 **Scope/files:** T6 file map, API-only Settings/env; frozen pins for LangGraph and ijson (Python backend) consumed in T7. No provider SDK retry or universal model abstraction.
 **Consumes/produces:** GenerationClient, strict AnswerAction/SearchAction, GenerationEvent and typed safe failures.
 
-- [ ] Read-only prerequisite check using actual configuration without printing secret: bounded route metadata/connectivity and permission; record origin/configured route separately from provider-echoed backend identity. No paid generation health probe on automatic startup.
-- [ ] RED transport boundary tests with deterministic local HTTP fault server: streamed UTF-8 fragmented JSON, duplicate keys/trailing data/unknown fields/unsupported action, output cap, inactivity vs total deadline, 429/5xx/aborted transport and missing usage. No network/tool execution from partial/malformed action.
+- [x] Read-only actual endpoint/authenticated model catalog; subsequent explicit product-client qualification separates configured route from echoed backend. No automatic paid health probe.
+- [x] Restricted-harness RED followed by concrete controller/review RED regressions for diagnostics, incremental transport, deadline suspension, terminal order, malformed accounting and protocol. Actual local HTTP fault server; unsupported action executes no tool. Detailed outcomes in acceptance report.
 
 ```python
 def test_model_cannot_supply_scope_filters():
@@ -265,10 +265,11 @@ def test_model_cannot_supply_scope_filters():
 
 `InvalidModelOutput` is typed safe domain error in generation/models.py. Follow-up `search_same_paper` is rejected. Do not mock complete final deliverable for gate evidence.
 
-- [ ] Run RED: `uv run --frozen pytest tests/test_generation.py -q`.
-- [ ] GREEN: async actual existing HTTP transport, strict decoded-stream bounds and total deadlines, terminal usage extraction/source recording, no raw provider logging; fixed route, credentials server-side only, settings fail closed when generation invoked without prerequisite. Strict discriminated action/claim/refusal validation; no provider-native tools assumed.
+- [x] Initial restricted Linux harness RED: two missing-module failures; later defects reproduced as concrete behavior failures. Frozen suite final 671 passed / one opt-in skip.
+- [x] GREEN: bounded async existing HTTP transport, operation-scoped deadlines, terminal metadata before action validation, strict action/claim/refusal schema, fixed API-only route/configuration and frozen LangGraph/ijson pins. No SDK retry/native tool assumption.
 - [ ] Actual route probe: public evidence through actual product client, answer and bounded search cases, provider stream/structured output/usage; record latency/calls and price source. Probe outcome is prerequisite evidence only; final G6 requires actual LangGraph branch in T7/T9. Obtain actual negative route outputs with bounded qualification cases; fixture corruption is not labelled provider output. If unavailable/unsupported/malformed gate cannot be established, record blocker precisely, continue reachable Reader work without claiming M3 complete.
-- [ ] Review route isolation/secret safety/limits, scoped commit. Never change model, fabricate usage/cost, alter gate or stop shared gateway.
+  - Actual answer/search/negative and valid-after-negative output exercised through product client; nine explicit requests including initial client defects and final safe timeout, not nine successful calls. Usage/latency recorded. **Pricing portion remains blocked:** no documented applicable Antigravity tariff; estimated cost unknown. Google Developer API rates not substituted.
+- [x] Controller reviewed fixed route/API-only secret boundaries, transport/parser/deadline/metadata limits and consumer migration; scoped software commit `e450143`. Independent reviewer provider failures are disclosed, not clean-review evidence. Tariff prerequisite remains blocked.
 
 ## Task 7: Bounded ReaderAgent, claim-level SSE and atomic terminal state
 
@@ -277,7 +278,7 @@ def test_model_cannot_supply_scope_filters():
 **Scope/files:** T7 file map and actual master messages:stream route. No worker jobs for chat.
 **Consumes/produces:** run_reader, ReaderEvent, reserve/finish/fail state transitions; strict event names and payloads.
 
-- [ ] RED: real DB state + controlled transport for consumer boundaries: 1-pass answer, 2-pass search answer, 2-pass pre-delta repair; search+repair would require third call and must fail/refuse. Unsupported action executes no tool; follow-up search rejected; server filters immutable even with hostile question/provider fields. Invalid quote before delta may use single repair; invalid late claim after delta never retries or completes. Provider timeout/429/failure/interrupted stream leaves failed/interrupted durable state; racing completion/cancel cannot overwrite terminal state.
+- [x] RED: real DB state + controlled transport reproduced 1-pass answer, 2-pass search, 2-pass pre-delta repair and no third call; unsupported/follow-up/forged action, late invalid claims, provider faults, interruption and both publication/cancellation CAS winners. Exact outcomes recorded in acceptance report.
 
 ```python
 @pytest.mark.anyio
@@ -291,11 +292,11 @@ async def test_search_then_bad_citation_has_no_third_call(reader_run):
 
 `reader_run` is test-local actual graph + PostgreSQL reservation helper; controlled HTTP server supplies ordered responses, call counter counts requests received, not expected mock list length. Additional tests consume real HTTP SSE stream and disconnect mid-output.
 
-- [ ] Run RED: `uv run --frozen pytest tests/test_reader_agent.py tests/test_reader_stream.py -q`.
-- [ ] GREEN: small LangGraph with explicit immutable state and generation counter; initial/hybrid/action/one-search-or-repair/final-validation branches. Incremental maintained JSON parser validates complete claim units and quote locations before delta; final entire envelope strict-check includes duplicate-key/trailing output protection. Search only after whole action document validation. Citation events only accepted committed rows; complete only after atomic message/run/citation commit. Emit exactly one writable terminal event; safe errors before SSE headers otherwise answer.failed. Cancellation closes provider/DB/queues; lazy expired-run interruption survives API death.
-- [ ] Usage/logging implementation: increment actual paid call count before attempting transport, aggregate known usage with source, unknown partial values explicit, estimate cost only from documented tariff. Separate initial/follow-up/repair/search counts and first-delta/total latency. Content-free structured logs only.
+- [x] Initial RED and subsequent concrete regressions executed in the restricted Linux harness; focused generation/config/parser/graph/SSE checks passed with warnings treated as errors. Exact commands/outcomes recorded in the acceptance report.
+- [x] GREEN: finite LangGraph, immutable scope, maintained incremental JSON parser, whole-envelope strict validation, one search-or-pre-delta-repair budget and no retry after first delta. Accepted citation events follow atomic publication; direct bounded SSE sends and disconnect cleanup preserve durable terminal winners.
+- [x] Usage/logging: actual attempted pass count, initial/follow-up/repair/search counters, provenance-bearing terminal usage, explicit unknown/partial totals, content-free structured logs and observed monotonic latency. Cost remains null because the applicable tariff is blocked, not invented.
 - [ ] Focused checks and actual same-origin HTTP smoke on isolated production API/web: real product answer/search branch, live deltas before completion, citations persisted, explicit interruption and reload. Use controlled fault transport separately for timeout/429/failure; no production fault switches or artificial streaming replay. Verify Next flush/cancellation and post-disconnect state with DB observation.
-- [ ] Review graph bound, stream parser/security, concurrency and privacy; commit. G6 real malformed/unsupported rejection still requires actual route evidence, not this test fixture.
+- [x] Controller reviewed graph/pass/parser/privacy/queue/terminal races and committed verified software `3fb1dcb`. Independent backend review aborted after provider retries and is not a clean report. The separate real two-pass search/negative G6 gate remains open.
 
 ## Task 8: Discussion, atomic exact citation jump and keyboard lifecycle
 
@@ -304,8 +305,8 @@ async def test_search_then_bad_citation_has_no_third_call(reader_run):
 **Scope/files:** T8 map; central types/helpers only, no duplicate payload definitions. No M4/M5 controls.
 **Consumes/produces:** paginated conversations/messages, streamMessage, citation GET → Reader URL/page/overlay/card state.
 
-- [ ] RED user interactions: empty conversation/paper-derived suggestion (uses actual title, no invented metadata); explicit submit creates/selects pinned conversation, displays streamed provisional claim and terminal completion/refusal; EOF/429/provider failure show actionable explicit retry not completion; refresh restores persisted history; duplicate submit blocked, 401 clears private state. Old stream/page/citation request cannot overwrite newer selection.
-- [ ] Citation RED: one keyboard activation triggers correct URL/version/page/boxes + inline labelled region; Escape closes and restores triggering button focus while page remains; second selection replaces card/highlight; deep-link invalid/foreign/provisional citations remain unavailable, no model call; browser back/refresh rehydrate owned state. Card nonmodal aria-controls/expanded, no extra Go-to-page action.
+- [x] Consumer RED/GREEN: explicit pinned creation/submission, provisional/terminal/refusal/error/retry states, reload/pagination, duplicate blocking, revoked private state and stale scope/stream results. Failed retry pairs remain separate; approved URL uses `document_version` and the requested conversation.
+- [x] Citation RED/GREEN: authoritative version/page/quote/boxes, single inline region, replacement, deep-link membership/disagreement, stale fetch guards and Escape restoration including refreshed/remounted source controls. Actual original-PDF geometry remains separately recorded browser evidence.
 
 ```tsx
 await user.click(screen.getByRole('button', { name: /citation 1/i }));
@@ -317,11 +318,11 @@ expect(screen.getByRole('button', { name: /citation 1/i })).toHaveFocus();
 
 Use actual Discussion/evidence component and controlled API boundaries, not expected-state copies. Geometry/original rendering remains actual-browser proof.
 
-- [ ] Run RED: `npm test -- src/components/discussion-interaction.test.tsx src/components/citation-interaction.test.tsx`.
-- [ ] GREEN: POST fetch stream with central CSRF, AbortSignal and bounded SSE decoding; immutable event/type validation, nonterminal draft styling, complete/refusal/error/interrupted states and reload pagination. Explicit new submission UUID for retry, no automatic reconnect. Suggested prompt only from known active title/section, no model pass on open. Layout/focus/live region follow spec. URL state uses backend accepted citation, transforms exact boxes via T2 utility; wait/cancel stale render, card one-click update.
-- [ ] Focused check + frontend suite/build. Remove obsolete ready-unavailable copy/tests; retain unready/retry tests and migrate all affected callers.
-- [ ] Actual production browser smoke: sign in/session in isolated stack, ready 1706.03762, parallelization question and unsupported carbon-footprint question, citation mouse/keyboard, exact overlays vs canonical boxes on original, zoom/rotation/crop fixtures, Escape/focus and independent scroll/composer. Observe all loading/streaming/completion/refusal/unavailable/error/interruption states. Verify no overflow and visible focus at 1024/1280/1440, clear boundary at 375/768/1023, reduced motion/contrast/one main; close browser tabs afterward.
-- [ ] Review actual surface and semantic answer support separately from geometry; scoped commit/evidence.
+- [x] Initial missing transport/Discussion RED and subsequent URL/placement/focus regressions executed; precise failures and commands recorded in the acceptance report.
+- [x] GREEN: central same-origin CSRF POST stream, bounded UTF-8/SSE validation, abort lifecycle, explicit new retry UUID, honest durable/provisional states, requested-conversation pagination, accepted citation URL/card and stale render cancellation. No model call or conversation creation on GET.
+- [x] Final pinned Node 22.14 frontend suite: 113 passed; strict TypeScript/Next production build passed. Migrated obsolete URL callers and removed unused former sidebar styles. Test/resource-run failures are retained in the report rather than hidden by weakening assertions.
+- [x] Actual production-browser evidence recorded for ready original, grounded/refused/failed/interrupted/reloaded Discussion, exact citation keyboard/mouse/refresh/back/Escape, all supported/narrow widths, zoom/rotation/crop, independent pane scrolling/composer, one main/overflow/contrast/reduced motion. Private screenshots remain outside Git; managed tab closed.
+- [x] Static independent UI review plus controller actual-surface and substantive claim/quote review completed; scoped software commit `706c29d`. Real model semantic support reviewed separately from canonical geometry; no broad accuracy claim.
 
 ## Task 9: Full isolated real-stack acceptance and status reconciliation
 
@@ -331,10 +332,10 @@ Use actual Discussion/evidence component and controlled API boundaries, not expe
 
 ### Safe environment setup
 
-- [ ] Read using-git-worktrees/start-stack/browser verification skills relevant at execution. Isolated Compose project `researcy-m3-acceptance`; explicit private overrides for separate PostgreSQL/MinIO/Qdrant volumes and localhost ports (API 8003, web 3003, PostgreSQL 55435, MinIO 9003). Production web must get API_INTERNAL_URL=http://api:8000 in network, trusted origin exactly http://localhost:3003 and correct callback for explicit real OAuth if exercised. No root default .env database/bucket/volume accidentally inherited.
-- [ ] Compose override is throwaway private acceptance harness, not a new product stack convention. Render/review configuration without dumping secrets; verify project labels/network/volume names and original source intake identity before mutations. Container API embedding endpoint reaches native Ollama via host.docker.internal; generation endpoint uses actual approved gateway address, not guessed port. Existing restricted seccomp/UID/caps inherited.
-- [ ] Start isolated PostgreSQL/MinIO/bucket init/API, migrate twice, Qdrant and dependency preflight. Only after explicit isolated-fixture scope is established start its document worker to process public accepted originals; no preserved owner queued job consumed. Actual worker stops after required fixtures. Do not use a test-generated ready flag or manually seeded vectors as G1/G2 source.
-- [ ] Actual `1706.03762` import or explicit provenance-preserving copy of already accepted public original into isolated intake; if copied, record source/hash/version and do not claim fresh arXiv-network acquisition. Golden annotation version/hash must match original; annotate actual edition separately if necessary. Exercise actual production web/API, not a fake acceptance app.
+- [x] Isolated Compose project `researcy-m3-acceptance` and private override; separate databases/buckets/Qdrant collections and localhost API 8003/web 3003/PostgreSQL 55435/MinIO 9003. Production Next reaches internal API and exact trusted origin `http://localhost:3003`; opaque fixture sessions are not claimed as real OAuth acceptance.
+- [x] Private override and project/network/storage labels reviewed; restricted UID/seccomp/caps preserved. API-only gateway credentials restored into an additional mode-0600 private override after Eval state loss; no credential committed or sent to worker/web.
+- [x] Isolated services, twice-applied migrations and dependency preflight exercised. Actual worker processed only the explicitly guarded public/geometry fixtures and stopped; no owner queued job consumed or permanent worker started.
+- [x] Accepted public original copied through provenance-preserving isolated intake with observed immutable source SHA/version and real worker publication; not claimed as a fresh arXiv-network acquisition. Actual production API/web used for Reader journeys.
 
 ### Commands delivered and exercised at execution
 
@@ -369,17 +370,17 @@ docker compose --env-file /dev/null -p researcy-m3-acceptance -f compose.yaml -f
 
 ### Complete gate checklist
 
-- [ ] G1 actual PDF reading/download/Range/HEAD/hash/bounded cleanup through production same-origin surface, supported outline and page controls.
-- [ ] G2 actual product parallelization answer with live deltas, substantive claim support, exact original-version citations and one-click page/boxes/card; bounded follow-up.
-- [ ] G3 actual unsupported question refusal; isolated actual invalid/missing/foreign/raw-normalized/multipage provenance failures and repair/pass ceiling. Report injected fixtures separately from natural model output.
-- [ ] G4 two authenticated owner contexts across every private resource, random/foreign equivalence, unready no expensive work, CSRF/Origin/revocation/quota and duplicate/concurrent submission. Synthetic opaque sessions establish new authorization boundaries, not missing M1 two-real-Google acceptance; no M1 promotion.
-- [ ] G5 actual browser abort/network disconnect/API interruption reload; controlled real-HTTP transport timeout/429/5xx/provider-stream failure through product client with zero false completion/hidden retries. Fault harness identity disclosed; no claim upstream naturally returned a failure it did not.
+- [x] G1 recorded original hash/download, GET/HEAD/206/416/If-Range, stalled/disconnected cleanup and actual same-origin canvas/text/page/outline controls; T1/T2 final production evidence plus T8 original-PDF checks.
+- [x] G2 actual product parallelization deltas preceded committed terminal/citations; exact accepted GET/one-click original page/boxes/card and bounded-history follow-up recorded. Substantive claims reviewed against quotes separately from geometry.
+- [x] G3 actual unsupported-carbon refusal plus isolated real-DB canonical foreign/raw/ambiguity/ligature/multipage/missing-geometry failures and actual HTTP graph search/repair ceilings. Controlled negative cases are explicitly not natural provider output.
+- [x] G4 isolated two-session owner/private-resource/random equivalence; real DB/API tests for pre-body auth/CSRF/Origin/unready/quota/concurrent/duplicate/revocation boundaries and latest same-origin two-owner smoke. No M1 real-Google promotion.
+- [x] G5 actual same-origin disconnect/interrupted reload plus controlled real HTTP generation/SSE timeout/429/5xx/EOF/backpressure/CAS boundaries; explicit browser retry preserves failed pair and completed new pair. No hidden retry or false completion.
 - [ ] G6 actual 9Router product output through actual graph for answer/search branches and real malformed/unsupported output rejected without tool. Record route config, validated action/tool trace, model-call count, usage source, first-delta/total latency, estimated/billed cost distinction and tariff source. Bounded attempts that do not elicit required negative output leave specific gate interpretation blocker; never replace with mock/corrupted payload or relax criteria.
-- [ ] G7 full suites/production builds and browser journeys: supported and below-boundary widths, keyboard/Escape/focus, zoom/rotations/crop, independent scrolling, composer, one main, overflow/contrast/reduced motion, complete M3 visible states. Compare actual rendered overlay with exact viewport transforms, not page-only screenshots.
-- [ ] Measure native/service/API/web memory/OOM/restarts during actual Reader/streaming with existing limits; no tests/builds concurrently. M2 warm-resource pass is not a substitute for current workload observation. Record cold-load separately; no model/budget change or owner-app shutdown.
+- [x] G7 final backend 719 passed/one opt-in skip; pinned Node 22.14 frontend 113 passed; production builds and recorded actual keyboard/focus/width/zoom/crop/rotation/contrast/reduced-motion/scroll/composer/state journeys. Original boxes compared individually against authoritative geometry, not page-only screenshots.
+- [x] No-build/no-test finite Reader resource observation recorded: API/web within preserved caps, no OOM/restarts; native process RSS and host swap/pressure measured with limitations explicit. No M2 evidence rewrite, model change or owner-application shutdown.
 - [ ] Request code review and resolve blocking findings. Remove throwaway fault/measurement scripts and exact run-owned resources, preserve owner data/all historical evidence. No broad prune or volume deletion.
-- [ ] Report exact command/environment/expected-vs-observed/request ID/journey/source hash and measurement source. Private text/screenshots/secrets stay ignored/private; safe evidence only in Git.
-- [ ] Advance map only by rules: draft no change; approved spec Designed; approved plan Planned; code without all gate evidence Implemented; all observed M3 gates Verified. RET-01/GEN-01/CIT-01 historical Designed evidence does not imply production ready. Root AGENTS says Reader implemented only when true. No push/merge/prune without new authorization.
+- [x] Safe evidence report records exact executed environment/commands, outcomes, request IDs, original hash/version and measurement provenance; private text/screenshots/secrets remain outside Git.
+- [x] Delivery map reconciled to Implemented only. M1/M2/historical Q0 unchanged; G6/tariff/complete acceptance remains blocked. No owner cutover, push, merge or prune.
 
 ## 3. Coverage and review checkpoint
 
