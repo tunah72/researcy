@@ -1,8 +1,8 @@
 # Researcy System Design
 
 **Status:** Approved master specification
-**Revision:** 2.1
-**Approved:** 2026-09-24 (revision 2.0); 2026-10-02 (M3-only revision 2.1 amendment below)
+**Revision:** 2.2
+**Approved:** 2026-09-24 (revision 2.0); 2026-10-02 (M3-only revision 2.1); owner-approved Gemini primary/manual fallback and schema-aware G6 amendment below (revision 2.2)
 **Baseline:** Revision 1.1 approved 2026-09-19
 **Delivery:** Milestone-gated M1–M5; no calendar timebox
 **Primary portfolio objective:** Demonstrate a trustworthy, reader-first research product with optional, bounded discovery and research-direction workflows
@@ -10,6 +10,10 @@
 **Change control:** A conflicting child specification or implementation plan requires an explicit master-spec revision and approval.
 
 **Owner-approved M3 amendment — 2026-10-02:** The owner explicitly selected “Duyệt cost unavailable” and “Giữ gate hiện tại” for G6. For M3 only, an unavailable applicable monetary tariff/billing mapping may be recorded as `estimated_cost: null`, `cost_source: unavailable`, with the reason and source investigation documented alongside actual per-attempt usage, call count and latency. This satisfies monetary-cost provenance reporting without claiming zero/free/billed cost or substituting another route's tariff. Unknown usage remains unknown/partial. G6 actual graph negative/valid-after-negative evidence, all other acceptance requirements, M4/M5 and historical Q0 evidence are unchanged. This supersedes M3 numeric-cost prerequisite interpretations of §§2, 10.1, 11, 17 and 21 only; it does not mark M3 Verified.
+
+**Owner-approved generation amendment — revision 2.2:** The owner requests direct Gemini API generation as primary, prefers `gemini-3.8-flash`, and explicitly selects “Chuyển thủ công giữa các run” and “Duyệt gate phù hợp schema enforcement”. M3 primary uses Google's HTTPS OpenAI-compatible endpoint, `gemini-3.8-flash`, explicit low reasoning, provider JSON Schema and streaming usage. 9Router `ag/gemini-3.8-flash-low` remains an operator-selected alternative for subsequent runs only, never automatic same-run retry/failover. Preserve the two-generation-call ceiling, 60-second pass/150-second run bounds, backend authorization/action/citation validation and private logging boundaries.
+
+This supersedes M3's fixed-9Router route and natural-provider-malformed-output requirements in §§10.1 and 21 and its child/delivery-map gate: qualify real Gemini application graph answer/search, adversarial action/scope containment and valid subsequent output; supplement with explicitly labelled controlled malformed/unsupported production-transport/graph rejection showing zero unauthorized tools/publication. Controlled outputs are not described as natural Google output, and schema containment is not described as observed natural invalid-action rejection. Schema requests never replace backend checks. The original no-automatic-fallback rule remains. Historical Q0/Q0.1 and earlier M3 evidence are immutable; M4/M5 require their own future route qualification. Implementation/requalification must follow the reviewed cutover plan, and M3 stays Implemented until every amended gate has recorded evidence.
 
 ## 1. Product thesis
 
@@ -113,7 +117,7 @@ FastAPI modular monolith
   ├── Qdrant
   ├── S3-compatible object storage
   ├── Python LangGraph orchestration (inside this API; exactly three bounded roles)
-  ├── Configured generation route through local 9Router
+  ├── Direct Gemini generation primary; operator-selected local 9Router alternative
   └── Python worker → native self-hosted embedding runtime
 ```
 
@@ -358,7 +362,7 @@ Researcy distinguishes three request types:
 
 1. **Application API request:** the browser calls FastAPI. This is not a model request.
 2. **Internal embedding request:** FastAPI or the worker calls the on-device self-hosted embedding runtime. It does not leave the machine and has no per-token vendor charge.
-3. **Generation pass:** FastAPI uses the configured product route `ag/gemini-3.8-flash-low` through local 9Router, as recorded for Q0.1. Retain this product route; a development-agent model choice is separate and must not change the product runtime configuration. Q0.1 recorded the configured route, not response-echoed backend identity.
+3. **Generation pass:** FastAPI uses direct Gemini API `gemini-3.8-flash` as primary. An operator may select local 9Router `ag/gemini-3.8-flash-low` for a subsequent run; there is no automatic fallback. Q0.1's historical configured route is unchanged evidence, not qualification of the new primary. Development-agent model choices remain separate from product runtime configuration.
 
 Ingestion uses local deterministic parsing and chunking, batched internal embedding requests, and local Qdrant indexing; it makes zero external paid model requests. The worker remains for document jobs, not model-agent work.
 
@@ -370,7 +374,7 @@ The bounded LangGraph workflows are:
 
 These are structured model outputs validated and branched on by LangGraph; the design does not assume provider-native tool calling. Backend code owns every tool invocation and filter.
 
-Q0.1 demonstrated structured answer output, not structured next-action/tool selection. Before M3 or M4 can be accepted as `Verified`, qualify the configured route through the real 9Router product path: demonstrate schema-valid next-action output for the role's allowed branch, show that validation selects only its bounded backend branch, and show malformed/unsupported action output is rejected without tool execution. A mock or a development-agent route is not evidence for this gate. If qualification fails, mark the affected milestone blocked and preserve the deterministic RAG baseline without calling it an Agent.
+Q0.1 demonstrated structured answer output, not structured next-action/tool selection. Before M3 or M4 can be accepted as `Verified`, qualify the actual configured product route through application transport and graph: demonstrate schema-valid role-specific next-action output reaching only its bounded backend branch. M3 follows the revision 2.2 schema-aware G6 composition; M4 still requires its own role qualification and malformed/unsupported rejection evidence. A mock or a development-agent route does not prove real-provider branch execution. If qualification fails, leave the affected milestone unverified and preserve the deterministic RAG baseline without calling it an Agent.
 
 Cap each on-demand role run at one initial and at most one follow-up generation pass. The second slot may be used to finish a requested bounded workflow or make one validator-requested repair; it is not an additional unbounded retry. If citation repair is needed after the cap, or the repaired output remains invalid, refuse or return a safe failure. A stream is never blindly retried after it has begun.
 
@@ -681,7 +685,7 @@ The interview environment continues to use Docker Compose for:
 
 Python LangGraph runs in the existing API deployment; it adds no service, agent server, or second worker. The existing worker remains for document processing. The embedding runtime runs natively on ARM64 on the interview MacBook, with Ollama as the default serving candidate. This avoids loading model weights in both API and worker processes and avoids Docker architecture emulation. Containerized API and worker processes use the same internal HTTP contract to reach the host embedding runtime.
 
-The product generator remains the configured `ag/gemini-3.8-flash-low` route through local 9Router. A development-agent model selection is separate tooling and never changes this product runtime route.
+The product generator is direct Gemini API `gemini-3.8-flash` primary, with local 9Router `ag/gemini-3.8-flash-low` as an operator-selected alternative for subsequent runs. No automatic provider switch or hidden retry. A development-agent model selection is separate tooling and never changes product runtime configuration.
 
 A single demo entry point must:
 
@@ -708,7 +712,7 @@ Q0 remains `Verified` as read-only historical evidence; M1–M5 are all `Not sta
 - ResearchAgent accepts only one to three unique related-paper IDs, all ready and owned by the requesting user, none equal to the active paper. Empty/malformed selections, duplicates, foreign/nonexistent IDs, and not-ready IDs are rejected before generation.
 - ReaderAgent is constrained to the active paper even if a model action includes other IDs or filters. No client or model supplies authoritative ownership/version filters.
 - Each run obeys the two-generation-pass ceiling; logs contain per-role call count, latency, token/cost estimate, selected action/tool, result count, source references, and validation state, but no prompts, document text, evidence quotes, or secrets.
-- M3 and M4 real-route qualification uses `ag/gemini-3.8-flash-low` through local 9Router, not mocks or a development-agent route. Demonstrate valid role-specific structured actions reaching only their bounded LangGraph branch and malformed/unsupported actions reaching no tool. A failed gate leaves the milestone blocked.
+- M3 real-route qualification follows revision 2.2 and child G6 through actual Gemini application transport/graph, not mocks or a development-agent route. M4 requires its own actual configured-route qualification: valid role-specific structured actions reach only their bounded LangGraph branch and malformed/unsupported actions reach no tool. A failed gate leaves the milestone unverified.
 
 ### 21.2 Milestone and browser acceptance journey
 
@@ -785,7 +789,7 @@ Use the reader-first journey and the three explicitly bounded roles as the scope
 - **Chosen:** simplified Library and fixed Reader split with compact, user-initiated related-paper and research-direction actions in the secondary panel.
   **Rejected:** premature filters, list/grid switching, draggable panels, and a separate research-report destination.
 
-- **Chosen:** on-device self-hosted embedding through a native ARM64 runtime plus the configured product generation route `ag/gemini-3.8-flash-low` through local 9Router.
+- **Chosen:** on-device self-hosted embedding through a native ARM64 runtime plus direct Gemini `gemini-3.8-flash` generation primary and operator-selected local 9Router `ag/gemini-3.8-flash-low` alternative; the historical Q0.1 route remains recorded separately.
   **Rejected:** vendor-hosted embeddings, duplicated in-process model loads, a fully local generator on the 8 GB interview machine, and changing the product route because of a development-agent model choice.
 
 - **Chosen:** Google OAuth followed by an opaque server-side application session.

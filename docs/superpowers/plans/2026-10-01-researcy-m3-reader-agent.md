@@ -4,7 +4,7 @@
 
 **Goal:** Open the authorized original PDF in a real Reader, then deliver bounded active-paper conversations with streamed grounded answers/refusals and exact evidence-linked citations.
 
-**Architecture:** Extend the existing FastAPI modular monolith and PostgreSQL authoritative state, reuse M2 private originals, native embeddings, Qdrant scope checks and exact provenance. Next.js owns PDF.js rendering and Discussion; one request-scoped LangGraph runs ReaderAgent through actual local 9Router, never the document worker.
+**Architecture:** Extend the existing FastAPI modular monolith and PostgreSQL authoritative state, reuse M2 private originals, native embeddings, Qdrant scope checks and exact provenance. Next.js owns PDF.js rendering and Discussion; one request-scoped LangGraph runs ReaderAgent through direct Gemini primary, with operator-selected 9Router for later runs only, never the document worker. Original execution/9Router results below are historical; the Gemini cutover addendum remains pending review and execution.
 
 **Tech Stack:** Python 3.12, FastAPI/Pydantic, psycopg/Alembic, existing HTTP transport and MinIO, PostgreSQL FTS, native ARM64 Ollama/BGE-M3, Qdrant, pinned LangGraph and ijson (Python backend), Next 16.3.6/React 19/strict TypeScript, pinned pdfjs-dist and its local matching worker, pytest/Vitest/Testing Library, actual production browser.
 
@@ -15,7 +15,7 @@
 ## Global constraints
 
 - Controller GPT 6.1 Sol owns shared contracts, difficult security/geometry/stream-budget decisions and final integration. Default implementation is serial. Agents may investigate/review independent boundaries after contracts freeze; never competing migrations or shared schema edits.
-- Only M3. No model changes, scope reduction or acceptance weakening to conceal failure. Product route `ag/gemini-3.8-flash-low` through local 9Router; development tooling is separate.
+- Only M3. No unapproved model changes, scope reduction or acceptance weakening to conceal failure. Master revision 2.2 / amended child §8/G6 approve direct Gemini primary and manual 9Router selection; development tooling is separate.
 - Preserve root next-env.d.ts/AGENTS.md/CLAUDE.md artifacts and existing worktrees. No reset, stash, owner migration/worker startup, push, merge or prune.
 - New feature work after approval uses isolated branch `feat-m3-reader-agent`, worktree `.omp/worktrees/m3-reader-agent` from `cca8a9d` or a separately verified later main. Read using-git-worktrees skill first. Do not create a branch/worktree by deleting an occupied target.
 - RED → GREEN for consumer-visible boundaries, focused actual smoke, review/fix, scoped commit per task. Do not add wiring/source-text/incidental wording tests. Do not rerun owner-reported successful M2 tests merely to confirm handoff.
@@ -267,7 +267,7 @@ def test_model_cannot_supply_scope_filters():
 
 - [x] Initial restricted Linux harness RED: two missing-module failures; later defects reproduced as concrete behavior failures. Frozen suite final 671 passed / one opt-in skip.
 - [x] GREEN: bounded async existing HTTP transport, operation-scoped deadlines, terminal metadata before action validation, strict action/claim/refusal schema, fixed API-only route/configuration and frozen LangGraph/ijson pins. No SDK retry/native tool assumption.
-- [ ] Actual route probe: public evidence through actual product client, answer and bounded search cases, provider stream/structured output/usage; record latency/calls and price source. Probe outcome is prerequisite evidence only; final G6 requires actual LangGraph branch in T7/T9. Obtain actual negative route outputs with bounded qualification cases; fixture corruption is not labelled provider output. If unavailable/unsupported/malformed gate cannot be established, record blocker precisely, continue reachable Reader work without claiming M3 complete.
+- [x] Real-route prerequisite closed by the explicitly owner-approved revision 2.2 / G1–G3 addendum: actual Gemini client/graph answer, bounded search, adversarial containment and valid subsequent output; separately labelled controlled rejection. Usage/calls/latency and unavailable monetary-cost reason recorded. Original gateway probe notes below remain historical; they are not natural Google negatives or current tariff blockers.
   - Actual answer/search/negative and valid-after-negative output exercised through product client; nine explicit requests including initial client defects and final safe timeout, not nine successful calls. Usage/latency recorded. **Pricing portion remains blocked:** no documented applicable Antigravity tariff; estimated cost unknown. Google Developer API rates not substituted.
 - [x] Controller reviewed fixed route/API-only secret boundaries, transport/parser/deadline/metadata limits and consumer migration; scoped software commit `e450143`. Independent reviewer provider failures are disclosed, not clean-review evidence. Tariff prerequisite remains blocked.
 
@@ -295,7 +295,7 @@ async def test_search_then_bad_citation_has_no_third_call(reader_run):
 - [x] Initial RED and subsequent concrete regressions executed in the restricted Linux harness; focused generation/config/parser/graph/SSE checks passed with warnings treated as errors. Exact commands/outcomes recorded in the acceptance report.
 - [x] GREEN: finite LangGraph, immutable scope, maintained incremental JSON parser, whole-envelope strict validation, one search-or-pre-delta-repair budget and no retry after first delta. Accepted citation events follow atomic publication; direct bounded SSE sends and disconnect cleanup preserve durable terminal winners.
 - [x] Usage/logging: actual attempted pass count, initial/follow-up/repair/search counters, provenance-bearing terminal usage, explicit unknown/partial totals, content-free structured logs and observed monotonic latency. Cost remains null because the applicable tariff is blocked, not invented.
-- [ ] Focused checks and actual same-origin HTTP smoke on isolated production API/web: real product answer/search branch, live deltas before completion, citations persisted, explicit interruption and reload. Use controlled fault transport separately for timeout/429/failure; no production fault switches or artificial streaming replay. Verify Next flush/cancellation and post-disconnect state with DB observation.
+- [x] Focused checks and actual same-origin HTTP smoke on isolated production API/web completed through G2–G3 below: real primary answer/search, live deltas before committed citations/completion, pinned persisted citations, controlled production-Reader interruption, browser reload and explicit successful Gemini resubmission. Controlled HTTP provider faults remain separate from actual Google outputs; Next observed the real live submission, not artificial streaming replay.
   - Owner-requested requalification 2026-10-02 now observed actual graph search in two runs: one follow-up safely failed, one completed as a validated refusal after exactly two calls/one search/zero repairs. Three separate cited answers succeeded. Search → supported cited answer remains unobserved; full G6 negative interpretation/tariff still open. Exact six-case/eight-attempt evidence appended to the acceptance report.
   - Subsequent follow-up diagnosis 2026-10-02 observed actual production graph search → supported two-claim cited answer, two calls/one search/zero repairs (`2d029bb6-3b3e-4f00-b410-d50104a85920`), same-origin evidence reload and original-PDF browser interaction. Two new initial-pass failures are premature provider-stream EOF before final action validation; upstream cause is not established. Separate live same-origin HTTP case completed directly with three citations, not two-pass search. The full combined criterion remains unchecked; no speculative Generator fix, gateway mutation or G6/tariff/review closure. Evidence and observer-caused interruption are recorded in the acceptance report.
 - [x] Controller reviewed graph/pass/parser/privacy/queue/terminal races and committed verified software `3fb1dcb`. Independent backend review aborted after provider retries and is not a clean report. The separate real two-pass search/negative G6 gate remains open.
@@ -377,7 +377,7 @@ docker compose --env-file /dev/null -p researcy-m3-acceptance -f compose.yaml -f
 - [x] G3 actual unsupported-carbon refusal plus isolated real-DB canonical foreign/raw/ambiguity/ligature/multipage/missing-geometry failures and actual HTTP graph search/repair ceilings. Controlled negative cases are explicitly not natural provider output.
 - [x] G4 isolated two-session owner/private-resource/random equivalence; real DB/API tests for pre-body auth/CSRF/Origin/unready/quota/concurrent/duplicate/revocation boundaries and latest same-origin two-owner smoke. No M1 real-Google promotion.
 - [x] G5 actual same-origin disconnect/interrupted reload plus controlled real HTTP generation/SSE timeout/429/5xx/EOF/backpressure/CAS boundaries; explicit browser retry preserves failed pair and completed new pair. No hidden retry or false completion.
-- [ ] G6 actual 9Router product output through actual graph for answer/search branches and real malformed/unsupported output rejected without tool. Record route config, validated action/tool trace, model-call count, usage source, first-delta/total latency, estimated/billed cost distinction and tariff source. Bounded attempts that do not elicit required negative output leave specific gate interpretation blocker; never replace with mock/corrupted payload or relax criteria.
+- [x] G6 closed under explicitly owner-approved master revision 2.2 / amended child G6: actual Gemini application graph answer/search, adversarial action/source containment and valid subsequent output, plus separately labelled malformed/unsupported local HTTP provider-stream/graph rejection. Record selected/echoed identity, physical calls, trace, first-delta/total latency, truthful usage and null/unavailable cost reason. No manufactured natural malformed Google output or inferred fallback verification.
 - [x] G7 final backend 719 passed/one opt-in skip; pinned Node 22.14 frontend 113 passed; production builds and recorded actual keyboard/focus/width/zoom/crop/rotation/contrast/reduced-motion/scroll/composer/state journeys. Original boxes compared individually against authoritative geometry, not page-only screenshots.
 - [x] No-build/no-test finite Reader resource observation recorded: API/web within preserved caps, no OOM/restarts; native process RSS and host swap/pressure measured with limitations explicit. No M2 evidence rewrite, model change or owner-application shutdown.
 - [x] Request code review and resolve blocking findings. Independent final targeted backend review is clean; current backend 756 passed/one opt-in skip, final production build and actual path smokes recorded. Throwaway processes/exact temporary test settings removed; owner data/historical evidence preserved. G6 is still open; no publication/prune/volume deletion.
@@ -409,3 +409,87 @@ The owner retained G6's actual graph negative/valid-after-negative gate and appr
 Task 9 final backend review is complete: demonstrated RED → GREEN corrections and independent final targeted clean verdict are recorded in the acceptance report. G6 remains unchecked; the approved cost clarification is not permission to infer Verified.
 
 Final backend verification after closure corrections: **756 passed, 1 opt-in arXiv skipped in 497.28s**, production API build and observed same-origin/live-client plus final local-provider-stall/cancellation/malformed-accounting smokes recorded in the report. Frontend remained unchanged; its previous 113-pass/build/browser evidence is retained, not relabelled as a new run. G6 stays unchecked.
+
+## Gemini primary cutover addendum — owner approved
+
+**Goal:** Requalify the implemented M3 application graph on direct `gemini-3.8-flash`, retaining explicitly configured 9Router for subsequent runs and preserving all ownership/citation/stream bounds.
+
+**Authority:** Master revision 2.2, amended child §§8/11/12 and delivery-map M3. The owner approved manual switching and schema-aware G6, then explicitly approved implementation G1–G3: “Tôi phê duyệt addendum triển khai G1–G3. Hãy thực hiện theo workflow approved spec/plan của repository.” This authorizes isolated implementation/requalification, not automatic failover, owner-service startup, publishing or Verified status without evidence.
+
+### Task G1: Fixed provider configuration, streaming contract and truthful accounting
+
+**Files:** Modify `apps/api/researcy/config.py`, `apps/api/researcy/generation/client.py`, `apps/api/researcy/agents/reader.py`, `apps/api/tests/test_generation_config.py`, `apps/api/tests/test_generation.py`, `apps/api/tests/test_reader_agent.py`, root `.env.example` and `compose.yaml`. Reuse `apps/api/researcy/generation/models.py` action types; no new provider package, SDK or dependency.
+
+**Interfaces:** Preserve `GenerationClient.stream(messages, follow_up=False, deadline=None, on_metadata=...)` and browser/API contracts. Add `Settings.generation_provider` with exactly `gemini`/`9router`; preserve the existing endpoint/key/model settings. Validate exact HTTPS Google base/model for Gemini; retain the existing safe `/v1` endpoint and fixed Antigravity model for 9Router. Worker settings continue excluding generation endpoint/key. Do not add a production alias for `GEMINI_PROBE_API_KEY`.
+
+- [x] RED: Add configuration boundary cases using the existing monkeypatch convention. The following valid-primary case fails before cutover because `/v1beta/openai` and the new model are rejected:
+
+```python
+def test_google_primary_accepts_its_exact_endpoint_and_model(monkeypatch):
+    monkeypatch.setenv("APP_ROLE", "api")
+    monkeypatch.setenv("GENERATION_PROVIDER", "gemini")
+    monkeypatch.setenv("GENERATION_ENDPOINT", "https://generativelanguage.googleapis.com/v1beta/openai")
+    monkeypatch.setenv("GENERATION_MODEL", "gemini-3.8-flash")
+    monkeypatch.setenv("GENERATION_API_KEY", "isolated-test-only")
+    settings = Settings.from_env()
+    assert settings.generation_endpoint == "https://generativelanguage.googleapis.com/v1beta/openai"
+    assert "isolated-test-only" not in repr(settings)
+```
+
+Pair with parameterized rejection of an attacker host, HTTP Google URL, query/userinfo, invalid provider and provider/model mismatch; assert `ValueError`, not error-message wording. Retain credential isolation, TLS, limit and cancellation tests. Migrate existing local gateway fixtures to explicit `9router` selection rather than weakening Google's endpoint rule to accommodate fixtures.
+
+- [x] Execute the configuration boundary RED in the existing restricted Python 3.12 pytest harness; record the actual pre-cutover valid-Google failure. This is the isolated execution equivalent of the planned host `uv run pytest` command, not a claimed host invocation.
+- [x] GREEN: Make provider selection immutable per Settings/client instance. Default API configuration targets Gemini; `9router` requires explicit operator selection and its existing route. Update direct-constructor checks as well as `from_env`, and all affected tests/callers. No automatic retry or provider switch. Add provider-specific Gemini request fields to the existing payload:
+
+```python
+# In the existing payload construction; use imported existing action models.
+if self.settings.generation_provider == "gemini":
+    action_type = AnswerAction if follow_up else AnswerAction | SearchAction
+    payload["response_format"] = {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "reader_action",
+            "strict": True,
+            "schema": TypeAdapter(action_type).json_schema(),
+        },
+    }
+    payload["reasoning_effort"] = "low"
+    payload["stream_options"] = {"include_usage": True}
+```
+
+Retain the already-qualified 9Router payload; do not assume native schema support there. Backend validation remains authoritative on both paths. Do not change terminal stop/DONE/EOF semantics or publish provisional citations.
+
+- [x] Replace the hardcoded metrics source with selected-provider terminal provenance and attach configured provider/model to each actual attempted pass before network I/O. Keep echoed model distinct from configured identity. Preserve paid-attempt reservation/checkpointing, cancellation propagation, malformed metadata invalidation, unknown/partial totals and null/unavailable monetary cost.
+- [x] Inspect actual Gemini terminal usage in the private protocol smoke before adopting any provider-specific arithmetic rule. Existing `_usage` reasoning-versus-prompt comparison is a gateway assumption. Retain nonnegative integer and applicable cache/detail invariants, but validate reasoning/total relationships against the documented and observed provider mapping; do not silently repair inconsistent counters or invent counts. Add permanent regression cases only for actual plausible usage failures, including cancellation after metadata and contradictory usage.
+- [x] Execute the five affected pytest files (`test_generation_config.py`, `test_generation.py`, `test_reader_agent.py`, `test_reader_stream.py`, `test_reader_citation_publication.py`) in the restricted Python 3.12 harness — 171 passed in 137.05s. The container wrapper replaces host `uv run`, without changing test contracts.
+- [x] Build/recreate the isolated API only, using private override input; preserve its database/objects and do not run migrations or workers. Map the root preparation key into `GENERATION_API_KEY` privately, without argv/output. Confirm effective provider/model via a sanitized probe; never print complete environment. Use a throwaway protocol capture against the real GenerationClient to inspect initial/follow-up schema, usage request, reasoning setting and shared deadline; remove capture after smoke. Request-shape inspection is diagnostic, not a permanent forwarding/source-text test.
+- [x] Review the integrated diff and commit only intended code/tests/public configuration after focused smoke; never stage private overrides, root `.env` or generated evidence. No push/merge permission inferred.
+
+### Task G2: Bounded real Gemini graph qualification and controlled safety evidence
+
+**Files:** Record sanitized evidence in `docs/superpowers/reports/2026-10-01-researcy-m3-acceptance.md`; use existing live message route, claim/citation resolver, hybrid retrieval and generation transport. Controlled harnesses remain private throwaway files, not production branches.
+
+**Consumes:** Task G1's real primary configuration, bounded GenerationClient and truthful per-attempt metrics. **Produces:** Separately labelled actual-provider and controlled-fault evidence for amended G3/G5/G6, with run/request IDs and persisted state.
+
+- [x] Verify the isolated public fixture before billing: paper `93b8811f-43b5-4f39-9578-72aceadf1afb`, immutable version `81492edc-6d44-4602-840f-124f4504cdf9`, original SHA-256 `bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697`. Recheck ready owner scope and hybrid retrieval; never substitute private owner data or a standalone text-only probe.
+- [x] Execute sequential actual same-origin submissions via the production graph: (1) paper architecture supported answer; (2) carbon-footprint unsupported refusal; (3) bounded extra-search question that can yield a supported cited answer; (4) adversarial question requesting an unsupported action/foreign scope, followed by (5) valid supported question through the same validator. Maximum 12 hosted attempts across all cases, follow-ups/repairs and optional manual-route smoke. Count actual attempts before each request; stop rather than exceed the cap. Do not force a branch by editing prompts/outputs and describe it as natural model selection. If actual search is not observed, leave that criterion open.
+- [x] For every accepted answer fetch persisted message/citations and compare verbatim quote, immutable version, page and exact boxes against authoritative provenance. Review substantive support independently from successful quote matching. Record safe first-delta/total latency, physical calls/search/repair counts, provider/model identity, terminal usage source/completeness and cost reason. No raw private text/provider body/key in the public report.
+- [x] Exercise controlled production-stream malformed JSON, unsupported action, follow-up search, invalid citation, 429, stalled timeout and disconnect. Observe zero unauthorized tools/accepted citations, safe persisted failed/interrupted state, retained truthful paid metadata and explicit successful subsequent submission. Label faults controlled; do not report them as natural Google output. Keep valid graph/provider cases separate.
+- [x] Optional alternative availability checked: authorized root settings and existing base override provide no legacy endpoint/credential/model mapping for a live 9Router smoke. Record that prerequisite; no owner gateway startup, automatic fallback or newly verified alternative runtime is claimed.
+- [x] Record observed outcomes and any blockers immediately; M3 remains Implemented when any required new-primary criterion is unproven. Paid credit does not justify unbounded generation or guarantee quota.
+
+### Task G3: Full affected verification, browser proof and evidence reconciliation
+
+**Files:** Existing backend/frontend suites, production images, acceptance report, amended plan and M3 delivery-map entry; no UI redesign or database migration.
+
+- [x] Run full affected pytest coverage in the restricted isolated Python 3.12 harness against temporary databases/real storage: `python -m pytest tests -q --tb=short -p no:cacheprovider` — 772 passed, 1 opt-in real-arXiv skipped in 468.27s. This is the recorded container equivalent of host `uv run pytest`, not a claimed host run.
+- [x] Run existing web suite and production build with qualified Node 22.14.0: final `npm test -- --maxWorkers=1` — 113 passed in 20.59s; Docker production `npm run build` and API build passed. Exercise actual generation; do not sample resources during simultaneous builds/tests.
+- [x] Open isolated `http://localhost:3003` in a real browser: supported Gemini answer, citation activation/original PDF exact highlight, Escape/focus return, refusal, stream interruption/reload and explicit resubmission. Observe fresh screenshot/landmark/overflow evidence; close the tab. Retain unaffected historical width/ownership/provenance checks as historical, not fresh Gemini observations.
+- [x] Review final code/evidence, remove private throwaway captures/harnesses, and update ledger/report/map only from observed results. Final one-shot citation reveal passed production-browser RED→GREEN, including virtualized remount, explicit reselection and 1024px keyboard/reduced-motion checks; independent re-review found no P1/P2. Preserve owner stack/worktrees; no publishing, merge, migrations or worker/gateway startup.
+
+**Self-review:** G1 covers route, secret isolation, schema distinction, unchanged stream bounds and provider-aware usage; G2 covers actual graph answer/search/refusal/containment, separate controlled rejection and recovery, exact persisted citations and bounded spend; G3 covers full affected verification and browser evidence. Existing schema/ownership/provenance contracts remain unchanged. No new dependency, provider abstraction, automatic fallback, tariff guess, native tool or manufactured natural negative is introduced.
+
+### G1–G3 execution closure — 2026-10-03
+
+Core cutover commit `47d8357`; citation reveal correction `a8848f0`. Actual campaign stopped at **11/12 hosted attempts**, no outstanding run; six terminal Gemini graph cases plus two earlier accounting diagnostics. Actual searches yielded supported citations, adversarial action/foreign-scope instructions yielded a refusal, and subsequent real submissions completed. Seven local HTTP provider-stream/graph faults were labelled controlled, with zero hosted calls. Existing G1/G4 provenance/ownership evidence retains its original environment/date; unavailable cost and optional unconfigured 9Router runtime are documented limitations, not fabricated passes. The acceptance report records fresh browser/build/suite/resource observations and the final gate matrix. This dated closure supersedes original Task 6/7/9 prerequisite and G6 blockers; historical notes above remain historical. No owner-data cutover or publication permission is inferred.
+

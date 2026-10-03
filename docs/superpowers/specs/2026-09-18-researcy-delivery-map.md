@@ -149,7 +149,7 @@ The sequence follows the reader-first product dependency: identity and a ready o
 - ReaderAgent invoked by the existing `POST /api/conversations/:conversationId/messages:stream` route for the active paper only;
 - PostgreSQL lexical retrieval, Qdrant dense retrieval, and Reciprocal Rank Fusion;
 - bounded multi-turn context and at most one model-directed extra search restricted to the active paper;
-- the configured product-runtime route `ag/gemini-3.8-flash-low` through 9Router;
+- direct Gemini `gemini-3.8-flash` primary, with operator-selected `ag/gemini-3.8-flash-low` through 9Router for subsequent runs only; no automatic fallback;
 - streaming `answer.delta`, `citation.resolved`, `answer.completed`, and `answer.failed` events;
 - deterministic citation validation and quote/source/geometry resolution;
 - a citation source identity containing `paper_id`, `document_version`, and `source_ref`, plus verbatim `evidence_quote`, page, and exact PDF-space boxes;
@@ -161,13 +161,13 @@ The sequence follows the reader-first product dependency: identity and a ready o
 
 - the existing route streams an answer grounded only in the active user-owned paper, or a grounded refusal;
 - every accepted citation resolves the composite source identity, verbatim quote, page, and exact PDF-space boxes; clicking it opens the correct original PDF and highlights those boxes without a second `Go to page` action;
-- structured next-action qualification is exercised through the actual configured `ag/gemini-3.8-flash-low` route via 9Router before M3 may be marked `Verified`; a mock or isolated qualification does not pass;
+- schema-aware next-action qualification follows master revision 2.2 / child G6 through actual Gemini application transport and graph before M3 may be marked `Verified`; controlled negatives are explicitly labelled and do not substitute for real answer/search/containment branch evidence;
 - the qualification evidence records the real route, request outcome, structured agent trace, measured latency, and cost with its source;
 - insufficient evidence, cross-paper or foreign-user sources, invalid/unresolvable geometry, and rejected structured next actions do not produce accepted claims;
 - provider timeout, rate limit, provider failure, and interrupted stream states are actionable and recorded;
 - the first demo journey works with keyboard input at supported desktop widths and shows a citation jump to the exact passage.
 
-**Status:** Implemented
+**Status:** Verified
 
 **Owner approval — 2026-10-01:** The owner approved the [M3 child specification](./2026-10-01-researcy-m3-reader-agent-design.md) and [implementation plan](../plans/2026-10-01-researcy-m3-reader-agent.md): “Tôi phê duyệt specification và implement plan.” M3 execution is authorized in an isolated worktree, including the presented prerequisite exception while M1 remains `Implemented`. Approval establishes design/planning, not passing implementation/real-route/browser evidence. Owner-data cutover and publishing/integration require separate authorization.
 
@@ -178,6 +178,11 @@ The sequence follows the reader-first product dependency: identity and a ready o
 **Follow-up diagnosis — 2026-10-02:** [Actual transport and cited-search evidence](../reports/2026-10-01-researcy-m3-acceptance.md#follow-up-transport-diagnosis-and-supported-cited-answer--2026-10-02) now records actual production graph `search_same_paper` → supported cited answer: two calls/one search/zero repairs, accepted citation API reload and real Chromium original-PDF interaction. This supersedes the earlier unobserved supported-search result, not the remaining gates. Two new initial-pass failures were traced to provider-stream EOF before terminal stop/final action validation; gateway/upstream cause and the historical follow-up failure remain unproven. A separate same-origin HTTP case completed directly, not with two passes. No Generator change or stability/Verified claim; complete G6 negative interpretation, applicable tariff/cost and independent backend review remain open.
 
 **Owner-approved cost clarification and backend closure — 2026-10-02:** The owner retained G6 unchanged and approved unavailable monetary-cost provenance as `null` with documented reason, actual per-attempt usage, calls and latency. Master revision 2.1 / child §10 apply to M3 only. Missing applicable tariff is a documented measurement limitation, not a gate blocker; no zero/free-price inference or unrelated tariff is accepted. [Backend closure evidence](../reports/2026-10-01-researcy-m3-acceptance.md#backend-closure-corrections-and-acceptance-decision--2026-10-02) records demonstrated fixes, **756 backend passes / one opt-in skip**, clean independent final targeted review, final production API build/smokes and a fresh completed actual same-origin answer with two exact accepted citation reloads. G6 actual graph negative/valid-after-negative remains open; M3 stays `Implemented`. Upstream EOF/timeout internal cause and generalized route stability are not established.
+
+**Owner-approved Gemini requalification — historical prerequisite checkpoint:** The owner requests a paid Gemini key primary, selects manual switching between runs for 9Router and approves schema-aware G6. Master revision 2.2 and the amended child specification record the exact change; prior fixed-route/natural-negative decisions above are historical. Read-only catalog and isolated-fixture retrieval checks alone did not establish new-primary generation or gate acceptance. The previously pending addendum review and implementation are superseded by the explicit G1–G3 approval and recorded closure below.
+
+**Verified closure — 2026-10-03:** The owner explicitly approved the G1–G3 addendum. The [final amended gate matrix and production/browser evidence](../reports/2026-10-01-researcy-m3-acceptance.md#final-amended-m3-gate-matrix) close M3 on the isolated `feat-m3-reader-agent` branch under master revision 2.2. Fixed direct `gemini-3.8-flash` completed actual supported search-to-cited-answer, refusal, adversarial containment and subsequent valid output; the campaign used **11/12 authorized hosted attempts**, with no pending attempts. Seven explicitly controlled rejection/failure cases used zero hosted calls and are not labelled natural Gemini failures. Final affected suites: **772 backend passes / one opt-in real-network skip; 113 frontend passes**; production builds, original-PDF citation/keyboard/reload journeys and final targeted review are recorded. Source commits `47d8357` and `a8848f0` include truthful provider accounting and the reproduced/fixed one-shot citation reveal regression. Monetary cost remains approved `null/unavailable` with documented provenance; optional manual 9Router runtime smoke lacks authorized credentials/mapping and is not claimed. Shared-host swap pressure is disclosed; these observations do not renew M2 capacity acceptance. Historical unaffected gates retain their original evidence. Owner-stack cutover, publishing and integration remain separately unauthorized; M1/M2 and later milestone statuses are unchanged.
+
 
 ### M4 — DiscoveryAgent Recommendations and Explicit Add
 

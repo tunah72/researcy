@@ -22,7 +22,7 @@ No interpretation changes the master, model, two-pass ceiling or any real-route 
 
 ## Current gate ledger
 
-**Current — 2026-10-02:** M3 is **Implemented**, not Verified. Backend closure corrections now have independent clean targeted review, **756 backend passes / one opt-in skip**, final production API build and actual same-origin/production-client smoke evidence below. Historical actual graph search → supported cited answer remains established. Owner approved unavailable monetary cost with documented provenance (master 2.1), but explicitly retained G6 actual graph malformed/unsupported rejection followed by valid output. That gate remains open. Earlier provider EOF/timeout observations do not establish their internal cause or generalized route stability; no gateway, model/route or owner data was changed. Historical checkpoints below remain historical.
+**Current — 2026-10-03:** M3 is **Verified** under owner-approved master revision 2.2 / amended child G6. G1–G3 cutover is complete: actual Gemini answer/search/refusal/adversarial containment and valid subsequent output, separately labelled controlled rejection/recovery, exact persisted provenance and production-browser citation proof. Final suites: **772 backend passed / one opt-in arXiv skip; 113 frontend passed**; production builds and independent final targeted review passed. The final gate matrix below retains unaffected provenance/ownership evidence with its original dates. Cost remains `null` / `unavailable` with reason; optional 9Router runtime was not freshly verified. Shared-host swap observations are disclosed, not a renewed M2 capacity claim. No owner-data cutover, push, merge or prune.
 
 ## T1 implementation evidence
 
@@ -558,4 +558,171 @@ Final review caught the equivalent malformed-accounting path: `_usage` could rej
 **Independent final backend review:** `overall_correctness: correct`; no remaining P1/P2 code defect found in the targeted corrections. This is code-review evidence only, not G6 actual-negative or provider-stability qualification. The final complete suite after this last catch is recorded below when observed.
 
 Final current-code full suite after malformed-accounting invalidation: **756 passed, 1 opt-in real-arXiv skipped in 497.28s**, exit 0, same restricted isolated Python 3.12 harness and exact command above. This is the authoritative latest backend result. Independent review is clean for the demonstrated corrections; all run-owned private test settings are removed after this run. No frontend behavior/dependency changed and no new frontend/browser gate is claimed. No push, merge, owner-stack migration or gateway restart was performed.
+
+## Gemini cutover prerequisite checks and owner decisions
+
+**Environment:** Existing isolated worktree `.omp/worktrees/m3-reader-agent`, branch `feat-m3-reader-agent`, code HEAD `d30ad5af6dba267abd8f58339b6cbe7c5c02d408`. Working tree was clean before this documentation amendment. No generation implementation has changed in this checkpoint.
+
+**New key/model check:** Privately parse only the root `.env` preparation settings; `GEMINI_PROBE_API_KEY` is present and `GEMINI_PROBE_MODEL` is `gemini-3.8-flash`. A credential-authenticated read-only `GET https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000`, credential passed through stdin configuration rather than process arguments, succeeds and lists that model with `generateContent`, `countTokens`, `createCachedContent`, `batchGenerateContent`. No next catalog page. Zero hosted generation calls. This proves authentication/model catalog access, not credit balance, paid-tier status, remaining quota, generation response or graph acceptance. No secret/fingerprint is recorded.
+
+**Observed stack readiness:**
+
+- `docker ps --filter label=com.docker.compose.project=researcy-m3-acceptance --format '{{.Names}}: {{.Status}}'`: API/PostgreSQL/Qdrant running and healthy; web/MinIO running.
+- `curl --silent --show-error --fail --connect-timeout 3 --max-time 8 http://127.0.0.1:8003/health`: `status: ok`, request ID `d3f48de0-7acb-4111-94b9-a09162b1c472`.
+- Same bounded GET of `http://127.0.0.1:11434/api/version`: Ollama `0.18.2`.
+- Read-only readiness script executed through stdin via `docker exec -i researcy-m3-acceptance-api-1 python -`: resolve stored public-fixture owner, call `load_ready_document` for paper `93b8811f-43b5-4f39-9578-72aceadf1afb` / version `81492edc-6d44-4602-840f-124f4504cdf9`, then actual `retrieve_same_paper` for “What architecture does the paper propose?” with a 25-second shared deadline. Exit 0, ready scope, five hybrid hits, 7,583 ms, zero hosted generation calls. No document text was emitted.
+
+The earlier native-retrieval unavailability was not observed in this checkpoint; this does not establish sustained service availability or full resource acceptance.
+
+**Owner decisions:** Explicit selections “Chuyển thủ công giữa các run” and “Duyệt gate phù hợp schema enforcement”. Master revision 2.2, child §8/G6/approval addendum and delivery-map M3 now record direct Gemini primary, manual subsequent-run 9Router selection and clearly separated actual-provider containment versus controlled rejection evidence. No automatic failover or manufactured natural malformed output.
+
+**Remaining work:** Review/approve the Gemini cutover plan addendum, implement configuration/transport/schema/provider-accounting changes, then bounded actual-graph and controlled-safety requalification, affected suites/builds and fresh browser citation/recovery proof. The existing generator still uses the old route and gateway usage assumptions. Earlier A/B excerpt probes and current catalog/retrieval checks do not close G6. M3 remains **Implemented**, not Verified. No owner-stack changes, worker/migration/gateway startup, key disclosure, publishing or integration was performed in this checkpoint.
+
+## Gemini cutover implementation and qualification evidence — 2026-10-03
+
+### Historical prerequisite status and approved authority
+
+The earlier T6 prerequisite sections and gateway-specific setup notes are **historical and superseded** for primary routing by explicit owner approval of the M3 Gemini G1–G3 addendum (master revision 2.2, child design `docs/superpowers/specs/2026-10-01-researcy-m3-reader-agent-design.md`, implementation plan `docs/superpowers/plans/2026-10-01-researcy-m3-reader-agent.md`).
+
+- **Primary route:** Direct Google Generative Language endpoint (`https://generativelanguage.googleapis.com/v1beta/openai`), model `gemini-3.8-flash`, low reasoning effort (`reasoning_effort: "low"`), structured schema enforcement via OpenAI-compatible transport, with strict per-pass provider metadata accounting.
+- **Alternative route:** Manually configured 9Router alternative between runs only. No runtime fallback, automatic failover, SDK addition, or owner-stack changes.
+- **Status and scope boundary:** This checkpoint remains **Implemented** until final one-shot citation browser verification and evidence reconciliation below. No owner database migrations, owner workers, gateway processes, git pushes, or branch merges were performed.
+
+### G1 configuration, schema, and accounting implementation
+
+Code changes were authored and committed under worktree commit `47d8357` (branched from base `d30ad5af6dba267abd8f58339b6cbe7c5c02d408`):
+- Configuration accepts primary `gemini` provider and model `gemini-3.8-flash` with direct Google endpoint and authorization header formatting.
+- Schema enforcement strictly constrains generation envelopes without loose model fallbacks.
+- Terminal usage accounting captures native Gemini token streams directly from stream metadata (`prompt_tokens`, `completion_tokens`, `total_tokens`), invalidating retained checkpoints upon contradictive frames or malformed metadata.
+- Real Google protocol exposed cumulative usage on successive content frames (for example 249/11/260 then 249/17/266) and a reported total exceeding visible prompt plus completion (249/16/341). Each old assumption was demonstrated RED before correction: valid Google configuration 1 failed; cumulative accounting 1 failed; extra-total boundary 1 failed/1 passed. Gemini now accepts monotonic pre-stop cumulative accounting and preserves the reported total; terminal contradictions still invalidate it. No unreported reasoning count is reconstructed. Gateway arithmetic remains unchanged.
+- Independent review also caught Compose `:-` defaulting an explicitly blank endpoint to Google. Actual Compose configuration reproduced the unexpected endpoint; unset-only `-` expansion preserved the explicit blank after correction, maintaining fail-closed generation when an operator blanks the endpoint but retains a key.
+- **Monetary cost reporting:** Estimated cost is explicitly reported as `null` with `cost_source: unavailable`. The provider stream furnishes exact token counts but does not provide billed cost fields, and the applicable account tariff / billing-unit mapping is not established. Token counts are never mapped to synthetic dollar amounts, and reasoning token counts are never inferred from total-minus-visible token subtotals.
+- **Optional legacy 9Router alternative:** The current authorized root environment and existing base private override provide no legacy credential or model mapping. No gateway startup or runtime smoke was attempted. Historical gateway evidence remains historical and is not freshly verified.
+
+### Test suites, builds, and image identities
+
+- **Focused backend verification:** 171 passed in 137.05s.
+- **Full backend verification:** Command `python -m pytest tests -q --tb=short -p no:cacheprovider` executed in the isolated, restricted Python 3.12 container with cgroups and Docker `--init`: **772 passed, 1 opt-in real-arXiv skipped in 468.27s**, exit 0.
+- **Frontend test suite execution:**
+  - Initial two-worker Vitest run observed 18 failed and 93 passed tests plus a worker-startup timeout while native qualification was also running. A common cause was not established. The first adversarial graph request failed before generation during that overlap; it is not containment evidence.
+  - Serial execution with unmodified assertions on the final `PdfReader` one-shot reveal source: `npm test -- --maxWorkers=1` — **113 passed across 11 files in 20.59s**, Node 22.14.0. Earlier serial 18.85s and first visibility-candidate 17.41s checkpoints are superseded for current UI source.
+- **Docker images and build artifacts:**
+  - API image config SHA-256: `5d3626eaaaf1d351acef778000114d52157d9e4c89aefcba747981f59a1f6f87`.
+  - First citation-visibility candidate image config SHA-256: `7faf032d4c192efc7c8789770559424f0afb6c5ee69863db695e82b4e63ded2c` (66.73s). Final one-shot reveal image/build is recorded below, not inferred from this intermediate image.
+
+### Quota incident and authorized remediation
+
+During test execution, an automated agent violated the prepare-only instruction by creating 17 controlled run reservations. The owner explicitly authorized the deletion of exactly 16 quota links. All 16 quota links were deleted while completely retaining all 16 underlying Reader conversation histories. No run, message, citation, session record, or Gemini quota configuration was deleted, and no source quota restrictions were weakened.
+
+### 11/12 Hosted campaign and actual Reader graph executions
+
+The hosted qualification campaign consumed **11 hosted generation calls** out of the authorized 12-call budget:
+- **Protocol diagnostic failures:** Two real hosted client diagnostic calls were rejected by the old stream-accounting assumptions before application-graph qualification. These are usage-validation failures, not handshake/authentication failures or natural malformed-action G6 evidence.
+- **Prior adversarial pre-generation failure:** Request `ae84aba0-2448-4fd5-b74b-8f61eb982ace` failed with 0 generation calls after 68,135 ms during concurrent web test execution (root cause not proven; occurred pre-generation).
+- **Actual hosted graph cases (6 executed runs):**
+
+| Case description | Conversation ID | Run ID | Request ID | State | Calls | Searches | Repairs | Latency (ms) | First delta (ms) | Citations |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Architecture query | `2a93e065-aeaf-4d69-a981-86ed2f876329` | `12d23128-7eb6-4586-a98b-79516a247b1a` | `f0fceb69-e01d-4473-9642-9a0e87bb29e4` | completed | 2 | 1 | 0 | 19,892 | 19,353 | 3 |
+| Carbon-footprint refusal | `673ca13b-cb00-474a-850c-f4665c1bc6d6` | `8738bce1-4f1a-421d-ae8d-44d58f55fdae` | `12e7b547-f1b5-446b-8a3c-e11a16b9e687` | refused | 1 | 0 | 0 | 22,623 | 21,943 | 0 |
+| Optimizer extra search | `458f5dd9-903a-4a38-992e-da80fc7893a6` | `051ee8d2-0235-4b44-a3b6-1e95ff7b0b13` | `9cfc1464-2749-4357-8237-56021d4da507` | completed | 2 | 1 | 0 | 25,294 | 21,983 | 3 |
+| Foreign-scope adversarial refusal | `84f6844e-af22-4f4d-9a04-739bfa5d95ba` | `7a2bbb43-aa39-4926-8ab2-37cad5a09c5d` | `6b0c43ea-ea5c-4756-9b50-f7b2bfc9d4df` | refused | 1 | 0 | 0 | 11,294 | 11,208 | 0 |
+| Multi-head answer after adversarial | `10bb0c53-bd5b-4e2f-8d97-b9e7ff242d16` | `7897636c-bd07-42ef-bb48-6b2438112981` | `b83262ff-0637-4899-ae0f-a9038dae61ee` | completed | 2 | 0 | 1 | 8,923 | 8,792 | 2 |
+| Browser optimizer resubmission | `fbfd9e2f-0256-440d-a1e3-21cf7ff9e2de` | `e59cf92a-45b7-4c7e-8636-3e182a765285` | `79d33f71-4f0e-4868-af65-0bb3c458332d` | completed | 1 | 0 | 0 | 8,096 | 8,027 | 1 |
+
+### Terminal token usage per pass (actual Gemini metadata)
+
+| Run ID | Pass kind | Provider | Echoed model | Finish reason | Prompt tokens | Completion tokens | Total tokens |
+|---|---|---|---|---|---|---|---|
+| `12d23128-7eb6-4586-a98b-79516a247b1a` | initial | gemini | gemini-3.8-flash | stop | 2,303 | 24 | 2,327 |
+| `12d23128-7eb6-4586-a98b-79516a247b1a` | follow_up | gemini | gemini-3.8-flash | stop | 1,308 | 295 | 1,603 |
+| `8738bce1-4f1a-421d-ae8d-44d58f55fdae` | initial | gemini | gemini-3.8-flash | stop | 3,630 | 30 | 4,097 |
+| `051ee8d2-0235-4b44-a3b6-1e95ff7b0b13` | initial | gemini | gemini-3.8-flash | stop | 2,178 | 19 | 2,197 |
+| `051ee8d2-0235-4b44-a3b6-1e95ff7b0b13` | follow_up | gemini | gemini-3.8-flash | stop | 1,761 | 404 | 2,165 |
+| `7a2bbb43-aa39-4926-8ab2-37cad5a09c5d` | initial | gemini | gemini-3.8-flash | stop | 2,466 | 82 | 2,548 |
+| `7897636c-bd07-42ef-bb48-6b2438112981` | initial | gemini | gemini-3.8-flash | stop | 3,167 | 297 | 3,464 |
+| `7897636c-bd07-42ef-bb48-6b2438112981` | repair | gemini | gemini-3.8-flash | stop | 3,212 | 220 | 3,432 |
+| `e59cf92a-45b7-4c7e-8636-3e182a765285` | initial | gemini | gemini-3.8-flash | stop | 4,060 | 54 | 4,114 |
+
+### Substantive-support review separate from geometric and quote verification
+
+Verification distinguishes syntactic extraction and quote matching from substantive semantic support:
+- **Geometric and quote verification:** Citations were verified against canonical document paper `93b8811f-43b5-4f39-9578-72aceadf1afb`, version `81492edc-6d44-4602-840f-124f4504cdf9`:
+  - Optimizer run (`051ee8d2`): 3 citations on page 7 with exact quotes and exact bounding box counts (citation `efeec0de`: 70 boxes; `69ba7c86`: 218 boxes; `ce7b9664`: 332 boxes).
+  - Multi-head answer after adversarial run (`7897636c`): Citation `27f78c44` on page 4 (402 boxes, exact quote/boxes) and citation `6169196b` on page 5 (188 boxes, exact quote/boxes).
+  - Browser resubmission run (`e59cf92a`): Citation `39f2761e` on page 7 (70 boxes, exact quote/boxes).
+- **Substantive-support review:** The controller read each final claim against its own verbatim supporting quote, independently of successful geometry matching. Architecture quotes support stacked self-attention/feed-forward layers and six-layer encoder/decoder structure; optimizer quotes support β1=0.9, β2=0.98, epsilon=10⁻⁹, 4000 warmup steps and base 12-hour versus big 3.5-day training. The multi-head quotes support parallel learned projections and joint representation-subspace attention versus single-head averaging; browser resubmission's optimizer claim matches its cited settings. The actual repair counter is one, but its initial failure reason was not established from the final persisted ledger. These finite cases do not establish generalized answer accuracy.
+
+Actual optimizer SSE order was three `answer.delta`, three `citation.resolved`, then `answer.completed`; multi-head order was two deltas, two resolved citations, then completion. These are live application events, not provider text re-labelled as validated claims. Original SHA-256 was rechecked before each scripted hosted run: `bdfaa68d8984f0dc02beaca527b76f207d99b666d31d1da728ee0728182df697`.
+
+### Controlled fault outcomes (labelled zero hosted calls)
+
+Controlled local HTTP provider streams exercised the production GenerationClient and LangGraph against real PostgreSQL and canonical source hydration, with retrieval substituted by labelled controlled same-paper hits. They did not exercise real Gemini/native retrieval, and consumed **zero hosted calls**. The disconnect case closes the production Reader iterator after its first provisional delta and on-time metadata, before provider EOF; it is not a natural Google socket failure.
+
+| Fault case | Injected fault condition | Terminal event | Terminal error code | DB state | Message state | Citations published | Result |
+|---|---|---|---|---|---|---|---|
+| malformed | Malformed action response | `answer.failed` | `GENERATION_INVALID_ACTION` | failed | failed | 0 | passed |
+| unsupported | Unsupported action type | `answer.failed` | `GENERATION_INVALID_ACTION` | failed | failed | 0 | passed |
+| followupsearch | Invalid follow-up search action | `answer.failed` | `GENERATION_INVALID_ACTION` | failed | failed | 0 | passed |
+| invalidcitation | Unresolvable citation evidence | `answer.failed` | `EVIDENCE_UNRESOLVED` | failed | failed | 0 | passed |
+| 429 | Upstream rate limiting | `answer.failed` | `GENERATION_RATE_LIMITED` | failed | failed | 0 | passed |
+| timeout | Upstream request timeout | `answer.failed` | `GENERATION_TIMEOUT` | failed | failed | 0 | passed |
+| disconnect | Client connection termination | `answer.delta` | (null) | interrupted | interrupted | 0 | passed |
+
+| Controlled case / run | Local provider attempts | Allowed searches / repairs | Accounting |
+|---|---:|---|---|
+| malformed `27449188-12eb-4d88-8414-1bd0431b68e3` | 1 | 0 / 0 | known 10/10/20 |
+| unsupported `442ee920-2074-4de0-a85e-79f4f7bb994d` | 1 | 0 / 0 | known 10/10/20 |
+| follow-up search `9e4512e7-8f33-4a5b-b16c-00fc9493a4b1` | 2 | 1 / 0 | known aggregate 20/20/40 |
+| invalid citation `e4954e69-8f2b-447a-867b-e4b2779905e8` | 2 | 0 / 1 | known aggregate 30/30/60 |
+| 429 `eabc3ddf-3341-45b3-9655-9528be86ce88` | 1 | 0 / 0 | unknown; counts null, not zero |
+| timeout `bffe5fbc-07b8-4256-8052-0fbea1c26ae2` | 1 | 0 / 0 | unknown; counts null, not zero |
+| consumer close `f96f6cf8-91cb-4608-a092-6e6535d06bc1` | 1 | 0 / 0 | known 10/10/20, stop, interrupted |
+
+No failed/interrupted controlled case published a citation. Follow-up search executes exactly one allowed same-paper search before rejecting another; no unauthorized action/source widening occurred. Subsequent real browser resubmission is the separate Gemini run `e59cf92a-45b7-4c7e-8636-3e182a765285`.
+
+
+### Browser acceptance observations and remaining controller gates
+
+- **Completed browser validations:**
+  - Architecture cited answer with page 3 original-PDF overlay, Escape returning focus to Citation 1, one `main` landmark and no horizontal overflow.
+  - Fresh controlled interrupted run loaded; subsequent browser Reload GET returned HTTP 200 with no spurious automatic generation triggered.
+  - Explicit Google browser resubmission completed with exact optimizer citation detail GET returning HTTP 200.
+- **Observed PDF visual box offset RED:** Prior to UI adjustment, initial evidence box coordinates (`boxTop: 1001.15625`, `boxBottom: 1015.984375`) fell outside the scroll pane viewport (`paneTop: 146.96875`, `paneBottom: 900`, `viewportHeight: 900`), rendering `visible: false`.
+- The first `PdfPage` visibility candidate brought the box into view, but independent review found a remount regression. Actual Chromium reproduced selected page 7 → manual page 10 (page 7 canvas unmounted) → requested page 8 snapping back to page 7 when the adjacent citation page remounted. The candidate was removed. Final `PdfReader` keeps one-shot reveal state above virtualized pages, guards the active citation ID and resets on explicit selection clearing; the existing focus callback runs after the real box is revealed. Scoped independent re-review returned **correct, no P1/P2 findings**, with no execution claimed by the reviewer.
+
+### G3 final production/browser closure — 2026-10-03
+
+**Source and images:** Core implementation `47d8357`, one-shot citation reveal `a8848f0`; no Python change after the recorded 772-pass full suite. Final web production build completed in **110.03s** with Node 22.14.0 / Next 16.3.6; image config `a3ca36edbc37a52ec5f161fba1f87bd5ddb448dc9ca349714224c91a6f56e873`, runtime manifest `99d2d3925a99315ab42218d26e281221a4f91fd5da7f22f91683bdf0b321feb3`. API runtime manifest `f1a64ba3b2ef95f5500881b1533bef17c4ef536adf671a17af9e493bc778c2de`; config digest above. Only isolated API/web images were rebuilt/recreated; no migrations, workers or owner gateway were started.
+
+**Executed commands:** From the M3 worktree, `docker compose -p researcy-m3-acceptance -f compose.yaml -f /tmp/researcy-m3-private.yaml -f /tmp/researcy-m3-generation-private.yaml build api`, followed by `up -d --no-deps api`; final web `--profile web build web`, followed by `--profile web up -d --no-deps web`. Private override contents were never printed/staged. Full backend used current source/tests/migrations mounted read-only, private isolated dependency settings, Docker `--init`, parser seccomp/no-new-privileges/cap-drop, **512 MiB / 1 CPU / 128 PID**, and `python -m pytest tests -q --tb=short -p no:cacheprovider`. Final frontend ran the existing production image's Node/dependencies with current `src`, Vitest config and tsconfig mounted read-only, `--init --memory 1g --cpus 2 --pids-limit 128 --network none`, `NODE_ENV=test`, and `npm test -- --maxWorkers=1`: **113 passed / 11 files / 20.59s**, unchanged assertions. Production Dockerfile ran its actual `npm run build` and TypeScript check.
+
+**Final Chromium observations, no additional hosted generation:**
+
+- At **1440×900**, explicit same-citation reactivation opens page 7 and reveals the first exact optimizer box at **y=516.15625–530.984375**, within PDF pane **146.96875–900**. Screenshot shows the original optimizer sentence highlighted, with matching inline quote.
+- Remount regression is GREEN: selected page 7 → manual page 10 (page 7 canvas absent) → requested page 8, after page 7 neighbor canvas/overlay remount and two rendered frames: **page remains 8**, PDF scrollTop **8345**, one main/no horizontal overflow. Re-clicking the same citation starts a fresh selection and reveals page 7 correctly.
+- At **1024×768**, one keyboard Enter on Citation 1 reveals the source box **452.671875–463.0625**, inside pane **146.96875–768**, with reduced motion enabled. Escape removes all highlight boxes/citation URL state, preserves page/version and returns focus to Citation 1. Fresh **1023×768** snapshot shows the larger-screen fallback, one main and no horizontal overflow.
+- Real carbon-footprint history renders **Refusal**, zero citation controls. Controlled malformed run history renders **Failed**, zero citation controls, request `2616b89d-45fc-4a76-9d5f-c64e8fd056aa`; this is labelled controlled, not a natural Google malformed answer. Actual Gemini live UI previously showed Drafting, then completed supported answer; interrupted/explicit-resubmission journey is recorded above.
+- Initial document load after final web recreation showed the honest “PDF could not be opened” state; the cause was not established. Explicit **Reload PDF**, without generation, recovered the original with observed 200/206 responses and the exact visible overlay. This is recovery evidence, not a claim of failure-free loading or a fabricated transport diagnosis.
+- Both managed tabs were closed. Campaign ended at **11/12 hosted attempts**, with no pending request. The run-owned `/tmp/researcy-m3-gemini-controller-b1imv_1o` and `/tmp/researcy-m3-gemini-gates` capture/cache/settings/harness directories were removed; private deployment overrides remain necessary for the running isolated stack. No temporary harness entered Git.
+
+**Resource observations and limits:** No build/test was running during Reader/native sampling. Earlier Reader-time API **97.15/512 MiB**, web **76.29/256 MiB**; final quiescent sample **96.91/512 MiB**, **78.42/256 MiB**. Runtime caps unchanged, sampled containers running/not OOM-killed. Native production hybrid retrieval on the same ready scope returned **five hits in 8627 ms**, zero hosted calls; immediately loaded Ollama processes measured **16.36 + 589.72 MiB RSS** (606.08 MiB aggregate), a point sample rather than GPU-inclusive peak memory. Host free percentage fell to **21%** and shared-system swap used rose **10830.31→12407.00 MiB** across that cold retrieval sample. The large existing swap baseline and other owner applications prevent attribution or a new stable-capacity conclusion. No owner applications were stopped and no M2 historical resource evidence was rewritten. This satisfies M3's disclosed capped-service/Reader observation, not a renewed M2 resource-acceptance or sustained-load promise.
+
+Final bounded API health GET returned **200**, `status: ok`, request `90d90b3f-d0e8-43d7-bb49-7119b70f34e6`; liveness is not substituted for generation readiness.
+
+Final `docker inspect --format '{{.Name}} | OOM={{.State.OOMKilled}} | Restarts={{.RestartCount}} | Image={{.Image}}' researcy-m3-acceptance-api-1 researcy-m3-acceptance-web-1` returned **OOM=false, Restarts=0** for both containers, with exactly the API/web runtime manifest identities recorded above. No environment values were printed.
+
+### Final amended M3 gate matrix
+
+| Gate | Accepted evidence and scope |
+|---|---|
+| G1 Reading | T1/T8 original hash, Range/HEAD/download/bounded delivery and provenance evidence retained at original dates; fresh original-PDF page/overlay and explicit reload observations above. |
+| G2 Grounded streaming | Actual Gemini claim deltas precede resolved citations/completion; four supported answers, exact pinned citations and independently read claim support; original-PDF citation GET/one-action visible passage. |
+| G3 Refusal/integrity | Actual unsupported question refused without citations; retained ambiguity/invented quote/geometry/version rejection evidence and current full suite; one natural bounded repair and labelled controlled repair exhaustion. |
+| G4 Boundaries | Retained isolated two-owner/CSRF/Origin/revocation/idempotency/quota/version checks plus current complete backend suite. No new real-Google-auth/M1 promotion or owner-stack claim. |
+| G5 Recovery | Fresh controlled HTTP provider failures and production Reader consumer interruption, persisted truthful state/accounting, real browser history reload and explicit successful Gemini resubmission; no hidden retry/fallback. |
+| G6 Real structured actions | Actual primary answer and two search→supported-answer runs, adversarial action/foreign-scope refusal and valid subsequent output; controlled malformed/unsupported transport/graph rejection separately labelled. No natural malformed Google or newly verified 9Router runtime is claimed. |
+| G7 UI/suites | Current 772-pass/one-skip backend, 113-pass frontend, production API/web builds, final independent targeted clean review, fresh keyboard/visible passage/Escape/remount/reselection/width/reduced-motion/state evidence and disclosed resource observations. Unaffected earlier contrast/crop/rotation/ownership observations retain their dates. |
+
+**Decision:** All amended M3 exit gates have recorded evidence; update the delivery map to **Verified**. Monetary cost and optional alternative-runtime prerequisites remain explicitly disclosed limitations. This accepts the bounded tested M3 behavior, not generalized semantic accuracy, sustained service availability or renewed host-capacity qualification. M1/M2/Q0 status/evidence remain unchanged. Branch/worktree and isolated stack are preserved; owner integration, publishing and owner-data cutover require separate authorization.
 
