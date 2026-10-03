@@ -8,12 +8,19 @@ import re
 import time
 from typing import Any
 
+from pydantic import TypeAdapter
+
 import httpx2
 
-from researcy.config import Settings, _validate_generation_endpoint
+from researcy.config import GENERATION_MODELS, Settings, _validate_generation_endpoint
 from .models import (
-    GenerationEvent, GenerationFailure, InvalidModelOutput, validate_action,
+    AnswerAction, SearchAction, GenerationEvent, GenerationFailure, InvalidModelOutput, validate_action,
     _reject_constant, _reject_duplicate_keys,
+)
+
+_ACTION_SCHEMAS = (
+    TypeAdapter(AnswerAction | SearchAction).json_schema(),
+    TypeAdapter(AnswerAction).json_schema(),
 )
 
 
@@ -25,7 +32,7 @@ _DETAIL_FIELDS = {
 }
 
 
-def _usage(value: Any) -> dict[str, Any] | None:
+def _usage(value: Any,provider: str) -> dict[str, Any] | None:
     if value is None:
         return None
     if type(value) is not dict:
@@ -53,15 +60,18 @@ def _usage(value: Any) -> dict[str, Any] | None:
         if selected:
             result[name] = selected
     if all(name in result for name in ('prompt_tokens','completion_tokens','total_tokens')):
-        if result['prompt_tokens']+result['completion_tokens']!=result['total_tokens']:
+        visible_total = result['prompt_tokens']+result['completion_tokens']
+        # Google total includes thoughts even when compatibility usage omits their count.
+        if (result['total_tokens']<visible_total
+            or provider=='9router' and result['total_tokens']!=visible_total):
             raise GenerationFailure('INVALID_RESPONSE')
     for detail_name,total_name in (('prompt_tokens_details','prompt_tokens'),('completion_tokens_details','completion_tokens')):
         if total_name in result and any(count>result[total_name]
             for field,count in result.get(detail_name,{}).items() if field!='reasoning_tokens'):
             raise GenerationFailure('INVALID_RESPONSE')
-    # This fixed gateway includes Gemini thoughts in prompt_tokens, not candidates.
+    # Only the qualified gateway maps reasoning into prompt tokens.
     reasoning = result.get('completion_tokens_details',{}).get('reasoning_tokens')
-    if reasoning is not None and 'prompt_tokens' in result and reasoning>result['prompt_tokens']:
+    if provider=='9router' and reasoning is not None and 'prompt_tokens' in result and reasoning>result['prompt_tokens']:
         raise GenerationFailure('INVALID_RESPONSE')
     if 'cached_tokens' in result:
         if 'prompt_tokens' in result and result['cached_tokens']>result['prompt_tokens']:
@@ -228,10 +238,13 @@ class GenerationClient:
         if not self.settings.generation_endpoint or not self.settings.generation_api_key:
             raise GenerationFailure('GENERATION_UNCONFIGURED')
         try:
-            endpoint = _validate_generation_endpoint(self.settings.generation_endpoint,self.settings.app_env=='production')
+            endpoint = _validate_generation_endpoint(self.settings.generation_endpoint,
+                self.settings.app_env=='production',self.settings.generation_provider)
         except ValueError:
             raise GenerationFailure('INVALID_ENDPOINT') from None
-        if self.settings.generation_model!='ag/gemini-3.8-flash-low':
+        if self.settings.generation_provider not in GENERATION_MODELS:
+            raise GenerationFailure('INVALID_PROVIDER')
+        if self.settings.generation_model!=GENERATION_MODELS[self.settings.generation_provider]:
             raise GenerationFailure('INVALID_MODEL')
         if not messages:
             raise GenerationFailure('INVALID_REQUEST')
@@ -243,6 +256,13 @@ class GenerationClient:
             connect=self.settings.generation_connect_seconds)
         payload = {'model':self.settings.generation_model,'messages':messages,'stream':True,
             'max_tokens':self.settings.generation_max_output_tokens}
+        if self.settings.generation_provider=='gemini':
+            payload.update(
+                reasoning_effort='low',
+                stream_options={'include_usage':True},
+                response_format={'type':'json_schema','json_schema':{
+                    'name':'reader_action','strict':True,'schema':_ACTION_SCHEMAS[int(follow_up)]}},
+            )
         headers = {'Authorization':'Bearer '+self.settings.generation_api_key,'Accept':'text/event-stream'}
         content_parts: list[str] = []
         content_bytes = 0
@@ -313,7 +333,7 @@ class GenerationClient:
                                 echoed_model = frame['model']
                             if 'usage' in frame:
                                 try:
-                                    reported = _usage(frame['usage'])
+                                    reported = _usage(frame['usage'],self.settings.generation_provider)
                                 except GenerationFailure:
                                     notify_terminal(None)
                                     raise
@@ -321,8 +341,21 @@ class GenerationClient:
                                     notify_terminal(None)
                                     raise GenerationFailure('INVALID_RESPONSE')
                                 if usage is not None and reported is not None and reported!=usage:
-                                    notify_terminal(None)
-                                    raise GenerationFailure('INVALID_RESPONSE')
+                                    # Gemini emits cumulative usage before its terminal frame.
+                                    cumulative = self.settings.generation_provider=='gemini' and not stopped
+                                    if cumulative:
+                                        for name in _COUNT_FIELDS:
+                                            if name in usage and (name not in reported or reported[name]<usage[name]):
+                                                cumulative = False
+                                                break
+                                        for name in _DETAIL_FIELDS:
+                                            if any(field not in reported.get(name,{}) or reported[name][field]<count
+                                                for field,count in usage.get(name,{}).items()):
+                                                cumulative = False
+                                                break
+                                    if not cumulative:
+                                        notify_terminal(None)
+                                        raise GenerationFailure('INVALID_RESPONSE')
                                 if reported is not None:
                                     usage = reported
                             choices = frame.get('choices')

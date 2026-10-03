@@ -194,6 +194,8 @@ def test_stream_real_sse_events_and_terminal_order(reader_source, monkeypatch):
         handler.wfile.flush()
 
     with local_fault_server(response_fn) as endpoint:
+        monkeypatch.setenv('GENERATION_PROVIDER', '9router')
+        monkeypatch.setenv('GENERATION_MODEL', 'ag/gemini-3.8-flash-low')
         monkeypatch.setenv('GENERATION_ENDPOINT', endpoint)
         monkeypatch.setenv('GENERATION_API_KEY', 'test-key')
 
@@ -279,6 +281,8 @@ def test_stream_duplicate_uuid_replay_and_running_replay(reader_source, monkeypa
         handler.wfile.flush()
 
     with local_fault_server(response_fn) as endpoint:
+        monkeypatch.setenv('GENERATION_PROVIDER', '9router')
+        monkeypatch.setenv('GENERATION_MODEL', 'ag/gemini-3.8-flash-low')
         monkeypatch.setenv('GENERATION_ENDPOINT', endpoint)
         monkeypatch.setenv('GENERATION_API_KEY', 'test-key')
 

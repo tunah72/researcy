@@ -8,6 +8,7 @@ import json
 from typing import Any
 
 import pytest
+import httpx2
 
 from researcy.citations.models import ProposedCitation
 from researcy.config import Settings
@@ -22,6 +23,61 @@ from researcy.generation.models import (
     validate_action,
 )
 
+
+def gateway_settings(**overrides):
+    return replace(Settings.from_env(), generation_provider="9router",
+        generation_model="ag/gemini-3.8-flash-low", **overrides)
+
+
+def test_gemini_cumulative_usage_completes_with_final_counts():
+    frames = [
+        {'choices':[{'delta':{'content':'{"next_action":"answer","claims":[],'}}],
+            'usage':{'prompt_tokens':249,'completion_tokens':11,'total_tokens':260}},
+        {'choices':[{'delta':{'content':'"refusal":"No supplied evidence."}'}}],
+            'usage':{'prompt_tokens':249,'completion_tokens':17,'total_tokens':266}},
+        {'choices':[{'delta':{},'finish_reason':'stop'}],
+            'usage':{'prompt_tokens':249,'completion_tokens':31,'total_tokens':280}},
+    ]
+    wire = ''.join('data: '+json.dumps(frame)+'\n\n' for frame in frames)+'data: [DONE]\n\n'
+    transport = httpx2.MockTransport(lambda request: httpx2.Response(
+        200,headers={'Content-Type':'text/event-stream'},content=wire.encode()))
+    settings = replace(Settings.from_env(),generation_provider='gemini',
+        generation_endpoint='https://generativelanguage.googleapis.com/v1beta/openai',
+        generation_model='gemini-3.8-flash',generation_api_key='isolated-test-only')
+    async def run():
+        return [event async for event in GenerationClient(settings,transport=transport).stream(
+            [{'role':'user','content':'What does the supplied evidence support?'}])]
+    events = asyncio.run(run())
+    assert events[-1].action.refusal=='No supplied evidence.'
+    assert next(event for event in events if event.kind=='metadata').usage=={
+        'prompt_tokens':249,'completion_tokens':31,'total_tokens':280}
+
+
+
+@pytest.mark.parametrize('total,valid',[(341,True),(264,False)])
+def test_gemini_total_includes_unreported_thoughts_without_inventing_counts(total,valid):
+    frame = {'choices':[{'delta':{'content':
+        '{"next_action":"answer","claims":[],"refusal":"No supplied evidence."}'},
+        'finish_reason':'stop'}],
+        'usage':{'prompt_tokens':249,'completion_tokens':16,'total_tokens':total}}
+    wire = ('data: '+json.dumps(frame)+'\n\ndata: [DONE]\n\n').encode()
+    transport = httpx2.MockTransport(lambda request: httpx2.Response(
+        200,headers={'Content-Type':'text/event-stream'},content=wire))
+    settings = replace(Settings.from_env(),generation_provider='gemini',
+        generation_endpoint='https://generativelanguage.googleapis.com/v1beta/openai',
+        generation_model='gemini-3.8-flash',generation_api_key='isolated-test-only')
+    async def run():
+        return [event async for event in GenerationClient(settings,transport=transport).stream(
+            [{'role':'user','content':'What does the supplied evidence support?'}])]
+    if valid:
+        events = asyncio.run(run())
+        assert events[-1].action.refusal=='No supplied evidence.'
+        assert next(event for event in events if event.kind=='metadata').usage=={
+            'prompt_tokens':249,'completion_tokens':16,'total_tokens':341}
+    else:
+        with pytest.raises(GenerationFailure) as caught:
+            asyncio.run(run())
+        assert caught.value.code=='INVALID_RESPONSE'
 
 def test_model_cannot_supply_scope_filters():
     raw = b'{"next_action":"search_same_paper","query":"attention","owner_id":"forged"}'
@@ -200,11 +256,8 @@ def test_validate_action_malformed_utf8_rejected():
 
 
 def test_client_fails_closed_when_unconfigured():
-    settings = replace(
-        Settings.from_env(),
-        generation_endpoint="",
-        generation_api_key="",
-    )
+    settings = gateway_settings(generation_endpoint="",
+    generation_api_key="",)
     client = GenerationClient(settings)
 
     async def run():
@@ -216,48 +269,22 @@ def test_client_fails_closed_when_unconfigured():
     assert exc.value.code == "GENERATION_UNCONFIGURED"
 
 
-def test_client_rejects_unapproved_model_route():
-    settings = replace(
-        Settings.from_env(),
-        generation_endpoint="http://127.0.0.1:8000/v1",
-        generation_api_key="key",
-        generation_model="gpt-4o-arbitrary",
-    )
-    client = GenerationClient(settings)
-
-    async def run():
-        async for _ in client.stream([{"role": "user", "content": "test"}]):
-            pass
-
-    with pytest.raises(GenerationFailure) as exc:
-        asyncio.run(run())
-    assert exc.value.code == "INVALID_MODEL"
+def test_direct_settings_reject_unapproved_model_route():
+    settings = gateway_settings(generation_endpoint="http://127.0.0.1:8000/v1",
+        generation_api_key="key")
+    with pytest.raises(ValueError):
+        replace(settings,generation_model="gpt-4o-arbitrary")
 
 
-def test_client_production_rejects_non_tls_endpoint():
-    settings = replace(
-        Settings.from_env(),
-        app_env="production",
-        generation_endpoint="http://remote.gateway/v1",
-        generation_api_key="key",
-    )
-    client = GenerationClient(settings)
-
-    async def run():
-        async for _ in client.stream([{"role": "user", "content": "test"}]):
-            pass
-
-    with pytest.raises(GenerationFailure) as exc:
-        asyncio.run(run())
-    assert exc.value.code == "INVALID_ENDPOINT"
+def test_direct_settings_production_reject_non_tls_endpoint():
+    with pytest.raises(ValueError):
+        gateway_settings(app_env="production",
+            generation_endpoint="http://remote.gateway/v1",generation_api_key="key")
 
 
 def test_client_pre_expired_deadline_fails_timeout():
-    settings = replace(
-        Settings.from_env(),
-        generation_endpoint="http://127.0.0.1:8000/v1",
-        generation_api_key="key",
-    )
+    settings = gateway_settings(generation_endpoint="http://127.0.0.1:8000/v1",
+    generation_api_key="key",)
     client = GenerationClient(settings)
 
     async def run():
@@ -325,11 +352,8 @@ def test_stream_successful_answer_action():
         handler.wfile.flush()
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(
-            Settings.from_env(),
-            generation_endpoint=endpoint,
-            generation_api_key="test-auth-key",
-        )
+        settings = gateway_settings(generation_endpoint=endpoint,
+        generation_api_key="test-auth-key",)
         client = GenerationClient(settings)
 
         async def run():
@@ -377,11 +401,8 @@ def test_stream_fragmented_utf8_multibyte_across_chunks():
         handler.wfile.flush()
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(
-            Settings.from_env(),
-            generation_endpoint=endpoint,
-            generation_api_key="test-key",
-        )
+        settings = gateway_settings(generation_endpoint=endpoint,
+        generation_api_key="test-key",)
         client = GenerationClient(settings)
 
         async def run():
@@ -420,11 +441,8 @@ def test_stream_fragmented_sse_and_multiline_data():
         handler.wfile.flush()
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(
-            Settings.from_env(),
-            generation_endpoint=endpoint,
-            generation_api_key="test-key",
-        )
+        settings = gateway_settings(generation_endpoint=endpoint,
+        generation_api_key="test-key",)
         client = GenerationClient(settings)
 
         async def run():
@@ -451,11 +469,8 @@ def test_stream_duplicate_keys_in_model_json_fails_invalid_model_output():
         handler.wfile.flush()
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(
-            Settings.from_env(),
-            generation_endpoint=endpoint,
-            generation_api_key="test-key",
-        )
+        settings = gateway_settings(generation_endpoint=endpoint,
+        generation_api_key="test-key",)
         client = GenerationClient(settings)
 
         async def run():
@@ -478,11 +493,8 @@ def test_stream_trailing_garbage_fails_invalid_model_output():
         handler.wfile.flush()
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(
-            Settings.from_env(),
-            generation_endpoint=endpoint,
-            generation_api_key="test-key",
-        )
+        settings = gateway_settings(generation_endpoint=endpoint,
+        generation_api_key="test-key",)
         client = GenerationClient(settings)
 
         async def run():
@@ -505,11 +517,8 @@ def test_stream_unknown_fields_in_model_json_fails_invalid_model_output():
         handler.wfile.flush()
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(
-            Settings.from_env(),
-            generation_endpoint=endpoint,
-            generation_api_key="test-key",
-        )
+        settings = gateway_settings(generation_endpoint=endpoint,
+        generation_api_key="test-key",)
         client = GenerationClient(settings)
 
         async def run():
@@ -533,12 +542,9 @@ def test_stream_bounds_exceeded_raises_payload_too_large():
         handler.wfile.flush()
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(
-            Settings.from_env(),
-            generation_endpoint=endpoint,
-            generation_api_key="test-key",
-            generation_max_output_bytes=1024,
-        )
+        settings = gateway_settings(generation_endpoint=endpoint,
+        generation_api_key="test-key",
+        generation_max_output_bytes=1024,)
         client = GenerationClient(settings)
 
         async def run():
@@ -558,11 +564,8 @@ def test_stream_http_429_rate_limited():
         handler.wfile.write(b'{"error":{"message":"Rate limit exceeded"}}')
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(
-            Settings.from_env(),
-            generation_endpoint=endpoint,
-            generation_api_key="test-key",
-        )
+        settings = gateway_settings(generation_endpoint=endpoint,
+        generation_api_key="test-key",)
         client = GenerationClient(settings)
 
         async def run():
@@ -582,11 +585,8 @@ def test_stream_http_5xx_unavailable():
         handler.wfile.write(b'{"error":{"message":"Service Unavailable"}}')
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(
-            Settings.from_env(),
-            generation_endpoint=endpoint,
-            generation_api_key="test-key",
-        )
+        settings = gateway_settings(generation_endpoint=endpoint,
+        generation_api_key="test-key",)
         client = GenerationClient(settings)
 
         async def run():
@@ -609,11 +609,8 @@ def test_stream_aborted_connection_unexpected_eof():
         handler.close_connection = True
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(
-            Settings.from_env(),
-            generation_endpoint=endpoint,
-            generation_api_key="test-key",
-        )
+        settings = gateway_settings(generation_endpoint=endpoint,
+        generation_api_key="test-key",)
         client = GenerationClient(settings)
 
         async def run():
@@ -633,12 +630,9 @@ def test_stream_timeout_or_deadline_exceeded():
         time.sleep(1.0)
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(
-            Settings.from_env(),
-            generation_endpoint=endpoint,
-            generation_api_key="test-key",
-            generation_pass_seconds=1,
-        )
+        settings = gateway_settings(generation_endpoint=endpoint,
+        generation_api_key="test-key",
+        generation_pass_seconds=1,)
         client = GenerationClient(settings)
 
         async def run():
@@ -666,11 +660,8 @@ def test_stream_missing_usage_keeps_none_never_invents_zero():
         handler.wfile.flush()
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(
-            Settings.from_env(),
-            generation_endpoint=endpoint,
-            generation_api_key="test-key",
-        )
+        settings = gateway_settings(generation_endpoint=endpoint,
+        generation_api_key="test-key",)
         client = GenerationClient(settings)
 
         async def run():
@@ -701,11 +692,8 @@ def test_stream_done_without_finish_stop_rejected():
         handler.wfile.flush()
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(
-            Settings.from_env(),
-            generation_endpoint=endpoint,
-            generation_api_key="test-key",
-        )
+        settings = gateway_settings(generation_endpoint=endpoint,
+        generation_api_key="test-key",)
         client = GenerationClient(settings)
 
         async def run():
@@ -729,11 +717,8 @@ def test_stream_truncation_finish_reason_length_rejected():
         handler.wfile.flush()
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(
-            Settings.from_env(),
-            generation_endpoint=endpoint,
-            generation_api_key="test-key",
-        )
+        settings = gateway_settings(generation_endpoint=endpoint,
+        generation_api_key="test-key",)
         client = GenerationClient(settings)
 
         async def run():
@@ -756,11 +741,8 @@ def test_stream_multiple_choices_rejected():
         handler.wfile.flush()
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(
-            Settings.from_env(),
-            generation_endpoint=endpoint,
-            generation_api_key="test-key",
-        )
+        settings = gateway_settings(generation_endpoint=endpoint,
+        generation_api_key="test-key",)
         client = GenerationClient(settings)
 
         async def run():
@@ -783,11 +765,8 @@ def test_stream_tool_calls_rejected():
         handler.wfile.flush()
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(
-            Settings.from_env(),
-            generation_endpoint=endpoint,
-            generation_api_key="test-key",
-        )
+        settings = gateway_settings(generation_endpoint=endpoint,
+        generation_api_key="test-key",)
         client = GenerationClient(settings)
 
         async def run():
@@ -819,11 +798,8 @@ def test_stream_cancellation_closes_connection():
             connection_closed.set()
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(
-            Settings.from_env(),
-            generation_endpoint=endpoint,
-            generation_api_key="test-key",
-        )
+        settings = gateway_settings(generation_endpoint=endpoint,
+        generation_api_key="test-key",)
         client = GenerationClient(settings)
 
         async def run():
@@ -862,7 +838,7 @@ def test_provider_delta_is_delivered_before_provider_finishes():
         handler.wfile.flush()
         release.wait(timeout=5)
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(Settings.from_env(),generation_endpoint=endpoint,generation_api_key='test-key')
+        settings = gateway_settings(generation_endpoint=endpoint,generation_api_key='test-key')
         async def run():
             stream = GenerationClient(settings).stream([{'role':'user','content':'Question'}])
             try:
@@ -886,7 +862,7 @@ def test_provider_cannot_append_content_after_stop_before_terminal_marker():
         handler.wfile.write(('data: '+data+'\n\ndata: '+tail+'\n\ndata: [DONE]\n\n').encode())
         handler.wfile.flush()
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(Settings.from_env(),generation_endpoint=endpoint,generation_api_key='test-key')
+        settings = gateway_settings(generation_endpoint=endpoint,generation_api_key='test-key')
         async def run():
             async for event in GenerationClient(settings).stream([{'role':'user','content':'Question'}]):
                 pass
@@ -903,7 +879,7 @@ def _collect_fault_stream(body,content_type='text/event-stream',status=200):
         handler.wfile.write(body)
         handler.wfile.flush()
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(Settings.from_env(),generation_endpoint=endpoint,generation_api_key='test-key')
+        settings = gateway_settings(generation_endpoint=endpoint,generation_api_key='test-key')
         async def run():
             return [event async for event in GenerationClient(settings).stream([{'role':'user','content':'Question'}])]
         return asyncio.run(run())
@@ -966,7 +942,7 @@ def test_pass_timeout_never_cancels_consumer_while_generator_is_suspended():
         handler.wfile.flush()
         release.wait(timeout=5)
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(Settings.from_env(),generation_endpoint=endpoint,generation_api_key='test-key',
+        settings = gateway_settings(generation_endpoint=endpoint,generation_api_key='test-key',
             generation_pass_seconds=1)
         async def run():
             stream = GenerationClient(settings).stream([{'role':'user','content':'Question'}])
@@ -992,7 +968,7 @@ def test_provider_done_closes_an_open_connection_without_waiting_for_eof():
         handler.wfile.flush()
         release.wait(timeout=5)
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(Settings.from_env(),generation_endpoint=endpoint,generation_api_key='test-key')
+        settings = gateway_settings(generation_endpoint=endpoint,generation_api_key='test-key')
         async def run():
             try:
                 async def consume():
@@ -1022,7 +998,7 @@ def test_actual_usage_remains_observable_when_final_action_is_invalid():
         handler.wfile.write(('data: '+json.dumps(value)+'\n\n').encode())
         handler.wfile.flush()
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(Settings.from_env(),generation_endpoint=endpoint,generation_api_key='test-key')
+        settings = gateway_settings(generation_endpoint=endpoint,generation_api_key='test-key')
         async def run():
             async for event in GenerationClient(settings).stream([{'role':'user','content':'Question'}]):
                 observed.append(event)
@@ -1067,7 +1043,7 @@ def test_invalid_provider_compression_has_only_safe_domain_diagnostics():
         handler.wfile.write(b'private-invalid-provider-compression')
         handler.wfile.flush()
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(Settings.from_env(),generation_endpoint=endpoint,generation_api_key='test-key')
+        settings = gateway_settings(generation_endpoint=endpoint,generation_api_key='test-key')
         async def run():
             return [event async for event in GenerationClient(settings).stream([{'role':'user','content':'Question'}])]
         with pytest.raises(GenerationFailure) as caught:
@@ -1096,7 +1072,7 @@ def test_provider_usage_must_respect_the_configured_output_token_ceiling(limit,r
         handler.wfile.write(_terminal_wire({'prompt_tokens':10,'completion_tokens':reported,'total_tokens':10+reported}))
         handler.wfile.flush()
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(Settings.from_env(),generation_endpoint=endpoint,generation_api_key='test-key',
+        settings = gateway_settings(generation_endpoint=endpoint,generation_api_key='test-key',
             generation_max_output_tokens=limit)
         async def run():
             return [event async for event in GenerationClient(settings).stream([{'role':'user','content':'Question'}])]
@@ -1128,7 +1104,7 @@ def test_pass_deadline_closes_provider_while_consumer_holds_a_delta():
         if handler.connection.recv(1)==b'':
             closed.set()
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(Settings.from_env(),generation_endpoint=endpoint,generation_api_key='test-key',
+        settings = gateway_settings(generation_endpoint=endpoint,generation_api_key='test-key',
             generation_pass_seconds=1)
         async def run():
             stream = GenerationClient(settings).stream([{'role':'user','content':'Question'}])
@@ -1191,12 +1167,9 @@ def test_stream_retains_queued_metadata_when_pass_times_out_after_stop(monkeypat
         handler.wfile.flush()
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(
-            Settings.from_env(),
-            generation_endpoint=endpoint,
-            generation_api_key="test-key",
-            generation_pass_seconds=5,
-        )
+        settings = gateway_settings(generation_endpoint=endpoint,
+        generation_api_key="test-key",
+        generation_pass_seconds=5,)
         observed = []
 
         async def run():
@@ -1233,12 +1206,9 @@ def test_stream_late_postdeadline_new_metadata_is_not_treated_as_on_time(monkeyp
         handler.wfile.flush()
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(
-            Settings.from_env(),
-            generation_endpoint=endpoint,
-            generation_api_key="test-key",
-            generation_pass_seconds=5,
-        )
+        settings = gateway_settings(generation_endpoint=endpoint,
+        generation_api_key="test-key",
+        generation_pass_seconds=5,)
         observed = []
 
         async def run():
@@ -1280,7 +1250,7 @@ def test_stream_retains_on_time_metadata_when_full_queue_times_out(monkeypatch):
         handler.wfile.flush()
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(Settings.from_env(), generation_endpoint=endpoint,
+        settings = gateway_settings(generation_endpoint=endpoint,
             generation_api_key="test-key", generation_pass_seconds=5)
         observed = []
         received_at = []
@@ -1335,7 +1305,7 @@ def test_stream_finish_reason_length_yields_metadata_before_payload_too_large():
         handler.wfile.flush()
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(Settings.from_env(), generation_endpoint=endpoint, generation_api_key='test-key')
+        settings = gateway_settings(generation_endpoint=endpoint, generation_api_key='test-key')
         async def run():
             client = GenerationClient(settings)
             async for event in client.stream([{'role': 'user', 'content': 'Question'}]):
@@ -1372,7 +1342,7 @@ def test_stream_echoed_model_rejects_nul_and_surrogates(bad_model):
         handler.wfile.flush()
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(Settings.from_env(), generation_endpoint=endpoint, generation_api_key='test-key')
+        settings = gateway_settings(generation_endpoint=endpoint, generation_api_key='test-key')
         async def run():
             client = GenerationClient(settings)
             async for event in client.stream([{'role': 'user', 'content': 'Question'}]):
@@ -1405,12 +1375,9 @@ def test_stream_terminal_frame_usage_preserved_when_connection_stalls_before_don
         cleanup_event.wait(timeout=5.0)
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(
-            Settings.from_env(),
-            generation_endpoint=endpoint,
-            generation_api_key='test-key',
-            generation_pass_seconds=1,
-        )
+        settings = gateway_settings(generation_endpoint=endpoint,
+        generation_api_key='test-key',
+        generation_pass_seconds=1,)
         async def run():
             client = GenerationClient(settings)
             try:
@@ -1473,7 +1440,7 @@ def test_stream_conflicting_terminal_frame_invalidates_retained_metadata(conflic
         handler.wfile.flush()
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(Settings.from_env(), generation_endpoint=endpoint, generation_api_key='test-key')
+        settings = gateway_settings(generation_endpoint=endpoint, generation_api_key='test-key')
         async def run():
             client = GenerationClient(settings)
             async for event in client.stream([{'role': 'user', 'content': 'Question'}], on_metadata=on_metadata):

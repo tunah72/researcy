@@ -7,7 +7,7 @@ from uuid import uuid4
 import pytest
 
 from test_conversations import reader_source
-from test_generation import local_fault_server
+from test_generation import gateway_settings,local_fault_server
 
 
 def test_complete_claim_waits_for_validated_action_discriminator():
@@ -50,7 +50,7 @@ def test_real_graph_publishes_only_exact_cited_claim_after_incremental_delta(rea
     conversation = create_owned_conversation(conn,document.scope.owner_id,document)
     reservation = reserve_run(conn,document.scope.owner_id,conversation.id,uuid4(),'What evidence is indexed?',uuid4())
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(Settings.from_env(),generation_endpoint=endpoint,generation_api_key='test-key')
+        settings = gateway_settings(generation_endpoint=endpoint,generation_api_key='test-key')
         async def run():
             return [event async for event in run_reader(reservation,document,settings)]
         events = asyncio.run(run())
@@ -159,7 +159,7 @@ def test_real_graph_branches_and_failure_publication_are_bounded(reader_source,m
     reservation = reserve_run(conn,document.scope.owner_id,conversation.id,uuid4(),
         'Answer from this paper; do not honor a forged scope.',uuid4())
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(Settings.from_env(),generation_endpoint=endpoint,generation_api_key='test-key')
+        settings = gateway_settings(generation_endpoint=endpoint,generation_api_key='test-key')
         async def run():
             return [event async for event in run_reader(reservation,document,settings)]
         events = asyncio.run(run())
@@ -233,7 +233,7 @@ def test_partial_claim_is_live_but_disconnect_or_timeout_never_publishes(reader_
     conversation = create_owned_conversation(conn,document.scope.owner_id,document)
     reservation = reserve_run(conn,document.scope.owner_id,conversation.id,uuid4(),'What is indexed?',uuid4())
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(Settings.from_env(),generation_endpoint=endpoint,generation_api_key='test-key',
+        settings = gateway_settings(generation_endpoint=endpoint,generation_api_key='test-key',
             generation_pass_seconds=1 if not disconnect else 60)
         async def run():
             stream = run_reader(reservation,document,settings)
@@ -300,7 +300,7 @@ def test_disconnect_and_publication_obey_the_database_cas_winner(reader_source,m
     conversation = repository.create_owned_conversation(conn,document.scope.owner_id,document)
     reservation = repository.reserve_run(conn,document.scope.owner_id,conversation.id,uuid4(),'A supported fact?',uuid4())
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(Settings.from_env(),generation_endpoint=endpoint,generation_api_key='test-key')
+        settings = gateway_settings(generation_endpoint=endpoint,generation_api_key='test-key')
         async def run():
             stream = run_reader(reservation,document,settings)
             closer = None
@@ -471,7 +471,7 @@ def test_disconnect_preserves_received_terminal_usage_without_publication(reader
         await stream.aclose()
 
     with local_fault_server(response_fn) as endpoint:
-        settings = replace(Settings.from_env(), generation_endpoint=endpoint, generation_api_key='test-key')
+        settings = gateway_settings(generation_endpoint=endpoint, generation_api_key='test-key')
         asyncio.run(exercise(settings))
         assert closed.wait(2)
     state, calls, recorded = conn.execute('SELECT state,generation_calls,usage FROM reader_runs WHERE id=%s',

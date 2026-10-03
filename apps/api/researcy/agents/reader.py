@@ -82,7 +82,7 @@ class _Context:
                 totals[name] = sum(usage[name] for usage in known)
             else:
                 totals[name] = None
-        return {'source':'9router_terminal_metadata','status':'known' if known and all(value is not None for value in totals.values()) else 'partial' if known else 'unknown',
+        return {'source':self.settings.generation_provider+'_terminal_metadata','status':'known' if known and all(value is not None for value in totals.values()) else 'partial' if known else 'unknown',
             'passes':self.passes,'totals':totals,'initial_calls':sum(entry['kind']=='initial' for entry in self.passes),
             'follow_up_calls':sum(entry['kind']=='follow_up' for entry in self.passes),
             'repair_calls':sum(entry['kind']=='repair' for entry in self.passes),'same_paper_searches':self.searches,
@@ -166,7 +166,8 @@ async def _generate(state: _State) -> dict:
     await run_in_threadpool(_database,repository.record_generation_attempt,context.reservation)
     context.calls += 1
     kind = 'repair' if context.repair else 'follow_up' if context.searches else 'initial'
-    measurement = {'kind':kind,'usage':None,'echoed_model':None,'finish_reason':None}
+    measurement = {'kind':kind,'provider':context.settings.generation_provider,
+        'configured_model':context.settings.generation_model,'usage':None,'echoed_model':None,'finish_reason':None}
     context.passes.append(measurement)
 
     def record_metadata(event: GenerationEvent | None) -> None:
