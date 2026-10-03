@@ -26,7 +26,7 @@ from researcy.ingestion.jobs import claim_due, commit_stage, seal_profile, short
 from researcy.ingestion.models import DocumentScope, IntegrityFailure, ProcessingProfile, StageFailure
 from researcy.retrieval import index
 from researcy.retrieval import repository
-from researcy.retrieval.repository import EvidenceHit, search_owned
+from researcy.retrieval.repository import EvidenceHit, ReadyDocument, load_ready_document, search_dense
 
 
 def _forbidden(*args, **kwargs):
@@ -53,7 +53,7 @@ class DeterministicEmbeddingClient:
 
 @pytest.fixture(autouse=True)
 def bind_repository_db(request, monkeypatch):
-    """Ensure repository.search_owned always uses the test database connection."""
+    """Bind canonical hydration to the disposable database."""
     if "selected_index" in request.fixturenames:
         fixture = request.getfixturevalue("selected_index")
         monkeypatch.setattr(repository, "get_conn", fixture["get_conn"])
@@ -69,27 +69,15 @@ def bind_repository_db(request, monkeypatch):
 
 
 def test_parameter_validation_denies_invalid_inputs():
-    owner = uuid4()
-    paper = uuid4()
-
-    with pytest.raises(ValueError, match="query must be a string"):
-        search_owned(owner, paper, "")
-    with pytest.raises(ValueError, match="query must be a string"):
-        search_owned(owner, paper, "a" * 2401)
-    with pytest.raises(ValueError, match="limit must be an integer"):
-        search_owned(owner, paper, "valid query", limit=True)
-    with pytest.raises(ValueError, match="limit must be an integer"):
-        search_owned(owner, paper, "valid query", limit=0)
-    with pytest.raises(ValueError, match="limit must be an integer"):
-        search_owned(owner, paper, "valid query", limit=6)
-    with pytest.raises(ValueError, match="limit must be an integer"):
-        search_owned(owner, paper, "valid query", limit="3")
-    with pytest.raises(ValueError, match="limit must be an integer"):
-        search_owned(owner, paper, "valid query", limit=2.5)
-    with pytest.raises(ValueError, match="UUID instances"):
-        search_owned(str(owner), paper, "valid query")
-    with pytest.raises(ValueError, match="UUID instances"):
-        search_owned(owner, str(paper), "valid query")
+    document = ReadyDocument(DocumentScope(uuid4(),uuid4(),uuid4()),ProcessingProfile(),'test',bytes(32),frozenset())
+    for query in ('','a'*2401):
+        with pytest.raises(ValueError):
+            search_dense(document,query)
+    for limit in (True,0,6,'3',2.5):
+        with pytest.raises(ValueError):
+            search_dense(document,'valid query',limit)
+    with pytest.raises(ValueError):
+        search_dense(None,'valid query')
 
 
 def test_foreign_and_nonexistent_paper_share_identical_404_before_dependencies(
@@ -103,10 +91,12 @@ def test_foreign_and_nonexistent_paper_share_identical_404_before_dependencies(
     monkeypatch.setattr(index, "QdrantClient", _forbidden)
 
     with pytest.raises(APIError) as nonexistent_err:
-        search_owned(scope.owner_id, nonexistent_paper, "test query")
+        with repository.get_conn() as conn:
+            load_ready_document(conn,scope.owner_id,nonexistent_paper,None)
 
     with pytest.raises(APIError) as foreign_err:
-        search_owned(foreign_owner, scope.paper_id, "test query")
+        with repository.get_conn() as conn:
+            load_ready_document(conn,foreign_owner,scope.paper_id,None)
 
     assert nonexistent_err.value.status_code == 404
     assert foreign_err.value.status_code == 404
@@ -125,7 +115,9 @@ def test_unready_paper_returns_safe_unavailable_before_dependencies(
     monkeypatch.setattr(index, "QdrantClient", _forbidden)
 
     # 1. Job is queued (pending stage, not ready)
-    assert search_owned(scope.owner_id, scope.paper_id, "test query") == []
+    with pytest.raises(APIError) as unavailable:
+        load_ready_document(conn,scope.owner_id,scope.paper_id,None)
+    assert unavailable.value.code=='PAPER_NOT_READY'
 
     # 2. Job in validating/parsing/embedding/indexing stage
     for stage in ("validating", "parsing", "normalizing", "chunking", "embedding", "indexing"):
@@ -134,7 +126,9 @@ def test_unready_paper_returns_safe_unavailable_before_dependencies(
                 "UPDATE ingestion_jobs SET stage = %s WHERE id = %s AND owner_id = %s",
                 (stage, job, scope.owner_id),
             )
-        assert search_owned(scope.owner_id, scope.paper_id, "test query") == []
+        with pytest.raises(APIError) as unavailable:
+            load_ready_document(conn,scope.owner_id,scope.paper_id,None)
+        assert unavailable.value.code=='PAPER_NOT_READY'
 
     # 3. Job in failed status
     with short_transaction(conn):
@@ -146,7 +140,9 @@ def test_unready_paper_returns_safe_unavailable_before_dependencies(
                WHERE id = %s AND owner_id = %s""",
             (job, scope.owner_id),
         )
-    assert search_owned(scope.owner_id, scope.paper_id, "test query") == []
+    with pytest.raises(APIError) as unavailable:
+        load_ready_document(conn,scope.owner_id,scope.paper_id,None)
+    assert unavailable.value.code=='PAPER_NOT_READY'
 
 
 def test_dependency_failure_becomes_safe_unavailable_error(selected_index, monkeypatch):
@@ -173,7 +169,7 @@ def test_dependency_failure_becomes_safe_unavailable_error(selected_index, monke
 
     monkeypatch.setattr(repository, "EmbeddingClient", FailingEmbeddingClient)
     with pytest.raises(APIError) as embed_err:
-        search_owned(scope.owner_id, scope.paper_id, "query text")
+        search_dense(load_ready_document(conn,scope.owner_id,scope.paper_id,None),"query text")
     assert embed_err.value.status_code == 503
     assert embed_err.value.code == "DEPENDENCY_UNAVAILABLE"
     assert "http" not in embed_err.value.message.lower()
@@ -202,7 +198,7 @@ def test_dependency_failure_becomes_safe_unavailable_error(selected_index, monke
         monkeypatch.setattr(index, "QdrantClient", FastTimeoutQdrantClient)
 
         with pytest.raises(APIError) as qdrant_err:
-            search_owned(scope.owner_id, scope.paper_id, "query text")
+            search_dense(load_ready_document(conn,scope.owner_id,scope.paper_id,None),"query text")
         assert qdrant_err.value.status_code == 503
         assert qdrant_err.value.code == "DEPENDENCY_UNAVAILABLE"
         assert "127.0.0.1" not in qdrant_err.value.message
@@ -329,9 +325,11 @@ def test_poisoned_foreign_chunk_payload_returns_safe_unavailable(
         }
         client.request("PUT", f"/collections/{collection}/points?wait=true", {"points": [corrupt_pt]})
 
-    # Any corrupted point from real Qdrant returns safe unavailable without exposing text
-    hits = search_owned(scope.owner_id, scope.paper_id, "Owned exact source")
-    assert hits == []
+    document = load_ready_document(conn,scope.owner_id,scope.paper_id,None)
+    # A verified nonempty publication cannot legitimately return no dense points.
+    with pytest.raises(APIError) as unavailable:
+        search_dense(document,"Owned exact source")
+    assert unavailable.value.code=='EVIDENCE_UNAVAILABLE'
 
 
 @pytest.mark.parametrize("mismatch", ["collection", "chunk_set_hash", "point_set_hash"])
@@ -358,7 +356,9 @@ def test_publication_mismatch_returns_safe_unavailable_before_dependencies(
     elif mismatch == "point_set_hash":
         monkeypatch.setattr(index, "point_set_hash", lambda point_ids: b"\x00" * 32)
 
-    assert search_owned(scope.owner_id, scope.paper_id, "probe query") == []
+    with pytest.raises(APIError) as unavailable:
+        load_ready_document(conn,scope.owner_id,scope.paper_id,None)
+    assert unavailable.value.code=='EVIDENCE_UNAVAILABLE'
 
 
 def test_qdrant_non_ok_status_raises_dependency_unavailable(selected_index, monkeypatch):
@@ -384,7 +384,7 @@ def test_qdrant_non_ok_status_raises_dependency_unavailable(selected_index, monk
     monkeypatch.setattr(index, "QdrantClient", NotOkStatusQdrantClient)
 
     with pytest.raises(APIError) as err:
-        search_owned(scope.owner_id, scope.paper_id, "test query")
+        search_dense(load_ready_document(conn,scope.owner_id,scope.paper_id,None),"test query")
     assert err.value.status_code == 503
     assert err.value.code == "DEPENDENCY_UNAVAILABLE"
 
@@ -431,8 +431,9 @@ def test_qdrant_out_of_range_score_returns_safe_unavailable(selected_index, bad_
 
     monkeypatch.setattr(index, "QdrantClient", BadScoreQdrantClient)
 
-    hits = search_owned(scope.owner_id, scope.paper_id, "test query")
-    assert hits == []
+    with pytest.raises(APIError) as unavailable:
+        search_dense(load_ready_document(conn,scope.owner_id,scope.paper_id,None),"test query")
+    assert unavailable.value.code=='EVIDENCE_UNAVAILABLE'
 
 
 def test_tampered_canonical_provenance_returns_safe_unavailable(selected_index, monkeypatch):
@@ -452,7 +453,9 @@ def test_tampered_canonical_provenance_returns_safe_unavailable(selected_index, 
         raise IntegrityFailure("PROCESSING_INTEGRITY_FAILURE")
 
     monkeypatch.setattr(repository, "resolve_range", failing_resolve_range)
-    assert search_owned(scope.owner_id, scope.paper_id, "probe query") == []
+    with pytest.raises(APIError) as unavailable:
+        search_dense(load_ready_document(conn,scope.owner_id,scope.paper_id,None),"probe query")
+    assert unavailable.value.code=='EVIDENCE_UNAVAILABLE'
 
 
 def test_ready_owned_lookup_rehydrates_canonical_provenance(selected_index, monkeypatch):
@@ -470,7 +473,7 @@ def test_ready_owned_lookup_rehydrates_canonical_provenance(selected_index, monk
 
     monkeypatch.setattr(repository, "EmbeddingClient", DeterministicEmbeddingClient)
 
-    hits = search_owned(scope.owner_id, scope.paper_id, "Owned exact source", limit=5)
+    hits = search_dense(load_ready_document(conn,scope.owner_id,scope.paper_id,None),"Owned exact source",limit=5)
     assert len(hits) == 1
 
     hit = hits[0]

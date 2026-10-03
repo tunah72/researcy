@@ -185,3 +185,31 @@ def test_provider_protocol_failures_are_not_misreported_as_context_overflow(embe
     client.preflight();state['mode']=mode
     with pytest.raises(StageFailure) as exc:client.embed(('Exact failure contract',))
     assert exc.value.code==code and exc.value.retryable is retryable
+
+
+def test_cancelled_embedding_waiter_releases_before_busy_slot_finishes(monkeypatch):
+    from researcy.ingestion.models import LostLease
+    from researcy.retrieval import embedding
+    cancel,done = threading.Event(),threading.Event()
+    failures = []
+    client = EmbeddingClient(ProcessingProfile(),cancel=cancel)
+    async def preflight():
+        return {}
+    monkeypatch.setattr(client,'_preflight',preflight)
+    def wait_for_slot():
+        try:
+            client.preflight()
+        except LostLease:
+            failures.append('cancelled')
+        finally:
+            done.set()
+    embedding._EMBED_LOCK.acquire()
+    thread = threading.Thread(target=wait_for_slot,daemon=True)
+    try:
+        thread.start()
+        cancel.set()
+        assert done.wait(1)
+        assert failures==['cancelled']
+    finally:
+        embedding._EMBED_LOCK.release()
+        thread.join(timeout=2)

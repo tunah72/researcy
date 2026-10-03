@@ -1,15 +1,17 @@
 from array import array
 import asyncio
+from contextlib import contextmanager
 import json
 import math
 import sys
 import threading
+import time
 from urllib.parse import urlsplit
 
 import httpx2
 
 from researcy.config import get_settings
-from researcy.ingestion.models import ProcessingProfile, StageFailure
+from researcy.ingestion.models import LostLease,ProcessingProfile,StageFailure
 from researcy.ingestion.io import cancellable
 
 
@@ -30,8 +32,30 @@ def validate_vectors(data: bytes, count: int, dimension: int=1024) -> None:
         if any(not math.isfinite(value) for value in vector) or not math.isclose(sum(value*value for value in vector),1,rel_tol=0,abs_tol=1e-5):
             raise _failure('EMBEDDING_OUTPUT_INVALID')
 
+@contextmanager
+def _embedding_slot(cancel: threading.Event | None,deadline: float | None):
+    if cancel is None and deadline is None:
+        with _EMBED_LOCK:
+            yield
+        return
+    def check():
+        if cancel is not None and cancel.is_set():
+            raise LostLease()
+        if deadline is not None and time.monotonic()>=deadline:
+            raise _failure('DEPENDENCY_UNAVAILABLE',True)
+    check()
+    while not _EMBED_LOCK.acquire(timeout=.05):
+        check()
+    try:
+        check()
+        yield
+    finally:
+        _EMBED_LOCK.release()
+
+
 class EmbeddingClient:
-    def __init__(self,profile: ProcessingProfile,*,endpoint: str | None=None,cancel: threading.Event | None=None):
+    def __init__(self,profile: ProcessingProfile,*,endpoint: str | None=None,
+        cancel: threading.Event | None=None,deadline: float | None=None):
         endpoint=endpoint or get_settings().embedding_endpoint
         parsed=urlsplit(endpoint)
         if parsed.scheme not in ('http','https') or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path not in ('','/'):
@@ -39,6 +63,7 @@ class EmbeddingClient:
         self.profile=profile;self.endpoint=endpoint.rstrip('/');self.runtime_identity=None
         self.timeout=get_settings().worker_embedding_request_seconds
         self.cancel=cancel
+        self.deadline=deadline
 
     async def _request(self,client,path,payload=None):
         async with client.stream('GET' if payload is None else 'POST',self.endpoint+path,json=payload) as response:
@@ -60,7 +85,10 @@ class EmbeddingClient:
             return value
 
     def _run(self,operation):
-        try:return asyncio.run(cancellable(operation,self.cancel))
+        async def bounded():
+            async with asyncio.timeout_at(self.deadline):
+                return await cancellable(operation,self.cancel)
+        try:return asyncio.run(bounded())
         except (httpx2.RequestError,TimeoutError,OSError):
             raise _failure('DEPENDENCY_UNAVAILABLE',True) from None
 
@@ -86,7 +114,7 @@ class EmbeddingClient:
                 'model_digest':self.profile.model_digest,'dimension':self.profile.dimension,'quantization':self.profile.quantization}
 
     def preflight(self) -> dict:
-        with _EMBED_LOCK:
+        with _embedding_slot(self.cancel,self.deadline):
             identity=self._run(self._preflight());self.runtime_identity=identity
         return dict(identity)
 
@@ -119,4 +147,4 @@ class EmbeddingClient:
         if self.runtime_identity is None:raise _failure('EMBEDDING_MODEL_MISMATCH')
         if not isinstance(texts,(tuple,list)) or not 1<=len(texts)<=4 or any(type(text) is not str or not text or len(text)>self.profile.chunk_maximum for text in texts):
             raise ValueError('embedding requires one to four bounded texts')
-        with _EMBED_LOCK:return self._run(self._embed_request(texts))
+        with _embedding_slot(self.cancel,self.deadline):return self._run(self._embed_request(texts))

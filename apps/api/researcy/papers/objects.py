@@ -30,14 +30,15 @@ def _bucket() -> str:
     return os.environ.get("MINIO_BUCKET", "researcy-originals").strip()
 
 
-def _client() -> Minio:
+def _client(*, http_client=None) -> Minio:
     endpoint = os.environ.get("MINIO_ENDPOINT", "minio:9000").strip()
     access_key = os.environ.get("MINIO_ACCESS_KEY") or os.environ.get("MINIO_ROOT_USER", "")
     secret_key = os.environ.get("MINIO_SECRET_KEY") or os.environ.get("MINIO_ROOT_PASSWORD", "")
     secure = os.environ.get("MINIO_SECURE", "false").strip().lower()
     if not endpoint or not access_key or not secret_key or secure not in {"true", "false"}:
         raise OriginalStorageError()
-    return Minio(endpoint, access_key=access_key, secret_key=secret_key, secure=secure == "true")
+    return Minio(endpoint, access_key=access_key, secret_key=secret_key, secure=secure == "true",
+                 http_client=http_client)
 
 
 def _close_response(response) -> None:

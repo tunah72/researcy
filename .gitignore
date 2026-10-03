@@ -22,6 +22,7 @@ qualification/private/
 **/*.py[cod]
 apps/web/node_modules/
 apps/web/.next/
+apps/web/public/pdfjs/
 apps/api/private/
 apps/api/test-artifacts/
 evidence/private/

@@ -6,12 +6,13 @@ import { useParams } from 'next/navigation';
 import {
   fetchPaperDetail,
   retryJob,
-  PaperDetailResponse,
   ApiError,
   formatScreeningWarning,
   userErrorMessage,
 } from '@/lib/api';
 import { PaperPreparation } from '@/components/paper-preparation';
+import type { PaperDetailResponse } from '@/lib/api';
+import { ReaderWorkspace } from '@/components/reader-workspace';
 
 export default function PaperDetailPage() {
   const params = useParams();
@@ -92,7 +93,7 @@ export default function PaperDetailPage() {
     const seq = ++requestSeqRef.current;
 
     try {
-      const data = await fetchPaperDetail(paperId);
+      const data = await fetchPaperDetail(paperId, new URLSearchParams(window.location.search).get('document_version') ?? undefined);
       if (seq !== requestSeqRef.current || !isMountedRef.current) return;
       setPaper(data);
       setRefreshError(null);
@@ -230,7 +231,7 @@ export default function PaperDetailPage() {
     const seq = ++requestSeqRef.current;
 
     try {
-      const data = await fetchPaperDetail(paperId);
+      const data = await fetchPaperDetail(paperId, new URLSearchParams(window.location.search).get('document_version') ?? undefined);
       if (seq !== requestSeqRef.current || !isMountedRef.current) return;
       setPaper(data);
       backoffRef.current = false;
@@ -269,6 +270,16 @@ export default function PaperDetailPage() {
   useEffect(() => {
     loadDetail();
   }, [loadDetail]);
+
+  useEffect(() => {
+    const restoreVersion = () => {
+      const selected = new URLSearchParams(window.location.search).get('document_version') ?? paper?.active_version_id;
+      const displayed = paper?.reader?.document_version ?? paper?.active_version_id;
+      if (selected !== displayed) void loadDetail();
+    };
+    window.addEventListener('popstate', restoreVersion);
+    return () => window.removeEventListener('popstate', restoreVersion);
+  }, [paper, loadDetail]);
 
   const handleRetry = useCallback(async () => {
     if (!paper || !paper.job_id || isRetrying || conflictRefreshRef.current) return;
@@ -341,6 +352,10 @@ export default function PaperDetailPage() {
       setRetryError(userErrorMessage(err, 'Failed to retry preparation. Please try again later.'));
     }
   }, [paper, isRetrying, refreshDetail, scheduleNextPoll, setConflictState]);
+
+  if (!isLoading && !error && paper?.reader && paper.stage === 'ready') {
+    return <ReaderWorkspace paper={paper} source={paper.reader} />;
+  }
 
   const authorText =
     paper?.authors && paper.authors.length > 0

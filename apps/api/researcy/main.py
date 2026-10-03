@@ -13,6 +13,8 @@ from .config import get_settings
 from .errors import APIError, error_payload
 from .papers.routes import router as papers_router
 from .ingestion.routes import router as jobs_router
+from .conversations.routes import router as conversations_router
+from .citations.routes import router as citations_router
 
 
 class UploadBodyTooLarge(Exception):
@@ -65,6 +67,8 @@ app.add_middleware(UploadBodyLimitMiddleware)
 app.include_router(auth_router)
 app.include_router(papers_router)
 app.include_router(jobs_router)
+app.include_router(conversations_router)
+app.include_router(citations_router)
 
 
 @app.middleware("http")
@@ -99,6 +103,9 @@ async def api_error_handler(request: Request, exc: APIError):
     retry_after = getattr(exc, "retry_after", None)
     if retry_after is not None:
         headers["Retry-After"] = str(retry_after)
+    content_range = getattr(exc, "content_range", None)
+    if content_range is not None:
+        headers["Content-Range"] = content_range
     return JSONResponse(
         status_code=exc.status_code,
         content=error_payload(exc.code, exc.message, request.state.request_id),

@@ -1,7 +1,13 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from os import environ
 from urllib.parse import urlsplit
 import re
+
+GENERATION_MODELS: dict[str, str] = {
+    "gemini": "gemini-3.8-flash",
+    "9router": "ag/gemini-3.8-flash-low",
+}
+GEMINI_EXACT_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/openai"
 
 
 DEFAULT_DATABASE_URL = (
@@ -102,6 +108,40 @@ def _validate_production_google_redirect(
             "production GOOGLE_REDIRECT_URI must be the trusted HTTPS /auth/google/callback"
         )
 
+def _validate_generation_endpoint(endpoint: str, production: bool, provider: str) -> str:
+    value = endpoint.strip()
+    if not value:
+        return ""
+    if provider == "gemini":
+        if value != GEMINI_EXACT_ENDPOINT:
+            raise ValueError(f"gemini endpoint must be exactly {GEMINI_EXACT_ENDPOINT}")
+        return value
+    if provider == "9router":
+        try:
+            parsed = urlsplit(value)
+            valid = (
+                parsed.scheme in ("http", "https")
+                and bool(parsed.hostname)
+                and parsed.username is None
+                and parsed.password is None
+                and parsed.path == "/v1"
+                and not parsed.query
+                and not parsed.fragment
+                and not any(char.isspace() for char in value)
+                and "\\" not in value
+            )
+            _ = parsed.port
+        except ValueError:
+            valid = False
+        if not valid:
+            raise ValueError(
+                "GENERATION_ENDPOINT must be a valid base URL ending in /v1 with no userinfo, query, or fragment"
+            )
+        if production and parsed.scheme != "https":
+            raise ValueError("production GENERATION_ENDPOINT must use HTTPS")
+        return value
+    raise ValueError(f"invalid generation_provider: {provider}")
+
 
 @dataclass(frozen=True, slots=True)
 class Settings:
@@ -144,7 +184,28 @@ class Settings:
     storage_bucket: str = "researcy-originals"
     embedding_endpoint: str = "http://host.docker.internal:11434"
     qdrant_endpoint: str = "http://qdrant:6333"
+    generation_provider: str = "gemini"
+    generation_endpoint: str = ""
+    generation_api_key: str = field(default="", repr=False)
+    generation_model: str = "gemini-3.8-flash"
+    generation_max_output_tokens: int = 8192
+    generation_max_output_bytes: int = 262144
+    generation_connect_seconds: int = 5
+    generation_pass_seconds: int = 60
 
+
+    def __post_init__(self) -> None:
+        if self.generation_provider not in GENERATION_MODELS:
+            raise ValueError(f"invalid generation_provider: {self.generation_provider}")
+        expected_model = GENERATION_MODELS[self.generation_provider]
+        if self.generation_model != expected_model:
+            raise ValueError(f"GENERATION_MODEL for {self.generation_provider} must be {expected_model}")
+        if self.generation_endpoint:
+            _validate_generation_endpoint(
+                self.generation_endpoint,
+                self.app_env == "production",
+                self.generation_provider,
+            )
     @property
     def max_upload_request_bytes(self) -> int:
         return self.max_upload_bytes + 64 * 1024
@@ -222,6 +283,34 @@ class Settings:
             or queue["worker_idle_min_seconds"] > queue["worker_idle_max_seconds"]
             or max(limit for _,limit in deadlines) > queue["worker_claim_deadline_seconds"]):
             raise ValueError("inconsistent worker deadlines")
+        generation_provider = "gemini"
+        generation_endpoint = ""
+        generation_api_key = ""
+        generation_model = "gemini-3.8-flash"
+        generation_max_output_tokens = 8192
+        generation_max_output_bytes = 262144
+        generation_connect_seconds = 5
+        generation_pass_seconds = 60
+
+        if app_role == "api":
+            generation_provider = environ.get("GENERATION_PROVIDER", "gemini").strip().lower()
+            if generation_provider not in GENERATION_MODELS:
+                raise ValueError(f"GENERATION_PROVIDER must be 'gemini' or '9router', got {generation_provider!r}")
+
+            raw_endpoint = environ.get("GENERATION_ENDPOINT", "").strip()
+            generation_endpoint = _validate_generation_endpoint(raw_endpoint, production, generation_provider)
+            generation_api_key = environ.get("GENERATION_API_KEY", "").strip()
+
+            expected_model = GENERATION_MODELS[generation_provider]
+            configured_model = environ.get("GENERATION_MODEL", expected_model).strip()
+            if configured_model != expected_model:
+                raise ValueError(f"GENERATION_MODEL for {generation_provider} must be {expected_model}")
+            generation_model = configured_model
+
+            generation_max_output_tokens = _bounded_int("GENERATION_MAX_OUTPUT_TOKENS", 8192, 8192)
+            generation_max_output_bytes = _bounded_int("GENERATION_MAX_OUTPUT_BYTES", 262144, 262144)
+            generation_connect_seconds = _bounded_int("GENERATION_CONNECT_SECONDS", 5, 5)
+            generation_pass_seconds = _bounded_int("GENERATION_PASS_SECONDS", 60, 60)
         database_url = environ.get("DATABASE_URL", "").strip()
         session_lookup_key = environ.get("SESSION_LOOKUP_KEY", "").encode()
         if production:
@@ -273,6 +362,14 @@ class Settings:
             storage_bucket=storage_bucket,
             embedding_endpoint=endpoints["OLLAMA_BASE_URL"],
             qdrant_endpoint=endpoints["QDRANT_URL"],
+            generation_provider=generation_provider,
+            generation_endpoint=generation_endpoint,
+            generation_api_key=generation_api_key,
+            generation_model=generation_model,
+            generation_max_output_tokens=generation_max_output_tokens,
+            generation_max_output_bytes=generation_max_output_bytes,
+            generation_connect_seconds=generation_connect_seconds,
+            generation_pass_seconds=generation_pass_seconds,
             **queue,
         )
 

@@ -43,7 +43,7 @@ from researcy.papers.objects import get_owned_original, put_original
 from researcy.papers.screening import screen_pdf
 from researcy.retrieval import index
 from researcy.retrieval.embedding import validate_vectors
-from researcy.retrieval.repository import search_owned
+from researcy.retrieval.repository import load_ready_document, search_dense
 
 
 _SOURCE_PARAGRAPH = "A born-digital source paragraph for durable processing testing."
@@ -348,7 +348,9 @@ def test_execute_stage_embedding_embeds_and_replays_selected_batches(staged_env,
         assert job_row == ("indexing", "running")
 
 
-def test_execute_stage_indexing_and_publish_ready(selected_index, monkeypatch):
+def test_execute_stage_indexing_and_publish_ready(selected_index, embedding_endpoint, monkeypatch):
+    endpoint, _ = embedding_endpoint
+    monkeypatch.setenv("OLLAMA_BASE_URL", endpoint)
     monkeypatch.setenv("DATABASE_URL", _database_url(selected_index["conn"].info.dbname))
     lease = selected_index["lease"]
     conn = selected_index["conn"]
@@ -374,7 +376,7 @@ def test_execute_stage_indexing_and_publish_ready(selected_index, monkeypatch):
         assert bytes(pub[1]) == selected_index["manifest"].content_hash
 
     # Concrete retrieval assertion: published index serves search query
-    hits = search_owned(scope.owner_id, scope.paper_id, "evidence", 5)
+    hits = search_dense(load_ready_document(conn,scope.owner_id,scope.paper_id,None),"evidence",5)
     assert len(hits) >= 1
     assert any(hit.chunk_id in {c.id for c in selected_index["chunks"]} for hit in hits)
 

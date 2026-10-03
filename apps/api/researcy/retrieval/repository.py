@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import math
 import sys
 import time
+from threading import Event
 from uuid import UUID
 
 import httpx2
@@ -37,149 +38,130 @@ class EvidenceHit:
     locations: tuple[EvidenceLocation, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class ReadyDocument:
+    scope: DocumentScope
+    profile: ProcessingProfile
+    collection: str
+    profile_hash: bytes
+    chunk_ids: frozenset[UUID]
 
 
-def search_owned(
+def load_ready_document(
+    conn: psycopg.Connection,
     owner_id: UUID,
     paper_id: UUID,
+    version_id: UUID | None,
+) -> ReadyDocument:
+    """Authorize one immutable published scope before any external work."""
+    unavailable = APIError(503, "EVIDENCE_UNAVAILABLE", "The paper evidence is unavailable.")
+    with short_transaction(conn):
+        with conn.cursor(row_factory=dict_row) as cur:
+            paper = cur.execute(
+                "SELECT active_version_id FROM papers WHERE id=%s AND owner_id=%s",
+                (paper_id, owner_id),
+            ).fetchone()
+            if paper is None:
+                raise APIError(404, "RESOURCE_NOT_FOUND", "The requested resource was not found.")
+            version_id = version_id or paper["active_version_id"]
+            version = cur.execute(
+                "SELECT id FROM document_versions WHERE id=%s AND paper_id=%s AND owner_id=%s",
+                (version_id, paper_id, owner_id),
+            ).fetchone()
+            if version is None:
+                raise APIError(404, "RESOURCE_NOT_FOUND", "The requested resource was not found.")
+            job = cur.execute(
+                """SELECT stage,status,profile_hash FROM ingestion_jobs
+                   WHERE owner_id=%s AND document_version_id=%s""",
+                (owner_id, version_id),
+            ).fetchone()
+            if job is None or job["stage"] != "ready" or job["status"] != "succeeded":
+                raise APIError(409, "PAPER_NOT_READY", "This paper is not ready for reading.")
+            if job["profile_hash"] is None:
+                raise unavailable
+            profile_hash = bytes(job["profile_hash"])
+            args = (owner_id, paper_id, version_id, profile_hash)
+            processing = cur.execute(
+                """SELECT profile,index_version FROM document_processing
+                   WHERE owner_id=%s AND paper_id=%s AND document_version_id=%s AND profile_hash=%s""",
+                args,
+            ).fetchone()
+            if processing is None:
+                raise unavailable
+            try:
+                profile = ProcessingProfile(**processing["profile"])
+            except (TypeError, ValueError):
+                raise unavailable from None
+            if profile.profile_hash != profile_hash or profile.index_version != bytes(processing["index_version"]):
+                raise unavailable
+            publication = cur.execute(
+                """SELECT collection,point_count,point_set_hash,chunk_set_hash,embedding_manifest_hash
+                   FROM index_publications
+                   WHERE owner_id=%s AND paper_id=%s AND document_version_id=%s AND profile_hash=%s""",
+                args,
+            ).fetchone()
+            if publication is None or publication["point_count"] <= 0 or publication["collection"] != index.collection_name(profile):
+                raise unavailable
+            manifest = cur.execute(
+                """SELECT record_count FROM stage_manifests
+                   WHERE owner_id=%s AND paper_id=%s AND document_version_id=%s AND profile_hash=%s
+                     AND stage='embedding' AND content_hash=%s""",
+                (*args, bytes(publication["embedding_manifest_hash"])),
+            ).fetchone()
+            chunks = cur.execute(
+                """SELECT id FROM document_chunks
+                   WHERE owner_id=%s AND paper_id=%s AND document_version_id=%s AND profile_hash=%s
+                   ORDER BY ordinal""",
+                args,
+            ).fetchall()
+            ids = [row["id"] for row in chunks]
+            if manifest is None or not ids or not len(ids) == manifest["record_count"] == publication["point_count"]:
+                raise unavailable
+            if bytes(publication["chunk_set_hash"]) != index.chunk_set_hash(ids):
+                raise unavailable
+            points = [index.point_id(profile.index_version, chunk_id) for chunk_id in ids]
+            if bytes(publication["point_set_hash"]) != index.point_set_hash(points):
+                raise unavailable
+            batches = cur.execute(
+                """SELECT chunk_ids FROM embedding_batches
+                   WHERE owner_id=%s AND paper_id=%s AND document_version_id=%s AND profile_hash=%s""",
+                args,
+            ).fetchall()
+            selected = {UUID(str(chunk_id)) for batch in batches for chunk_id in batch["chunk_ids"]}
+            if set(ids) != selected:
+                raise unavailable
+    return ReadyDocument(DocumentScope(owner_id, paper_id, version_id), profile,
+                         publication["collection"], profile_hash, frozenset(ids))
+
+
+
+
+def search_dense(
+    document: ReadyDocument,
     query: str,
     limit: int = 5,
+    *,
+    deadline: float | None=None,
+    cancel: Event | None=None,
 ) -> list[EvidenceHit]:
-    """Execute an owner-scoped dense query against ready published evidence.
-
-    Authorization and readiness must validate in PostgreSQL before any model or
-    Qdrant call. Foreign/nonexistent papers return 404. Unready papers or poisoned
-    payloads return safe unavailable evidence ([]). Expensive work runs outside
-    database transactions.
-    """
-    if not isinstance(owner_id, UUID) or not isinstance(paper_id, UUID):
-        raise ValueError("owner_id and paper_id must be UUID instances")
+    """Search one authenticated immutable publication, never index-supplied text."""
+    if not isinstance(document, ReadyDocument):
+        raise ValueError("document must be an authorized ReadyDocument")
     if type(query) is not str or not (1 <= len(query) <= 2400):
         raise ValueError("query must be a string between 1 and 2400 code points")
-    if type(limit) is not int or isinstance(limit, bool) or not (1 <= limit <= 5):
+    if type(limit) is not int or not (1 <= limit <= 5):
         raise ValueError("limit must be an integer between 1 and 5")
-
-    # 1. Authoritative ownership, readiness, publication, and manifest check in PostgreSQL
-    with get_conn() as conn:
-        with short_transaction(conn):
-            with conn.cursor(row_factory=dict_row) as cur:
-                cur.execute(
-                    "SELECT id, active_version_id FROM papers WHERE id = %s AND owner_id = %s",
-                    (paper_id, owner_id),
-                )
-                paper_row = cur.fetchone()
-                if paper_row is None:
-                    raise APIError(404, "RESOURCE_NOT_FOUND", "The requested resource was not found.")
-
-                active_version_id = paper_row["active_version_id"]
-                if active_version_id is None:
-                    return []
-
-                cur.execute(
-                    """SELECT stage, status, profile_hash
-                       FROM ingestion_jobs
-                       WHERE owner_id = %s AND document_version_id = %s""",
-                    (owner_id, active_version_id),
-                )
-                job_row = cur.fetchone()
-                if (
-                    job_row is None
-                    or job_row["stage"] != "ready"
-                    or job_row["status"] != "succeeded"
-                    or job_row["profile_hash"] is None
-                ):
-                    return []
-                job_profile_hash = bytes(job_row["profile_hash"])
-
-                cur.execute(
-                    """SELECT profile, index_version
-                       FROM document_processing
-                       WHERE owner_id = %s AND paper_id = %s AND document_version_id = %s AND profile_hash = %s""",
-                    (owner_id, paper_id, active_version_id, job_profile_hash),
-                )
-                proc_row = cur.fetchone()
-                if proc_row is None:
-                    return []
-
-                try:
-                    profile = ProcessingProfile(**proc_row["profile"])
-                except (TypeError, ValueError):
-                    return []
-
-                if (
-                    profile.profile_hash != job_profile_hash
-                    or profile.index_version != bytes(proc_row["index_version"])
-                ):
-                    return []
-
-                cur.execute(
-                    """SELECT collection, point_count, point_set_hash, chunk_set_hash, embedding_manifest_hash
-                       FROM index_publications
-                       WHERE owner_id = %s AND paper_id = %s AND document_version_id = %s AND profile_hash = %s""",
-                    (owner_id, paper_id, active_version_id, job_profile_hash),
-                )
-                pub_row = cur.fetchone()
-                if pub_row is None or pub_row["point_count"] <= 0:
-                    return []
-
-                pub_collection = pub_row["collection"]
-                expected_collection = index.collection_name(profile)
-                if pub_collection != expected_collection:
-                    return []
-
-                pub_embedding_manifest_hash = bytes(pub_row["embedding_manifest_hash"])
-
-                cur.execute(
-                    """SELECT content_hash, record_count
-                       FROM stage_manifests
-                       WHERE owner_id = %s AND paper_id = %s AND document_version_id = %s AND profile_hash = %s
-                         AND stage = 'embedding' AND content_hash = %s""",
-                    (owner_id, paper_id, active_version_id, job_profile_hash, pub_embedding_manifest_hash),
-                )
-                manifest_row = cur.fetchone()
-                if manifest_row is None or manifest_row["record_count"] <= 0:
-                    return []
-
-                cur.execute(
-                    """SELECT id, ordinal
-                       FROM document_chunks
-                       WHERE owner_id = %s AND paper_id = %s AND document_version_id = %s AND profile_hash = %s
-                       ORDER BY ordinal""",
-                    (owner_id, paper_id, active_version_id, job_profile_hash),
-                )
-                chunk_rows = cur.fetchall()
-                ordered_chunk_ids = [UUID(str(r["id"])) for r in chunk_rows]
-
-                if not (len(ordered_chunk_ids) == manifest_row["record_count"] == pub_row["point_count"]):
-                    return []
-
-                expected_chunk_set_hash = index.chunk_set_hash(ordered_chunk_ids)
-                if bytes(pub_row["chunk_set_hash"]) != expected_chunk_set_hash:
-                    return []
-
-                ordered_point_ids = [index.point_id(profile.index_version, cid) for cid in ordered_chunk_ids]
-                expected_point_set_hash = index.point_set_hash(ordered_point_ids)
-                if bytes(pub_row["point_set_hash"]) != expected_point_set_hash:
-                    return []
-
-                cur.execute(
-                    """SELECT chunk_ids FROM embedding_batches
-                       WHERE owner_id = %s AND paper_id = %s AND document_version_id = %s AND profile_hash = %s""",
-                    (owner_id, paper_id, active_version_id, job_profile_hash),
-                )
-                batch_rows = cur.fetchall()
-                selected_chunk_ids: set[UUID] = set()
-                for row in batch_rows:
-                    selected_chunk_ids.update(UUID(str(c)) for c in row["chunk_ids"])
-
-                if len(selected_chunk_ids) != len(ordered_chunk_ids) or set(ordered_chunk_ids) != selected_chunk_ids:
-                    return []
-
-    scope = DocumentScope(owner_id=owner_id, paper_id=paper_id, document_version_id=active_version_id)
+    owner_id, paper_id = document.scope.owner_id, document.scope.paper_id
+    scope = document.scope
+    active_version_id = scope.document_version_id
+    profile = document.profile
+    job_profile_hash = document.profile_hash
+    expected_collection = document.collection
+    selected_chunk_ids = document.chunk_ids
 
     # 2. Expensive embedding work outside database transaction
     try:
-        embedding_client = EmbeddingClient(profile)
+        embedding_client = EmbeddingClient(profile,deadline=deadline,cancel=cancel)
         embedding_client.preflight()
         vector_bytes = embedding_client.embed([query])
         validate_vectors(vector_bytes, 1, profile.dimension)
@@ -195,10 +177,12 @@ def search_owned(
     # 3. Expensive Qdrant search outside database transaction
     collection = expected_collection
     settings = get_settings()
-    deadline = time.monotonic() + settings.worker_io_deadline_seconds
+    qdrant_deadline = time.monotonic() + settings.worker_io_deadline_seconds
+    if deadline is not None:
+        qdrant_deadline = min(qdrant_deadline,deadline)
 
     try:
-        qdrant = index.QdrantClient(endpoint=settings.qdrant_endpoint, deadline=deadline)
+        qdrant = index.QdrantClient(endpoint=settings.qdrant_endpoint, deadline=qdrant_deadline,cancel=cancel)
         search_payload = {
             "vector": query_vector,
             "filter": {
@@ -219,8 +203,8 @@ def search_owned(
     if not isinstance(response, dict) or response.get("status") != "ok":
         raise APIError(503, "DEPENDENCY_UNAVAILABLE", "The search service is temporarily unavailable.")
     result_points = response.get("result")
-    if not isinstance(result_points, list) or len(result_points) > limit:
-        return []
+    if not isinstance(result_points, list) or not 1 <= len(result_points) <= limit:
+        raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
 
     # 4. Strict result point and payload validation
     candidate_hits: list[tuple[UUID, float]] = []
@@ -228,26 +212,26 @@ def search_owned(
 
     for point in result_points:
         if not isinstance(point, dict):
-            return []
+            raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
 
         point_id_val = point.get("id")
         score = point.get("score")
         payload = point.get("payload")
 
         if point_id_val is None or score is None or not isinstance(payload, dict):
-            return []
+            raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
 
         if isinstance(score, bool) or not isinstance(score, (int, float)):
-            return []
+            raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
         try:
             score_val = float(score)
         except (ValueError, TypeError, OverflowError):
-            return []
+            raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
         if not math.isfinite(score_val) or not (-1.0 - 1e-5 <= score_val <= 1.0 + 1e-5):
-            return []
+            raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
 
         if set(payload.keys()) != {"chunk_id", "owner_id", "paper_id", "document_version_id", "section_type"}:
-            return []
+            raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
 
         chunk_id_str = payload.get("chunk_id")
         owner_id_str = payload.get("owner_id")
@@ -262,7 +246,7 @@ def search_owned(
             or not isinstance(version_id_str, str)
             or not isinstance(section_type, str)
         ):
-            return []
+            raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
 
         if (
             owner_id_str != str(owner_id)
@@ -270,30 +254,38 @@ def search_owned(
             or version_id_str != str(active_version_id)
             or section_type != "body"
         ):
-            return []
+            raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
 
         try:
             chunk_uuid = UUID(chunk_id_str)
             point_uuid = UUID(str(point_id_val))
         except (ValueError, TypeError):
-            return []
+            raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
         if chunk_id_str != str(chunk_uuid):
-            return []
+            raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
 
         expected_point = index.point_id(profile.index_version, chunk_uuid)
         if point_uuid != expected_point:
-            return []
+            raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
 
         if chunk_uuid not in selected_chunk_ids or chunk_uuid in seen_chunk_ids:
-            return []
+            raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
         seen_chunk_ids.add(chunk_uuid)
 
         candidate_hits.append((chunk_uuid, score_val))
 
-    # 5. Canonical rehydration and provenance verification
+    return hydrate_hits(document, candidate_hits)
+
+
+def hydrate_hits(document: ReadyDocument, candidate_hits: list[tuple[UUID, float]]) -> list[EvidenceHit]:
+    scope = document.scope
+    owner_id, paper_id = scope.owner_id, scope.paper_id
+    active_version_id, job_profile_hash = scope.document_version_id, document.profile_hash
     evidence_hits: list[EvidenceHit] = []
     with get_conn() as conn:
         for chunk_uuid, score_val in candidate_hits:
+            if chunk_uuid not in document.chunk_ids:
+                raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
             # Read chunk metadata in a short transaction that completes and leaves conn IDLE
             with short_transaction(conn):
                 with conn.cursor(row_factory=dict_row) as cur:
@@ -315,7 +307,7 @@ def search_owned(
                     chunk_data = cur.fetchone()
 
             if chunk_data is None:
-                return []
+                raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
 
             section_id = chunk_data["section_id"]
             chunk_text = chunk_data["text"]
@@ -324,10 +316,10 @@ def search_owned(
             try:
                 locations = resolve_range(conn, scope, chunk_uuid, 0, len(chunk_text))
             except (IntegrityFailure, StageFailure, APIError):
-                return []
+                raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.") from None
 
             if not locations:
-                return []
+                raise APIError(503,"EVIDENCE_UNAVAILABLE","The paper evidence is unavailable.")
 
             evidence_hits.append(
                 EvidenceHit(
