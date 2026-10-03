@@ -24,7 +24,11 @@ class DiscoveryReservation:
 
 
 def safe_text(value: str) -> str:
-    if not value.strip() or any(unicodedata.category(c) in {'Cs','Cc'} and c not in '\n\r\t' for c in value):
+    if not value.strip() or any(
+        (unicodedata.category(c) in {'Cs', 'Cc'} and c not in '\n\r\t')
+        or unicodedata.bidirectional(c) in {'LRE', 'RLE', 'LRO', 'RLO', 'PDF', 'LRI', 'RLI', 'FSI', 'PDI'}
+        for c in value
+    ):
         raise ValueError('Unsafe or empty text.')
     value.encode('utf-8')
     return value

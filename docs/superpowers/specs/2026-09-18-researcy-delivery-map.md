@@ -208,9 +208,11 @@ The sequence follows the reader-first product dependency: identity and a ready o
 - no results produce `papers: []`; a missing title produces no invented recommendation; an unavailable arXiv API produces a retriable error and no fabricated result;
 - invalid or duplicate IDs, provider failure, interrupted work, and rejected structured next actions are handled without displaying unsupported recommendations or importing papers.
 
-**Status:** Planned
+**Status:** Verified
 
 **Owner approval — 2026-10-03:** Both [M4 child specification](./2026-10-03-researcy-m4-discovery-agent-design.md) and [implementation plan](../plans/2026-10-03-researcy-m4-discovery-agent.md) approved; the owner explicitly approved the three master revision 2.3 amendment items and M1 prerequisite exception. M1 remains Implemented. Implementation uses isolated `feat-m4-discovery-agent`; owner permits isolated stack/native runtime and at most twelve public-paper hosted attempts, not owner-data migration/worker/cutover or publishing/push/merge/prune. Approval is not gate evidence.
+
+**Final isolated verification — 2026-10-04:** [M4 acceptance](../reports/2026-10-03-researcy-m4-acceptance.md#final-amended-m4-gate-reconciliation--2026-10-04) records G1–G7: actual direct Gemini search/reasons/stop/hostile-metadata containment/subsequent valid qualification, official metadata and exact no-import integrity, owner-selected explicit Add→real processing ready, production browser, controlled real HTTP/TCP failure/security/quota/revocation, final963passed/1opt-in skip backend and124passed frontend, three-image production build and final no-finding reviews. Hosted total8/12. Synthetic identities do not promote M1 or establish Google OAuth acceptance; approved monetary-null billing-attribution limitation remains. Verification is isolated only, not owner cutover or publishing authorization.
 
 ### M5 — ResearchAgent, Evaluation, and Interview Demo
 
@@ -256,7 +258,7 @@ The sequence follows the reader-first product dependency: identity and a ready o
 | GEN-01 | Vendor-hosted streaming grounded generation | 10 | M3 | Designed | Q0.1 report: three generation cases passed; final delivery remains M3 |
 | CIT-01 | Citation validation and quote-to-geometry resolution | 10 | M3 | Designed | Q0.1 report and one-case display evidence; final exact-PDF delivery remains M3 |
 | AGENT-01 | ReaderAgent — `POST /api/conversations/:conversationId/messages:stream` | 15 | M3 | Designed | [Approved M3 specification](./2026-10-01-researcy-m3-reader-agent-design.md); real-route structured-action, exact-PDF, trace/cost/latency gates remain required |
-| AGENT-02 | DiscoveryAgent — `POST /api/papers/:paperId/related:search` | 15 | M4 | Not started | Real-route structured next-action qualification, metadata-only rationales, explicit add, agent trace, cost, and latency |
+| AGENT-02 | DiscoveryAgent — `POST /api/papers/:paperId/related:search` | 15 | M4 | Verified | [M4 final acceptance](../reports/2026-10-03-researcy-m4-acceptance.md#final-amended-m4-gate-reconciliation--2026-10-04): isolated G1–G7, actual direct Gemini/schema-aware qualification, metadata/no-import integrity, explicit Add→ready and production browser; approved monetary-null attribution limitation,8/12 hosted attempts; no owner cutover |
 | AGENT-03 | ResearchAgent — `POST /api/papers/:paperId/research-directions:stream` | 15 | M5 | Not started | Selected-ready-paper citation journey, hypothesis labeling, agent trace, cost, latency, and evaluation |
 | UX-01 | Simplified editorial Library experience | 12, 13 | M1 | Implemented | [M1 acceptance report](../reports/2026-09-24-researcy-m1-acceptance.md); Chromium responsive/state checks passed; real OAuth gate pending |
 | UX-02 | Evidence-linked PDF and Discussion workspace | 12–14 | M3 | Designed | [Approved M3 specification](./2026-10-01-researcy-m3-reader-agent-design.md); Reader and exact-PDF browser acceptance not yet performed |

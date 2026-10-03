@@ -233,3 +233,126 @@ def test_discovery_quota_is_independent_and_reader_history_never_widens_metadata
     assert conn.execute('SELECT state FROM reader_runs WHERE owner_id=%s AND id=%s',(scope.owner_id,reader.run_id)).fetchone()==('running',)
     assert conn.execute('SELECT count(*) FROM reader_request_quota WHERE owner_id=%s',(scope.owner_id,)).fetchone()==(1,)
     assert conn.execute('SELECT count(*) FROM discovery_runs WHERE owner_id=%s',(scope.owner_id,)).fetchone()==(1,)
+
+@pytest.mark.parametrize('phase',['attempt','search','completion','publication','completion_deadline','publication_deadline'])
+def test_disconnect_at_committed_boundary_never_leaves_success_or_loses_attempts(related_source,monkeypatch,phase):
+    from researcy.discovery import repository,routes
+    source,client,headers,metadata=_setup(related_source,monkeypatch)
+    if phase in {'completion_deadline','publication_deadline'}:
+        monkeypatch.setattr(routes,'RUN_SECONDS',3)
+    entered,release=Event(),Event()
+    operation={'attempt':'record_discovery_attempt','search':'record_discovery_search',
+        'completion':'finish_discovery','completion_deadline':'finish_discovery'}.get(phase)
+    if operation:
+        original=getattr(repository,operation)
+        def paused(conn,*args,**kwargs):
+            result=original(conn,*args,**kwargs)
+            if phase not in {'completion','completion_deadline'} or kwargs.get('state')=='completed':
+                entered.set()
+                assert release.wait(5)
+            return result
+        monkeypatch.setattr(repository,operation,paused)
+    initial='{"next_action":"search_arxiv_metadata"}' if phase=='search' else '{"next_action":"stop"}'
+    generation=[]
+    with local_fault_server(_provider([initial],generation)) as endpoint:
+        monkeypatch.setenv('GENERATION_ENDPOINT',endpoint)
+        cookie='; '.join(f'{name}={value}' for name,value in client.cookies.items())
+        path=_path(source)
+        async def disconnect_request():
+            incoming=asyncio.Queue()
+            await incoming.put({'type':'http.request','body':b'','more_body':False})
+            bodies=[]
+            starts=[]
+            scope={'type':'http','asgi':{'version':'3.0'},'http_version':'1.1','method':'POST','scheme':'http',
+                'path':path,'raw_path':path.encode(),'query_string':b'','root_path':'',
+                'headers':[(b'host',b'localhost:3000'),(b'cookie',cookie.encode()),
+                    (b'origin',headers['Origin'].encode()),(b'x-csrf-token',headers['X-CSRF-Token'].encode())],
+                'client':('127.0.0.1',4321),'server':('localhost',3000)}
+            async def send(message):
+                if message['type']=='http.response.start':
+                    starts.append(message['status'])
+                if phase=='publication' and message['type']=='http.response.start' or phase=='publication_deadline' and message['type']=='http.response.body':
+                    entered.set()
+                    await asyncio.to_thread(release.wait,5)
+                if message['type']=='http.response.body':
+                    bodies.append(message.get('body',b''))
+            task=asyncio.create_task(client.app(scope,incoming.get,send))
+            try:
+                assert await asyncio.to_thread(entered.wait,5)
+                if phase in {'completion_deadline','publication_deadline'}:
+                    await asyncio.sleep(3.1)
+                else:
+                    await incoming.put({'type':'http.disconnect'})
+                    # Let the receive owner observe disconnect while the boundary is paused.
+                    await asyncio.sleep(0.05)
+                release.set()
+                await asyncio.wait_for(task,5)
+                if phase=='completion_deadline':
+                    assert json.loads(b''.join(bodies))['code']=='DISCOVERY_TIMEOUT'
+                else:
+                    assert not bodies
+                if phase=='publication_deadline':
+                    assert starts==[200]
+            finally:
+                release.set()
+                if not task.done(): task.cancel()
+                await asyncio.gather(task,return_exceptions=True)
+        asyncio.run(disconnect_request())
+    row=source['conn'].execute('SELECT state,error_code,generation_calls,metadata_searches,usage FROM discovery_runs WHERE owner_id=%s',(source['scope'].owner_id,)).fetchone()
+    expected=('failed','DISCOVERY_TIMEOUT') if phase in {'completion_deadline','publication_deadline'} else ('interrupted','DISCOVERY_INTERRUPTED')
+    assert row[:4]==(*expected,1,int(phase=='search'))
+    assert row[4]['generation_attempts']==1
+    assert row[4]['metadata_searches']==int(phase=='search')
+    assert row[4]['returned']==0
+    assert len(generation)==int(phase!='attempt') and metadata==[]
+
+
+@pytest.mark.parametrize('failure',['provider_503','metadata_after_redirect','metadata_connect','metadata_duplicate'])
+def test_failed_run_retains_observed_headers_and_partial_physical_search_counts(related_source,monkeypatch,failure):
+    from researcy.agents import discovery
+    from researcy.papers import arxiv
+    source,client,headers,_=_setup(related_source,monkeypatch)
+    before=_identities(source)
+    metadata=[]
+    if failure.startswith('metadata_'):
+        from test_arxiv_search import _entry,_feed
+        real_search=arxiv.search_official_arxiv_metadata
+        def upstream(request):
+            metadata.append(str(request.url))
+            if failure=='metadata_connect':
+                raise httpx2.ConnectError('private transport detail',request=request)
+            if failure=='metadata_duplicate':
+                return httpx2.Response(200,text=_feed([_entry('2301.00001',title='First title'),_entry('2301.00001',title='Conflicting title')]))
+            return httpx2.Response(307,headers={'Location':str(request.url.copy_with(host='arxiv.org'))}) if len(metadata)==1 else httpx2.Response(500)
+        async def search(query,**kwargs):
+            return await real_search(query,transport=httpx2.MockTransport(upstream),**kwargs)
+        monkeypatch.setattr(discovery,'search_official_arxiv_metadata',search)
+    generation=[]
+    good=_provider(['{"next_action":"search_arxiv_metadata"}'],generation)
+    def provider(handler,body):
+        if failure!='provider_503':
+            good(handler,body)
+            return
+        generation.append(json.loads(body))
+        handler.send_response(503);handler.end_headers()
+    with local_fault_server(provider) as endpoint:
+        monkeypatch.setenv('GENERATION_ENDPOINT',endpoint)
+        response=client.post(_path(source),headers=headers)
+    assert response.status_code in {502,503} and 'papers' not in response.json()
+    assert len(generation)==1
+    assert _identities(source)==before
+    row=source['conn'].execute('SELECT state,generation_calls,metadata_searches,usage FROM discovery_runs WHERE owner_id=%s',(source['scope'].owner_id,)).fetchone()
+    assert row[:3]==('failed',1,int(failure!='provider_503'))
+    assert row[3]['physical_generation_requests']==1
+    assert row[3]['returned']==0
+    if failure=='metadata_after_redirect':
+        assert len(metadata)==2
+        assert row[3]['arxiv_http_requests']==2 and row[3]['arxiv_redirects']==1
+        assert row[3]['totals']['total_tokens']==30
+    elif failure=='provider_503':
+        assert row[3]['totals']['total_tokens'] is None
+    if failure=='metadata_connect':
+        assert row[3]['arxiv_http_requests'] is None
+        assert row[3]['arxiv_http_requests_observed']==0 and row[3]['arxiv_http_request_attempts']==1
+    if failure=='metadata_duplicate':
+        assert row[3]['inspected_entries']==2 and row[3]['inspected_unique']==1 and row[3]['duplicates']==1

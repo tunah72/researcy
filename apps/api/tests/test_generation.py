@@ -1450,3 +1450,4 @@ def test_stream_conflicting_terminal_frame_invalidates_retained_metadata(conflic
         assert checkpoint_history[0] is not None
         assert checkpoint_history[0].usage == initial_usage
         assert checkpoint_history[-1] is None
+

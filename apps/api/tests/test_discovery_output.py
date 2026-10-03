@@ -44,6 +44,30 @@ def test_discovery_decoder_rejects_untrusted_action_envelopes(raw):
         models.decode_output(raw, DISCOVERY_INITIAL_OUTPUT)
 
 
+@pytest.mark.parametrize('bidi_char', [
+    '\u202a',  # LRE
+    '\u202b',  # RLE
+    '\u202d',  # LRO
+    '\u202e',  # RLO
+    '\u202c',  # PDF
+    '\u2066',  # LRI
+    '\u2067',  # RLI
+    '\u2068',  # FSI
+    '\u2069',  # PDI
+])
+def test_discovery_decoder_rejects_bidi_controls_in_reason(bidi_char):
+    raw = json.dumps({'papers': [{'arxiv_id': '2005.11401', 'reason': f'Topic {bidi_char} explanation'}]}).encode()
+    with pytest.raises(InvalidModelOutput):
+        models.decode_output(raw, DISCOVERY_REASONS_OUTPUT)
+
+
+def test_discovery_decoder_allows_safe_unicode_in_reason():
+    # Legitimate non-bidi unicode (e.g. ZWJ, em-dash, accented characters) is preserved
+    raw = json.dumps({'papers': [{'arxiv_id': '2005.11401', 'reason': 'Étude on attention — with \u200d ZWJ'}]}).encode()
+    result = models.decode_output(raw, DISCOVERY_REASONS_OUTPUT)
+    assert result.papers[0].reason == 'Étude on attention — with \u200d ZWJ'
+
+
 @pytest.mark.parametrize('raw', [
     b'{"papers":[{"arxiv_id":"2005.11401","reason":"   \\n\\t"}]}',
     b'{"papers":[{"arxiv_id":"2005.11401","reason":"\\u0000"}]}',

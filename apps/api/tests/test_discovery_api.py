@@ -3,7 +3,7 @@ from uuid import uuid4
 import pytest
 
 from test_conversations import reader_source, reader_client
-from test_library import BASE_URL, SESSION_LOOKUP_KEY, _authenticate
+from test_library import BASE_URL, SESSION_LOOKUP_KEY, _authenticate, _insert_paper
 
 
 @pytest.fixture
@@ -54,6 +54,61 @@ def test_missing_title_precedes_ready_and_quota(related_source):
     assert response.headers.get('cache-control')=='no-store'
     assert _runs(source)==0
 
+@pytest.mark.parametrize('query,body,content_length', [
+    ('?query=unexpected', b'', None),
+    ('', b'{"extra": 1}', None),
+    ('', b'', '1025'),
+    ('', b'', '-1'),
+    ('', b'', 'not-an-int'),
+])
+def test_malformed_query_or_body_precedes_missing_title_and_unready(related_source, query, body, content_length):
+    source, client, headers = related_source
+    conn, scope = source['conn'], source['scope']
+    # Paper with missing title
+    conn.execute('UPDATE papers SET title=NULL WHERE owner_id=%s AND id=%s', (scope.owner_id, scope.paper_id))
+    conn.commit()
+    req_headers = dict(headers)
+    if content_length is not None:
+        req_headers['Content-Length'] = content_length
+    response = client.post(_path(source) + query, content=body, headers=req_headers)
+    assert response.status_code == 422
+    assert response.json()['code'] == 'INVALID_REQUEST'
+    assert _runs(source) == 0
+
+    # A separately accepted queued paper; active versions and sealed jobs are immutable.
+    pending_paper,_,_=_insert_paper(conn,scope.owner_id,title='Attention mechanisms',
+        authors=[],year=None,source_version=None,screening_warning=None)
+    conn.commit()
+    response = client.post(f'/api/papers/{pending_paper}/related:search' + query, content=body, headers=req_headers)
+    assert response.status_code == 422
+    assert response.json()['code'] == 'INVALID_REQUEST'
+    assert _runs(source) == 0
+
+
+def test_oversized_declared_content_length_rejected(related_source):
+    source, client, headers = related_source
+    req_headers = {**headers, 'Content-Length': '2048'}
+    response = client.post(_path(source), headers=req_headers)
+    assert response.status_code == 422
+    assert response.json()['code'] == 'INVALID_REQUEST'
+    assert _runs(source) == 0
+
+
+def test_invalid_content_length_header_rejected(related_source):
+    source, client, headers = related_source
+    req_headers = {**headers, 'Content-Length': 'invalid'}
+    response = client.post(_path(source), headers=req_headers)
+    assert response.status_code == 422
+    assert response.json()['code'] == 'INVALID_REQUEST'
+    assert _runs(source) == 0
+
+
+def test_unauthenticated_request_rejected_before_body_or_ownership(related_source):
+    source, client, _ = related_source
+    client.cookies.clear()
+    response = client.post(_path(source), content=b'malformed body')
+    assert response.status_code == 401
+    assert _runs(source) == 0
 
 def test_foreign_and_absent_sources_are_indistinguishable(related_source):
     from researcy.auth.sessions import _csrf_verifier

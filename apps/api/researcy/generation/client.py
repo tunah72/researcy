@@ -133,7 +133,8 @@ class GenerationClient:
 
     async def stream(self,messages: list[dict[str,str]],*,output: TypeAdapter,schema_name: str,
         deadline: float | None=None,
-        on_metadata: Callable[[GenerationEvent | None], None] | None=None) -> AsyncIterator[GenerationEvent]:
+        on_metadata: Callable[[GenerationEvent | None], None] | None=None,
+        on_response: Callable[[], None] | None=None) -> AsyncIterator[GenerationEvent]:
         pass_deadline = time.monotonic()+self.settings.generation_pass_seconds
         if deadline is not None:
             pass_deadline = min(pass_deadline,deadline)
@@ -152,7 +153,7 @@ class GenerationClient:
             try:
                 async with asyncio.timeout_at(pass_deadline):
                     async with aclosing(self._stream_events(messages,output=output,schema_name=schema_name,deadline=pass_deadline,
-                        checkpoint_terminal=checkpoint_terminal)) as source:
+                        checkpoint_terminal=checkpoint_terminal,on_response=on_response)) as source:
                         async for event in source:
                             if event.kind=='content':
                                 encoded = event.text.encode('utf-8')
@@ -226,7 +227,8 @@ class GenerationClient:
 
     async def _stream_events(self,messages: list[dict[str,str]],*,output: TypeAdapter,schema_name: str,
         deadline: float | None=None,
-        checkpoint_terminal: Callable[[GenerationEvent | None], None] | None=None) -> AsyncIterator[GenerationEvent]:
+        checkpoint_terminal: Callable[[GenerationEvent | None], None] | None=None,
+        on_response: Callable[[], None] | None=None) -> AsyncIterator[GenerationEvent]:
         def notify_terminal(event: GenerationEvent | None) -> None:
             if checkpoint_terminal is not None:
                 checkpoint_terminal(event)
@@ -274,6 +276,8 @@ class GenerationClient:
                     async with asyncio.timeout_at(pass_deadline):
                         response = await stack.enter_async_context(client.stream('POST',endpoint+'/chat/completions',
                             headers=headers,json=payload))
+                    if on_response is not None:
+                        on_response()
                     if response.status_code==429:
                         raise GenerationFailure('GENERATION_RATE_LIMITED')
                     if 500<=response.status_code<600:

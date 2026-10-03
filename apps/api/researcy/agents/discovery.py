@@ -2,7 +2,6 @@ import asyncio
 from contextlib import aclosing
 from dataclasses import dataclass,field
 import json
-import logging
 from threading import Event
 import time
 from typing import TypedDict
@@ -49,6 +48,7 @@ class _Context:
     selected: tuple[ArxivCandidate,...]=()
     papers: list[RelatedPaper]=field(default_factory=list)
     outcome: str='running'
+    completed: bool=False
 
     def check(self) -> None:
         if self.cancel.is_set():
@@ -99,28 +99,34 @@ async def _generate(context: _Context,kind: str,payload: dict):
     context.check()
     if len(context.passes)>=(1 if kind=='initial' else 2):
         raise GenerationFailure('GENERATION_INVALID_OUTPUT')
-    await database(repository.record_discovery_attempt,context.reservation,kind,deadline=context.deadline,cancel=context.cancel)
     measurement={'kind':kind,'provider':context.settings.generation_provider,'configured_model':context.settings.generation_model,
-        'usage':None,'echoed_model':None,'finish_reason':None,'physical_requests':None,'latency_ms':None}
-    context.passes.append(measurement)
+        'usage':None,'usage_status':'unknown','usage_source':context.settings.generation_provider+'_terminal_metadata',
+        'echoed_model':None,'finish_reason':None,'physical_requests':0,'latency_ms':None}
+    def record_attempt(conn):
+        repository.record_discovery_attempt(conn,context.reservation,kind)
+        context.passes.append(measurement)
+    await database(record_attempt,deadline=context.deadline,cancel=context.cancel)
     started=time.monotonic()
     def metadata(event):
         measurement.update(usage=event.usage if event else None,echoed_model=event.echoed_model if event else None,
             finish_reason=event.finish_reason if event else None)
-        if event is not None:
-            measurement['physical_requests']=1
+        usage=measurement['usage']
+        measurement['usage_status']='known' if usage is not None and all(
+            name in usage for name in ('prompt_tokens','completion_tokens','total_tokens')) else 'partial' if usage else 'unknown'
+    def observed_response():
+        measurement['physical_requests']=1
     output=None
     try:
         context.check()
+        measurement['physical_requests']=None
         async with aclosing(GenerationClient(context.settings).stream(
             [{'role':'system','content':_INITIAL_SYSTEM if kind=='initial' else _REASONS_SYSTEM},
              {'role':'user','content':json.dumps(payload,ensure_ascii=False)}],
             output=DISCOVERY_INITIAL_OUTPUT if kind=='initial' else DISCOVERY_REASONS_OUTPUT,
             schema_name='discovery_action' if kind=='initial' else 'discovery_reasons',
-            deadline=context.deadline,on_metadata=metadata)) as stream:
+            deadline=context.deadline,on_metadata=metadata,on_response=observed_response)) as stream:
             async for event in stream:
                 context.check()
-                measurement['physical_requests']=1
                 if event.kind=='completed':
                     output=event.output
         if output is None:
@@ -129,8 +135,6 @@ async def _generate(context: _Context,kind: str,payload: dict):
     except InvalidModelOutput:
         raise GenerationFailure('GENERATION_INVALID_ACTION' if kind=='initial' else 'GENERATION_INVALID_OUTPUT') from None
     except GenerationFailure as error:
-        if error.code in {'GENERATION_RATE_LIMITED','GENERATION_FAILED','INVALID_RESPONSE','PAYLOAD_TOO_LARGE'}:
-            measurement['physical_requests']=1
         if error.code in {'INVALID_RESPONSE','PAYLOAD_TOO_LARGE'}:
             raise GenerationFailure('GENERATION_INVALID_ACTION' if kind=='initial' else 'GENERATION_INVALID_OUTPUT') from None
         raise
@@ -153,12 +157,18 @@ async def _initial(state: _State) -> dict:
 async def _search(state: _State) -> dict:
     context=state['context']
     context.check()
-    await database(repository.record_discovery_search,context.reservation,deadline=context.deadline,cancel=context.cancel)
-    context.searches=1
+    def record_search(conn):
+        repository.record_discovery_search(conn,context.reservation)
+        context.searches=1
+        context.counts.update(arxiv_http_requests=0,arxiv_http_requests_observed=0,
+            arxiv_http_request_attempts=0,arxiv_redirects=0)
+    await database(record_search,deadline=context.deadline,cancel=context.cancel)
     context.check()
     source=context.reservation.source
+    def search_measurement(counts):
+        context.counts.update(counts)
     result=await search_official_arxiv_metadata(build_related_query(source.title,source.abstract),
-        deadline=context.deadline,request_id=context.reservation.request_id)
+        deadline=context.deadline,request_id=context.reservation.request_id,on_measurement=search_measurement)
     context.check()
     eligible=[]
     active_excluded=0
@@ -169,9 +179,10 @@ async def _search(state: _State) -> dict:
         else:
             eligible.append(candidate)
     context.selected=tuple(eligible[:3])
-    context.counts={'inspected_entries':result.inspected_entries,'inspected_unique':result.inspected_unique,
-        'invalid_ids':result.invalid_ids,'duplicates':result.duplicates,'arxiv_http_requests':result.http_requests,
-        'arxiv_redirects':result.redirects,'active_excluded':active_excluded,'eligible':len(eligible)}
+    context.counts.update(inspected_entries=result.inspected_entries,inspected_unique=result.inspected_unique,
+        invalid_ids=result.invalid_ids,duplicates=result.duplicates,arxiv_http_requests=result.http_requests,
+        arxiv_http_requests_observed=result.http_requests,arxiv_http_request_attempts=result.http_requests,
+        arxiv_redirects=result.redirects,active_excluded=active_excluded,eligible=len(eligible))
     return {}
 
 
@@ -225,18 +236,23 @@ async def run_discovery(reservation: DiscoveryReservation,settings: Settings,*,d
             context.outcome='completed'
             def complete(conn):
                 context.check()
-                return repository.finish_discovery(conn,reservation,state='completed',metrics=context.metrics())
+                context.completed=repository.finish_discovery(conn,reservation,state='completed',metrics=context.metrics())
+                return context.completed
             if not await database(complete,deadline=deadline,cancel=cancel):
                 raise APIError(409,'DISCOVERY_RUN_NOT_ACTIVE','This search is no longer running.')
             context.check()
             return response
     except asyncio.CancelledError:
         interrupted=cancel.is_set() or time.monotonic()<deadline
-        cancel.set()
+        if interrupted:
+            cancel.set()
         context.outcome='interrupted' if interrupted else 'DISCOVERY_TIMEOUT'
         context.papers=[]
         await database(repository.finish_discovery,reservation,state='interrupted' if interrupted else 'failed',
             metrics=context.metrics(),error_code='DISCOVERY_INTERRUPTED' if interrupted else 'DISCOVERY_TIMEOUT',deadline=deadline+15)
+        if context.completed:
+            await database(repository.abandon_unpublished_discovery,reservation,state='interrupted' if interrupted else 'failed',
+                metrics=context.metrics(),error_code='DISCOVERY_INTERRUPTED' if interrupted else 'DISCOVERY_TIMEOUT',deadline=deadline+15)
         if not interrupted:
             raise APIError(504,'DISCOVERY_TIMEOUT','The related-paper search exceeded its time limit.') from None
         raise
@@ -245,10 +261,7 @@ async def run_discovery(reservation: DiscoveryReservation,settings: Settings,*,d
         context.outcome=failure.code
         context.papers=[]
         await database(repository.finish_discovery,reservation,state='failed',metrics=context.metrics(),error_code=failure.code,deadline=deadline+15)
+        if context.completed:
+            await database(repository.abandon_unpublished_discovery,reservation,state='failed',
+                metrics=context.metrics(),error_code=failure.code,deadline=deadline+15)
         raise failure from None
-    finally:
-        metrics=context.metrics()
-        logging.getLogger('researcy').info(json.dumps({'role':'discovery','run_id':str(reservation.run_id),
-            'request_id':reservation.request_id,'generation_attempts':len(context.passes),
-            'physical_generation_requests':metrics['physical_generation_requests'],'metadata_searches':context.searches,
-            'action':context.action,'outcome':context.outcome,'returned':len(context.papers),'latency_ms':metrics['latency_ms']}))

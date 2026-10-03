@@ -423,7 +423,7 @@ def _normalized_atom_text(element: ET.Element | None) -> str | None:
 
 
 def _entry_abstract(entry: ET.Element) -> str | None:
-    return _normalized_atom_text(entry.find("atom:summary", _ATOM_NAMESPACES))
+    return _candidate_text(entry.find("atom:summary", _ATOM_NAMESPACES))
 
 
 def _fetch_metadata(
@@ -770,17 +770,24 @@ def _candidate_text(element: ET.Element | None, max_length: int | None = None) -
     return text
 
 
-def _search_candidates(content: bytearray, *, http_requests: int, redirects: int) -> ArxivSearchResult:
+def _search_candidates(content: bytearray, *, http_requests: int, redirects: int,
+    on_measurement: Callable[[dict[str, int]], None] | None = None) -> ArxivSearchResult:
     root = _parse_atom_feed(content)
     seen: dict[str, tuple[str | None, tuple[str, ...], str | None]] = {}
     candidates = []
     inspected_entries = invalid_ids = duplicates = 0
+    def measure() -> None:
+        if on_measurement is not None:
+            on_measurement({'inspected_entries':inspected_entries,'inspected_unique':len(seen),
+                'invalid_ids':invalid_ids,'duplicates':duplicates})
     for entry in islice(root.iterfind("atom:entry", _ATOM_NAMESPACES), 10):
         inspected_entries += 1
+        measure()
         try:
             canonical_id, _ = _entry_reference(entry)
         except InvalidArxivReference:
             invalid_ids += 1
+            measure()
             continue
         title = _candidate_text(entry.find("atom:title", _ATOM_NAMESPACES), 1000)
         authors = tuple(
@@ -793,12 +800,14 @@ def _search_candidates(content: bytearray, *, http_requests: int, redirects: int
         metadata = (title, authors, abstract)
         if canonical_id in seen:
             duplicates += 1
+            measure()
             if seen[canonical_id] != metadata:
                 raise ArxivUpstreamError(
                     "The official arXiv service returned inconsistent metadata.", status_code=502,
                 )
             continue
         seen[canonical_id] = metadata
+        measure()
         if _usable_title(title):
             candidates.append(ArxivCandidate(canonical_id, title, authors, abstract))
     return ArxivSearchResult(
@@ -832,6 +841,7 @@ def _validate_search_destination(current_url: str, initial_url: httpx2.URL) -> N
 async def search_official_arxiv_metadata(
     query: str, *, deadline: float, request_id: str,
     transport: httpx2.AsyncBaseTransport | None = None,
+    on_measurement: Callable[[dict[str, int | None]], None] | None = None,
 ) -> ArxivSearchResult:
     """Run exactly one bounded official metadata query, without fetching Atom links or PDFs."""
     stage_deadline = min(deadline, time.monotonic() + _MAX_RESPONSE_SECONDS)
@@ -845,6 +855,13 @@ async def search_official_arxiv_metadata(
     current_url = str(initial_url)
     limiter = _GLOBAL_LIMITER
     http_requests = redirects = 0
+    measurements={'arxiv_http_request_attempts':0,'arxiv_http_requests':0,
+        'arxiv_http_requests_observed':0,'arxiv_redirects':0,
+        'inspected_entries':0,'inspected_unique':0,'invalid_ids':0,'duplicates':0}
+    def measure(counts: dict[str, int | None]) -> None:
+        measurements.update(counts)
+        if on_measurement is not None:
+            on_measurement(measurements)
     host = initial_url.host
     try:
         _search_remaining(stage_deadline)
@@ -858,13 +875,17 @@ async def search_official_arxiv_metadata(
                     async with limiter.acquire_async(deadline=stage_deadline):
                         remaining = _search_remaining(stage_deadline)
                         timeout = httpx2.Timeout(min(_DEFAULT_TIMEOUT, remaining), connect=min(5.0, remaining))
-                        http_requests += 1
+                        measure({'arxiv_http_request_attempts':measurements['arxiv_http_request_attempts']+1,
+                            'arxiv_http_requests':None})
                         async with client.stream("GET", current_url, timeout=timeout) as response:
+                            http_requests += 1
+                            measure({'arxiv_http_requests':http_requests,'arxiv_http_requests_observed':http_requests})
                             _log_upstream(host, response.status_code, request_id)
                             destination = _redirect_destination(response, current_url, redirects, "metadata")
                             if destination is not None:
                                 _validate_search_destination(destination, initial_url)
                                 redirects += 1
+                                measure({'arxiv_redirects':redirects})
                                 current_url = destination
                                 continue
                             _check_upstream_status(response, limiter, "metadata")
@@ -879,7 +900,7 @@ async def search_official_arxiv_metadata(
                                 content.extend(chunk)
                             break
             _search_remaining(stage_deadline)
-            result = _search_candidates(content, http_requests=http_requests, redirects=redirects)
+            result = _search_candidates(content, http_requests=http_requests, redirects=redirects,on_measurement=measure)
             _search_remaining(stage_deadline)
             return result
     except (TimeoutError, httpx2.TimeoutException):

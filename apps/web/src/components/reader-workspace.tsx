@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ApiError, getCitation, listMessages, type PaperDetailResponse, type ReaderDocument, type ResolvedCitation } from '@/lib/api';
 import { Discussion } from './discussion';
 import { PdfReader } from './pdf-reader';
+import { RelatedPapers } from './related-papers';
 import './reader.css';
 
 export function ReaderWorkspace({ paper, source }: { paper: PaperDetailResponse; source: ReaderDocument }) {
@@ -174,6 +175,11 @@ export function ReaderWorkspace({ paper, source }: { paper: PaperDetailResponse;
         <Discussion paperId={paper.paper_id} title={paper.title} documentVersion={source.document_version}
           onCitation={(accepted, button) => { void loadCitation(accepted.citation_id, button, true); }}
           activeCitationId={selectedCitationId} evidence={evidence}
+          secondaryActions={<RelatedPapers key={`${paper.paper_id}:${source.document_version}:${paper.active_version_id}:${paper.stage}`}
+            paperId={paper.paper_id} documentVersion={source.document_version} onUnauthorized={clearPrivate}
+            disabledReason={source.document_version !== paper.active_version_id ?
+              'Related papers is available only for the active document version.' :
+              paper.stage !== 'ready' ? 'Related papers is available after the active document finishes processing.' : undefined} />}
           canCreateConversation={source.document_version === paper.active_version_id} onUnauthorized={clearPrivate} />
       </div>}
     </main>

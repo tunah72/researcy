@@ -2,7 +2,7 @@
 
 **Status:** Approved child specification — owner approved both documents, Gemini primary, schema-aware gate, null/unavailable cost provenance and M1 prerequisite exception on 2026-10-03. Isolated stack/native and twelve hosted attempts authorized; no owner cutover/publication.
 **Date:** 2026-10-03
-**Authority:** [Master revision 2.2](./2026-09-18-researcy-system-design.md), especially §§3, 5, 10, 12, 15–17, 19, 21–23; [delivery map](./2026-09-18-researcy-delivery-map.md) controls milestone status.
+**Authority:** [Master revision 2.3](./2026-09-18-researcy-system-design.md), especially §§3, 5, 10, 12, 15–17, 19, 21–23; [delivery map](./2026-09-18-researcy-delivery-map.md) controls milestone status.
 **Plan:** [M4 implementation plan](../plans/2026-10-03-researcy-m4-discovery-agent.md).
 **Predecessors:** [M2 design](./2026-09-27-researcy-m2-durable-processing-design.md), [plan](../plans/2026-09-27-researcy-m2-durable-processing.md), [acceptance](../reports/2026-09-27-researcy-m2-acceptance.md); [M3 design](./2026-10-01-researcy-m3-reader-agent-design.md), [plan](../plans/2026-10-01-researcy-m3-reader-agent.md), [acceptance](../reports/2026-10-01-researcy-m3-acceptance.md).
 

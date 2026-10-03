@@ -468,9 +468,9 @@ def test_real_socket_deadline_covers_headers_body_and_drip_and_releases_lease(fa
         async with _local_metadata_server(respond) as (port, paths):
             started = time.monotonic()
             with pytest.raises(arxiv.ArxivUpstreamError) as caught:
-                await _search(_LoopbackTransport(port), seconds=0.15)
+                await _search(_LoopbackTransport(port), seconds=1)
             assert caught.value.status_code == 504
-            assert time.monotonic() - started < 1
+            assert time.monotonic() - started < 2
             await asyncio.wait_for(closed.wait(), 1)
             result = await _search(_LoopbackTransport(port))
             assert result.candidates == () and result.http_requests == 1 and len(paths) == 2
@@ -507,14 +507,20 @@ def test_real_socket_cancellation_closes_active_response_and_allows_next_search(
 def test_real_socket_redirects_share_one_aggregate_deadline():
     async def exercise():
         async def respond(reader, writer, path, number):
-            await asyncio.sleep(0.09)
+            # Both hops fit a fresh budget individually, but exceed the shared budget together.
+            await asyncio.sleep(0.6)
+            if number>1:
+                await _send_feed(writer)
+                return
             writer.write(b"HTTP/1.1 307 Temporary Redirect\r\nLocation: https://export.arxiv.org" +
                          path.encode() + b"\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
             await writer.drain()
         async with _local_metadata_server(respond) as (port, paths):
+            started=time.monotonic()
             with pytest.raises(arxiv.ArxivUpstreamError) as caught:
-                await _search(_LoopbackTransport(port), seconds=0.15)
+                await _search(_LoopbackTransport(port), seconds=1)
             assert caught.value.status_code == 504 and len(paths) == 2
+            assert time.monotonic()-started<2
             assert parse_qs(paths[0].split("?", 1)[1]) == parse_qs(paths[1].split("?", 1)[1])
     asyncio.run(exercise())
 
@@ -595,3 +601,15 @@ def test_search_stage_ceiling_applies_even_with_longer_parent_deadline(monkeypat
             assert caught.value.status_code == 504 and len(paths) == 1
             assert time.monotonic() - started < 1
     asyncio.run(exercise())
+
+
+@pytest.mark.parametrize('abstract',['Visible\u202ehidden','Visible\u2066hidden\u2069'])
+def test_import_rejects_unsafe_abstract_before_fetching_pdf(tmp_path,abstract):
+    calls=[]
+    def upstream(request):
+        calls.append(request.url.path)
+        return httpx2.Response(200,text=_feed([_entry('1706.03762v7',abstract=abstract)])) if request.url.path=='/api/query' else httpx2.Response(200,content=b'%PDF-1.7\nfixture')
+    with pytest.raises(arxiv.ArxivUpstreamError) as caught:
+        arxiv.fetch_official_arxiv('1706.03762',transport=httpx2.MockTransport(upstream),temp_dir=tmp_path)
+    assert caught.value.status_code==502
+    assert calls==['/api/query'] and not list(tmp_path.iterdir())

@@ -21,20 +21,31 @@ router=APIRouter()
 async def search_related(request: Request,paper_id: UUID):
     started=time.monotonic()
     deadline=started+RUN_SECONDS
-    def authorize(conn):
+    def check_owner_paper(conn):
         owner=get_current_user(request,conn)
         require_csrf(request,conn,owner)
         conn.commit()
-        return load_active_metadata(conn,owner,paper_id)
+        row=conn.execute('SELECT 1 FROM papers WHERE owner_id=%s AND id=%s',(owner,paper_id)).fetchone()
+        if row is None:
+            raise APIError(404,'RESOURCE_NOT_FOUND','The requested resource was not found.')
+        return owner
     try:
         async with asyncio.timeout_at(deadline):
-            source=await database(authorize,deadline=deadline)
+            owner=await database(check_owner_paper,deadline=deadline)
             if request.query_params:
                 raise APIError(422,'INVALID_REQUEST','Related-paper search accepts no query parameters or body.')
-            # Consume the empty request once; any bytes are invalid and never accumulated.
+            content_length=request.headers.get('content-length')
+            if content_length is not None:
+                try:
+                    declared=int(content_length)
+                except ValueError:
+                    raise APIError(422,'INVALID_REQUEST','Related-paper search accepts no query parameters or body.') from None
+                if declared<0 or declared>1024:
+                    raise APIError(422,'INVALID_REQUEST','Related-paper search accepts no query parameters or body.')
             async for chunk in request.stream():
                 if chunk:
                     raise APIError(422,'INVALID_REQUEST','Related-paper search accepts no query parameters or body.')
+            source=await database(lambda conn: load_active_metadata(conn,owner,paper_id),deadline=deadline)
             settings=get_settings()
             if not settings.generation_endpoint or not settings.generation_api_key:
                 raise APIError(503,'GENERATION_UNCONFIGURED','Related-paper search is not configured.')

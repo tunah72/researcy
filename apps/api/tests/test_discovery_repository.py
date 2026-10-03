@@ -74,7 +74,7 @@ def test_attempt_caps_and_interruption_cannot_be_overwritten(reader_source):
 
 
 def test_active_slot_expiry_and_rolling_quota(reader_source):
-    from researcy.discovery.repository import load_active_metadata,reserve_discovery,finish_discovery
+    from researcy.discovery.repository import load_active_metadata,reserve_discovery,finish_discovery,record_discovery_attempt,record_discovery_search
     from researcy.errors import APIError
     conn,scope=reader_source['conn'],reader_source['scope']
     conn.execute('UPDATE papers SET title=%s WHERE owner_id=%s AND id=%s',('Attention mechanisms',scope.owner_id,scope.paper_id))
@@ -84,10 +84,17 @@ def test_active_slot_expiry_and_rolling_quota(reader_source):
     with pytest.raises(APIError) as caught:
         reserve_discovery(conn,source,str(uuid4()))
     assert caught.value.code=='DISCOVERY_RUN_ACTIVE'
+    record_discovery_attempt(conn,first,'initial')
+    record_discovery_search(conn,first)
     conn.execute("UPDATE discovery_runs SET lease_expires_at=clock_timestamp()-interval '1 second' WHERE owner_id=%s AND id=%s",(scope.owner_id,first.run_id))
     conn.commit()
     second=reserve_discovery(conn,source,str(uuid4()))
     assert conn.execute('SELECT state FROM discovery_runs WHERE owner_id=%s AND id=%s',(scope.owner_id,first.run_id)).fetchone()==('interrupted',)
+    usage=conn.execute('SELECT usage FROM discovery_runs WHERE owner_id=%s AND id=%s',(scope.owner_id,first.run_id)).fetchone()[0]
+    assert usage['status']=='unknown'
+    assert usage['generation_attempts']==1 and usage['metadata_searches']==1
+    assert usage['physical_generation_requests'] is None
+    assert usage['totals']['total_tokens'] is None and usage['estimated_cost'] is None
     conn.commit()
     finish_discovery(conn,second,state='completed',metrics={})
     for _ in range(18):

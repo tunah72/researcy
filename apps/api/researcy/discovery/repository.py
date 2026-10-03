@@ -39,7 +39,17 @@ def reserve_discovery(conn: psycopg.Connection,source: ActiveMetadata,request_id
             raise _missing()
         if row[0]!=source.document_version or ' '.join((row[1] or '').split())!=source.title or row[2:]!=(source.abstract,source.canonical_arxiv_id):
             raise APIError(409,'DISCOVERY_SOURCE_CHANGED','This paper changed. Reload before searching.')
-        conn.execute("UPDATE discovery_runs SET state='interrupted',finished_at=clock_timestamp(),error_code='DISCOVERY_INTERRUPTED' WHERE owner_id=%s AND state='running' AND lease_expires_at<=clock_timestamp()",(source.owner_id,))
+        conn.execute("""UPDATE discovery_runs SET state='interrupted',finished_at=clock_timestamp(),
+            error_code='DISCOVERY_INTERRUPTED',usage=jsonb_build_object(
+                'status','unknown','source','crash_recovery_persisted_counters',
+                'generation_attempts',generation_calls,'metadata_searches',metadata_searches,
+                'initial_calls',LEAST(generation_calls,1),'follow_up_calls',GREATEST(generation_calls-1,0),
+                'physical_generation_requests',NULL,'physical_generation_requests_upper_bound',generation_calls,
+                'totals',jsonb_build_object('prompt_tokens',NULL,'completion_tokens',NULL,'total_tokens',NULL),
+                'action',action,'returned',0,'validation_outcome','interrupted',
+                'estimated_cost',NULL,'cost_source','unavailable',
+                'cost_unavailable_reason','project_billing_and_billable_unit_attribution_unverified')
+            WHERE owner_id=%s AND state='running' AND lease_expires_at<=clock_timestamp()""",(source.owner_id,))
         if conn.execute("SELECT id FROM discovery_runs WHERE owner_id=%s AND state='running'",(source.owner_id,)).fetchone():
             failure=APIError(409,'DISCOVERY_RUN_ACTIVE','A related-paper search is already running.')
         else:
@@ -87,4 +97,18 @@ def finish_discovery(conn: psycopg.Connection,reservation: DiscoveryReservation,
           (state,Jsonb(metrics),error_code,metrics.get('action'),metrics.get('inspected_unique',0),
            metrics.get('eligible',0),metrics.get('returned',0),metrics.get('latency_ms'),
            reservation.source.owner_id,reservation.run_id,state)).fetchone()
+    return changed is not None
+
+
+def abandon_unpublished_discovery(conn: psycopg.Connection,reservation: DiscoveryReservation,*,state: str,error_code: str,metrics: dict | None=None) -> bool:
+    if state not in {'failed','interrupted'}:
+        raise ValueError('Only unpublished success may be abandoned.')
+    # Only the live response owner calls this before its final body is published.
+    # Ordinary terminal CAS still cannot overwrite a failed/interrupted run.
+    with short_transaction(conn):
+        changed=conn.execute('''UPDATE discovery_runs SET state=%s,finished_at=clock_timestamp(),
+          error_code=%s,returned=0,usage=COALESCE(%s::jsonb,usage)||%s::jsonb
+          WHERE owner_id=%s AND id=%s AND state='completed' RETURNING id''',
+          (state,error_code,Jsonb(metrics) if metrics is not None else None,
+           Jsonb({'returned':0,'validation_outcome':error_code}),reservation.source.owner_id,reservation.run_id)).fetchone()
     return changed is not None
