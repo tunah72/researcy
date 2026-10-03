@@ -726,3 +726,21 @@ Final `docker inspect --format '{{.Name}} | OOM={{.State.OOMKilled}} | Restarts=
 
 **Decision:** All amended M3 exit gates have recorded evidence; update the delivery map to **Verified**. Monetary cost and optional alternative-runtime prerequisites remain explicitly disclosed limitations. This accepts the bounded tested M3 behavior, not generalized semantic accuracy, sustained service availability or renewed host-capacity qualification. M1/M2/Q0 status/evidence remain unchanged. Branch/worktree and isolated stack are preserved; owner integration, publishing and owner-data cutover require separate authorization.
 
+
+## Owner manual acceptance and publication authorization — 2026-10-03
+
+The owner reports successful manual testing: “Tôi đã thực hiện kiểm thử xong. Kết quả công việc đều đạt chất lượng.” This is owner-reported acceptance, not an invented independent rerun. The owner authorizes stopping project processes, preparing/committing the M3 worktree, pushing the branch, creating and merging a PR into `main`, synchronizing local `main` and running the complete updated main stack for another manual test.
+
+At the cutover decision, the owner explicitly selected preservation of the two untracked main draft copies outside Git while retaining generated `next-env.d.ts` and web context artifacts; and approved forward migrations against existing main data plus worker startup that consumes existing queued papers. Keep volumes and papers, retain the remote feature branch as audit history and do not clean unrelated worktrees/apps. Shutdown and main-stack execution are separate from the earlier isolated acceptance; report actual commands/results without promoting liveness to generation readiness or inferring new paid-provider evidence.
+
+
+### Publication preparation and fresh automated checks
+
+The isolated M3 Compose project was stopped with `--profile processing --profile web down` (no `-v`), and its managed manual-test browser was closed. Native `homebrew.mxcl.ollama` was unloaded through launchd for shutdown, without editing its settings or model files. The two conflicting untracked main draft copies were preserved outside Git; generated/context artifacts remain untouched. An archive preserves all 16 ignored worktree roots outside Git. The owner subsequently selected **keep worktree/local branch**, superseding proposed post-merge removal; the remote feature branch remains audit history.
+
+Fresh prepublication backend execution with native Ollama intentionally stopped exposed one deterministic-suite isolation omission: **1 failed / 771 passed / one opt-in skip in 534.87s**. `test_execute_stage_indexing_and_publish_ready` used the default native embedding endpoint after publishing its synthetic fixture, rather than the existing local HTTP embedding fixture. The correction requests `embedding_endpoint` and binds its URL using the existing test convention; production code/assertions are unchanged. Focused indexing→ready→retrieval then passed **1 test in 3.14s**, with native runtime still stopped, demonstrating the intended real PostgreSQL/MinIO/Qdrant path without an ambient model dependency.
+
+Fresh prepublication frontend command `npm test -- --maxWorkers=1`, Node/dependencies in the pinned production image and current source mounted read-only: **113 passed across 11 files in 32.12s**, exit 0. The existing PDF.js Node/jsdom legacy-build warning remains visible; no warning suppression or assertion changes. These automated publication checks are not reruns of the owner's successful manual acceptance.
+
+Fresh corrected full backend command `python -m pytest tests -q --tb=short -p no:cacheprovider`, current worktree source/tests/migrations mounted read-only in the restricted Python 3.12 image, real isolated PostgreSQL/MinIO/Qdrant, **512 MiB / 1 CPU / 128 PID**, native Ollama stopped and hosted credentials absent: **772 passed / one opt-in real-arXiv skipped in 512.57s**, exit 0. No production behavior was changed to obtain this result.
+

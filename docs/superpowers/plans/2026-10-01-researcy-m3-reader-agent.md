@@ -4,13 +4,13 @@
 
 **Goal:** Open the authorized original PDF in a real Reader, then deliver bounded active-paper conversations with streamed grounded answers/refusals and exact evidence-linked citations.
 
-**Architecture:** Extend the existing FastAPI modular monolith and PostgreSQL authoritative state, reuse M2 private originals, native embeddings, Qdrant scope checks and exact provenance. Next.js owns PDF.js rendering and Discussion; one request-scoped LangGraph runs ReaderAgent through direct Gemini primary, with operator-selected 9Router for later runs only, never the document worker. Original execution/9Router results below are historical; the Gemini cutover addendum remains pending review and execution.
+**Architecture:** Extend the existing FastAPI modular monolith and PostgreSQL authoritative state, reuse M2 private originals, native embeddings, Qdrant scope checks and exact provenance. Next.js owns PDF.js rendering and Discussion; one request-scoped LangGraph runs ReaderAgent through direct Gemini primary, with operator-selected 9Router for later runs only, never the document worker. Original execution/9Router results below are historical; the approved Gemini G1–G3 cutover is complete, with final evidence in the acceptance report and status controlled by the delivery map.
 
 **Tech Stack:** Python 3.12, FastAPI/Pydantic, psycopg/Alembic, existing HTTP transport and MinIO, PostgreSQL FTS, native ARM64 Ollama/BGE-M3, Qdrant, pinned LangGraph and ijson (Python backend), Next 16.3.6/React 19/strict TypeScript, pinned pdfjs-dist and its local matching worker, pytest/Vitest/Testing Library, actual production browser.
 
 **Spec:** [Owner-approved M3 child specification](../specs/2026-10-01-researcy-m3-reader-agent-design.md), subordinate to [approved master](../specs/2026-09-18-researcy-system-design.md) and [delivery map](../specs/2026-09-18-researcy-delivery-map.md).
 
-**Status:** Approved by owner on 2026-10-01: “Tôi phê duyệt specification và implement plan.” Execution starts in isolated worktree `.omp/worktrees/m3-reader-agent`, branch `feat-m3-reader-agent`, base `cca8a9d`. Tasks below remain unchecked until their required evidence exists. Approval includes the named prerequisite decision to proceed while M1 remains `Implemented`; no M3 gate, owner-data action or publishing permission is inferred.
+**Status:** Original plan approved by owner on 2026-10-01: “Tôi phê duyệt specification và implement plan.” T1–T9 and the subsequently approved G1–G3 cutover have recorded closure in isolated worktree `.omp/worktrees/m3-reader-agent`, branch `feat-m3-reader-agent`, base `cca8a9d`. The owner now reports successful manual M3 testing and authorizes publication/PR/merge, local-main synchronization and full main startup, explicitly including existing-database forward migrations and queued-paper worker processing. These permissions supersede the earlier pending execution/publication boundary, not historical evidence or M1's `Implemented` status.
 
 ## Global constraints
 

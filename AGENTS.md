@@ -48,7 +48,7 @@ Core boundaries:
 - Backend code derives owner, paper, version, and retrieval filters. Never trust client- or model-supplied ownership/filter values.
 - Product model configuration is separate from development-agent tooling. Keep the approved product route unless an approved specification changes it.
 
-Current implementation verifies M2 durable processing, owner-scoped index, and honest Library preparation/retry states. M2 is `Verified` from isolated real-stack G1–G6/resource/browser acceptance, full affected suites/production builds and recorded final reviews; see the delivery map and M2 acceptance report. The owner reported successful manual M2 testing and authorized publication/PR/merge. Owner-stack M2 migration/worker startup remains a separate explicit execution decision. M1 technical status remains `Implemented`; Reader, public retrieval, agent answers and citations remain M3+ and must not be presented as implemented.
+M2 and M3 are `Verified` according to the delivery map and their recorded isolated-stack acceptance. M3 implements the immutable original-PDF Reader, version-pinned conversations, owner-scoped hybrid retrieval, bounded ReaderAgent streaming and exact accepted citations. Master revision 2.2 selects direct `gemini-3.8-flash` primary and a manual between-run 9Router alternative, never automatic fallback; monetary cost may remain null/unavailable with documented provenance. The owner reported successful manual M3 testing and explicitly authorized commit/push/PR/merge, local-main synchronization and full main-stack startup, including forward migrations and processing queued papers. Record actual cutover results separately; approval is not runtime evidence. M1 remains `Implemented`; M4/M5 discovery/research-direction features remain future scope. Preserve historical Q0/M2 evidence and disclosed shared-host resource limitations.
 
 ## Non-negotiable contracts
 
@@ -149,6 +149,9 @@ docker compose --profile web down
 Do not add `-v` unless the user explicitly intends to delete local PostgreSQL and MinIO data.
 
 M2 processing setup (only after owner-stack cutover authorization): configure native Ollama with the approved `bge-m3:567m` digest; build the `processing` profile, apply migrations twice before worker startup, start Qdrant, and run `docker compose --profile processing run --rm --no-deps worker python -m researcy.ingestion.preflight --check`. This checks dependencies without claiming jobs. Starting `worker` consumes existing queued papers; do not start it on owner data implicitly. Resource acceptance must run without builds/tests and meet the approved host swap/pressure and service/native limits.
+
+M3 main startup requires the same processing dependencies for Reader retrieval. Configure `GENERATION_PROVIDER=gemini`, the exact Google OpenAI-compatible endpoint, `GENERATION_MODEL=gemini-3.8-flash` and the authorized `GENERATION_API_KEY`; never commit keys. An explicitly blank endpoint/key deliberately disables generation. If using an ignored private Compose override, include it in every build/up/exec/down command; it does not replace `.env` OAuth/session configuration. Build API/web/worker from the updated main source, apply forward migrations twice before worker startup, run native processing preflight, then start both `web` and `processing` profiles. Keep original/private volumes and confirm the main origin remains `http://localhost:3000`. Shutdown of the full stack uses `docker compose --profile web --profile processing down` without `-v`. Provider generation readiness must be distinguished from `/health` liveness; an earlier isolated qualification is not a fresh paid main-stack run.
+
 
 ### Backend
 

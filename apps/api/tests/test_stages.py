@@ -348,7 +348,9 @@ def test_execute_stage_embedding_embeds_and_replays_selected_batches(staged_env,
         assert job_row == ("indexing", "running")
 
 
-def test_execute_stage_indexing_and_publish_ready(selected_index, monkeypatch):
+def test_execute_stage_indexing_and_publish_ready(selected_index, embedding_endpoint, monkeypatch):
+    endpoint, _ = embedding_endpoint
+    monkeypatch.setenv("OLLAMA_BASE_URL", endpoint)
     monkeypatch.setenv("DATABASE_URL", _database_url(selected_index["conn"].info.dbname))
     lease = selected_index["lease"]
     conn = selected_index["conn"]
