@@ -770,3 +770,43 @@ def test_trickling_stream_releases_lease_and_removes_partial_file(phase, tmp_pat
         return httpx2.Response(200, text=_SAMPLE_ATOM_FEED) if "api/query" in str(request.url) else httpx2.Response(200, content=_SAMPLE_PDF_BYTES)
     result = fetch_official_arxiv("1706.03762", transport=httpx2.MockTransport(healthy), temp_dir=tmp_path)
     assert result.pdf_path.read_bytes() == _SAMPLE_PDF_BYTES
+
+
+def test_arxiv_cooldown_state_update_does_not_wait_for_held_request_lease():
+    import threading
+
+    limiter = ArxivLimiter(min_interval=0)
+    updated = threading.Event()
+
+    def update_cooldown():
+        limiter.set_cooldown(30)
+        updated.set()
+
+    with limiter.acquire():
+        worker = threading.Thread(target=update_cooldown)
+        worker.start()
+        completed_while_request_active = updated.wait(timeout=0.5)
+    worker.join(timeout=1)
+    assert completed_while_request_active
+    assert not worker.is_alive()
+    with pytest.raises(ArxivUpstreamError) as caught:
+        with limiter.acquire():
+            pass
+    assert 29 <= caught.value.retry_after <= 30
+
+
+def test_arxiv_limiter_enforces_spacing_when_injected_clock_starts_at_zero():
+    now = [0.0]
+    delays = []
+
+    def advance(seconds):
+        delays.append(seconds)
+        now[0] += seconds
+
+    limiter = ArxivLimiter(clock=lambda: now[0], sleep=advance)
+    with limiter.acquire():
+        pass
+    with limiter.acquire():
+        pass
+    assert delays == [3.0]
+    assert now[0] == 3.0

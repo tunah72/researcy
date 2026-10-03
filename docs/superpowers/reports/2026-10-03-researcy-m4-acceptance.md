@@ -45,3 +45,21 @@ Actual callable smoke used four controlled real loopback HTTP SSE requests: Disc
 Started authorized native Ollama port11434; existing approved bge-m3:567m package digest `7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab`, F16. Public synthetic readiness input returned dimension1024, L2norm1.0000003406892946,13prompt tokens. `ollama ps`:100% GPU,1.2GB,context4096. No pull; startup unused cleanup reported zero removed blobs. This is native readiness only, not container connectivity/processing/resource acceptance.
 
 Frontend frozen dependency install through node:22.14.0-alpine3.21 `npm ci`:178packages,0auditvulnerabilities. No frontend suite/build yet.
+
+## Monetary source investigation — fresh official documentation
+
+[Google Gemini Developer API pricing](https://ai.google.dev/gemini-api/docs/pricing), fetched2026-10-03, explicitly lists gemini-3.8-flash. Standard paid USD per1M tokens through2026-12-31: input0.75, output including thinking3.75, cached input0.075; paid/free/batch/flex/priority differ. The applicable model tariff is therefore **documented**, not unavailable. Project billing tier and per-request billable-unit attribution have not been observed; no billing-account access is authorized. Terminal compatible usage and actual charge must not be conflated. Retain monetary null with that precise provenance unless fresh campaign evidence supports a scoped estimate; never assert zero/free or use an unrelated model tariff.
+
+Populated pre-M4 smoke: initial throwaway script used a nonexistent guessed predecessor name; Alembic rejected before population, temporary database still removed in finally. Read actual migration down_revision `0006_m3_lexical`, corrected script. Actual upgrade0006→0007 twice with populated original source/version/job/import-idempotency rows: **PASS**,3.18s; exact identity rows unchanged and legacy abstract null. No owner migration/network/provider. Additional Atom-summary import/replay regression prepared; runs after T3 source stabilizes.
+
+Shared-host prerequisite observation, not resource acceptance: `memory_pressure -Q && sysctl vm.swapusage`:29%free,12314.62MiBswap used. Earlier M2/shared-host limitations retained; no new capacity gate claimed.
+
+## T3 implementation and observed runtime boundaries
+
+Affected search/arXiv/intake/io-cancellation plus new summary test checkpoint: `tests/test_arxiv_search.py tests/test_arxiv.py tests/test_intake.py tests/test_discovery_metadata.py tests/test_io_cancellation.py`: **215 passed,1 skipped,2 failed in17.44s**. Both failures were controller's newly written summary fixture, not product error: acquisition passes transport=None to client factory; test factory also supplied transport=MockTransport, duplicate keyword caused safe500. Replaced that fixture's transport entry, retaining other actual arguments. Focused summary tests then **2 passed in2.01s**, present normalized Atom summary/absent-null atomically persisted through real import/PostgreSQL/MinIO; exact replay IDs/object set preserved and no second acquisition. This is controlled external HTTP + real intake storage, not actual arXiv PDF/provider qualification.
+
+Controller review checked separate nonreentrant request/state locks, cancelled queued lease ownership,3-second shared pacing/cooldown, same aggregate deadline across redirects, fixed host/path/query containment, bounded1MiB/XML and first-ten-entry inspection/conflicts, full official summary comparison and no PDF/feed-link calls. Import regression cases above passed; process-local limiter matches single API process contract.
+
+Actual throwaway local-socket driver smoke: stalled body timed out504 and cancellation closed the active response; each followed by one healthy explicit request, same production limiter, no late extra request. **PASS**,7.97s; controlled remapping transport preserves official-host validation, hosted0.
+
+Actual official API smoke, public title `Attention Is All You Need`, abstract absent/title-only query (not scientific-reason acceptance): **10 inspected entries/10 unique/0 invalid/0 duplicate/1 physical request/0 redirect**,2.31s. Observed canonical IDs `2202.09741`, `2105.02358`, `2601.15305`, `2306.05427`, `2508.17807`, `2209.10464`, `2212.08151`, `2609.08574`, `2302.04542`, `2406.13770`. No provider/PDF/import; no relevance verdict inferred from the ID list.
