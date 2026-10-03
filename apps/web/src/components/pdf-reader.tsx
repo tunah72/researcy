@@ -45,6 +45,7 @@ export function PdfReader({ source, page, onPageChange, citation, onCitationRead
   const [outlineOpen, setOutlineOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const revealedCitation = useRef<string | null>(null);
   const frame = useRef<number | null>(null);
   const loadingRef = useRef<PDFDocumentLoadingTask | null>(null);
   const showFailure = useCallback(() => {
@@ -109,9 +110,21 @@ export function PdfReader({ source, page, onPageChange, citation, onCitationRead
   }, []);
 
   useLayoutEffect(() => {
+    if (!citation) revealedCitation.current = null;
     if (width > 0) pageRefs.current[page - 1]?.scrollIntoView({ block: 'start', behavior: 'auto' });
     // Resizing/remounting changes offsets; normal scroll must not snap back.
   }, [width, zoom, failure, citation?.citation_id]);
+
+  const revealCitation = useCallback((id: string) => {
+    if (!citation || id !== citation.citation_id) return;
+    if (id !== revealedCitation.current) {
+      const box = pageRefs.current[citation.page - 1]?.querySelector('.pdf-evidence-box');
+      if (!box) return;
+      box.scrollIntoView({ block: 'center', behavior: 'auto' });
+      revealedCitation.current = id;
+    }
+    onCitationReady?.(id);
+  }, [citation?.citation_id, citation?.page, onCitationReady]);
 
   useEffect(() => () => {
     if (frame.current !== null) cancelAnimationFrame(frame.current);
@@ -182,7 +195,7 @@ export function PdfReader({ source, page, onPageChange, citation, onCitationRead
                 key={`${width}:${zoom}`} metadata={metadata}
                 document={opened.document} runtime={opened.runtime} pageNumber={index + 1}
                 width={width} zoom={zoom} onError={showFailure}
-                citation={citation?.page === index + 1 ? citation : null} onCitationReady={onCitationReady} />}
+                citation={citation?.page === index + 1 ? citation : null} onCitationReady={revealCitation} />}
               <span className="pdf-sheet-number" aria-hidden="true">{index + 1}</span>
             </div>;
           })}
