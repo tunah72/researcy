@@ -23,3 +23,25 @@ Actual throwaway callable smoke via isolated container `python -` created a uniq
 G1–G7 not yet closed. T2/T3 implementation follows T1 frozen contracts; controller owns T4 integration. Controlled outputs will remain labelled; no provider acceptance claimed by deterministic tests.
 
 Hosted attempts: **0/12**. No actual provider/model availability, usage/tariff, semantic recommendation relevance, browser Discovery journey or explicit recommendation Add→ready observed yet.
+
+### T1 additional required concurrent boundary
+
+Two independent psycopg connections/barrier raced one owner reservation. Focused regression `tests/test_discovery_repository.py::test_concurrent_requests_reserve_one_owner_slot`: **1 passed in2.84s**; exactly one reservation and one DISCOVERY_RUN_ACTIVE, one active ledger row.
+
+## T2 role/pass transport contracts
+
+RED `tests/test_discovery_output.py tests/test_generation.py`: **48 failed,98 passed in35.93s**, absent decoder/output stream arguments; existing transport tests available. Controller authorized GREEN before agent production changes.
+
+GREEN affected full transport/Reader suites `tests/test_discovery_output.py tests/test_generation.py tests/test_generation_config.py tests/test_reader_agent.py tests/test_reader_parser.py tests/test_reader_stream.py tests/test_reader_citation_publication.py`: **239 passed in118.20s**. Frozen test runtime as above.
+
+Actual callable smoke used four controlled real loopback HTTP SSE requests: Discovery search, stop, reasons and Reader refusal. Production GenerationClient decoded each caller adapter into the expected output type, retained usage total18, exactly one physical local request per case. **PASS**, command4.78s; hosted calls zero. This is transport smoke, not application graph/natural provider/semantic acceptance. Controller review checked required schema/adapter, strict whole-object decoder with per-model strictness and preserved Reader JSON-array→tuple behavior, terminal accounting/deadline/backpressure boundaries unchanged; no compatibility alias retained. Language server unavailable; agent literal/AST consumer inventory migrated all consumers.
+
+## T3 RED evidence
+
+`tests/test_arxiv_search.py tests/test_arxiv.py`: **66 failed,115 passed,1 skipped in5.63s**. Missing metadata query/search/async limiter plus observed held-request cooldown-state and zero-origin pacing bugs. Existing real-network test opt-in skipped. Controller authorized GREEN; implementation/checks pending.
+
+## Native prerequisite observation
+
+Started authorized native Ollama port11434; existing approved bge-m3:567m package digest `7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab`, F16. Public synthetic readiness input returned dimension1024, L2norm1.0000003406892946,13prompt tokens. `ollama ps`:100% GPU,1.2GB,context4096. No pull; startup unused cleanup reported zero removed blobs. This is native readiness only, not container connectivity/processing/resource acceptance.
+
+Frontend frozen dependency install through node:22.14.0-alpine3.21 `npm ci`:178packages,0auditvulnerabilities. No frontend suite/build yet.

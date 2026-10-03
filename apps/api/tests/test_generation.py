@@ -20,7 +20,9 @@ from researcy.generation.models import (
     GenerationFailure,
     InvalidModelOutput,
     SearchAction,
-    validate_action,
+    READER_INITIAL_OUTPUT,
+    READER_FINAL_OUTPUT,
+    decode_output,
 )
 
 
@@ -45,10 +47,9 @@ def test_gemini_cumulative_usage_completes_with_final_counts():
         generation_endpoint='https://generativelanguage.googleapis.com/v1beta/openai',
         generation_model='gemini-3.8-flash',generation_api_key='isolated-test-only')
     async def run():
-        return [event async for event in GenerationClient(settings,transport=transport).stream(
-            [{'role':'user','content':'What does the supplied evidence support?'}])]
+        return [event async for event in GenerationClient(settings,transport=transport).stream([{'role':'user','content':'What does the supplied evidence support?'}], output=READER_INITIAL_OUTPUT, schema_name='reader_action')]
     events = asyncio.run(run())
-    assert events[-1].action.refusal=='No supplied evidence.'
+    assert events[-1].output.refusal=='No supplied evidence.'
     assert next(event for event in events if event.kind=='metadata').usage=={
         'prompt_tokens':249,'completion_tokens':31,'total_tokens':280}
 
@@ -67,11 +68,10 @@ def test_gemini_total_includes_unreported_thoughts_without_inventing_counts(tota
         generation_endpoint='https://generativelanguage.googleapis.com/v1beta/openai',
         generation_model='gemini-3.8-flash',generation_api_key='isolated-test-only')
     async def run():
-        return [event async for event in GenerationClient(settings,transport=transport).stream(
-            [{'role':'user','content':'What does the supplied evidence support?'}])]
+        return [event async for event in GenerationClient(settings,transport=transport).stream([{'role':'user','content':'What does the supplied evidence support?'}], output=READER_INITIAL_OUTPUT, schema_name='reader_action')]
     if valid:
         events = asyncio.run(run())
-        assert events[-1].action.refusal=='No supplied evidence.'
+        assert events[-1].output.refusal=='No supplied evidence.'
         assert next(event for event in events if event.kind=='metadata').usage=={
             'prompt_tokens':249,'completion_tokens':16,'total_tokens':341}
     else:
@@ -82,13 +82,13 @@ def test_gemini_total_includes_unreported_thoughts_without_inventing_counts(tota
 def test_model_cannot_supply_scope_filters():
     raw = b'{"next_action":"search_same_paper","query":"attention","owner_id":"forged"}'
     with pytest.raises(InvalidModelOutput):
-        validate_action(raw, follow_up=False)
+        decode_output(raw, READER_INITIAL_OUTPUT)
 
 
 def test_follow_up_cannot_request_a_third_generation_branch():
     raw = b'{"next_action":"search_same_paper","query":"attention"}'
     with pytest.raises(InvalidModelOutput):
-        validate_action(raw, follow_up=True)
+        decode_output(raw, READER_FINAL_OUTPUT)
 
 
 # --- Strict Model & Validation Tests ---
@@ -102,7 +102,7 @@ def test_validate_action_valid_answer():
         b']}'
         b'],"refusal":null}'
     )
-    action = validate_action(raw, follow_up=False)
+    action = decode_output(raw, READER_INITIAL_OUTPUT)
     assert isinstance(action, AnswerAction)
     assert action.next_action == "answer"
     assert len(action.claims) == 1
@@ -114,7 +114,7 @@ def test_validate_action_valid_answer():
 
 def test_validate_action_valid_refusal():
     raw = b'{"next_action":"answer","claims":[],"refusal":"The paper does not mention training costs."}'
-    action = validate_action(raw, follow_up=False)
+    action = decode_output(raw, READER_INITIAL_OUTPUT)
     assert isinstance(action, AnswerAction)
     assert len(action.claims) == 0
     assert action.refusal == "The paper does not mention training costs."
@@ -122,7 +122,7 @@ def test_validate_action_valid_refusal():
 
 def test_validate_action_valid_search():
     raw = b'{"next_action":"search_same_paper","query":"multi-head attention layers"}'
-    action = validate_action(raw, follow_up=False)
+    action = decode_output(raw, READER_INITIAL_OUTPUT)
     assert isinstance(action, SearchAction)
     assert action.next_action == "search_same_paper"
     assert action.query == "multi-head attention layers"
@@ -135,13 +135,13 @@ def test_validate_action_refusal_with_claims_rejected():
         b'],"refusal":"Contradictory refusal"}'
     )
     with pytest.raises(InvalidModelOutput):
-        validate_action(raw, follow_up=False)
+        decode_output(raw, READER_INITIAL_OUTPUT)
 
 
 def test_validate_action_empty_claims_without_refusal_rejected():
     raw = b'{"next_action":"answer","claims":[],"refusal":null}'
     with pytest.raises(InvalidModelOutput):
-        validate_action(raw, follow_up=False)
+        decode_output(raw, READER_INITIAL_OUTPUT)
 
 
 def test_validate_action_more_than_twelve_claims_rejected():
@@ -151,7 +151,7 @@ def test_validate_action_more_than_twelve_claims_rejected():
     )
     raw = f'{{"next_action":"answer","claims":[{claims_json}],"refusal":null}}'.encode("utf-8")
     with pytest.raises(InvalidModelOutput):
-        validate_action(raw, follow_up=False)
+        decode_output(raw, READER_INITIAL_OUTPUT)
 
 
 def test_validate_action_more_than_twenty_four_total_citations_rejected():
@@ -164,44 +164,44 @@ def test_validate_action_more_than_twenty_four_total_citations_rejected():
     )
     raw = f'{{"next_action":"answer","claims":[{claims_json}],"refusal":null}}'.encode("utf-8")
     with pytest.raises(InvalidModelOutput):
-        validate_action(raw, follow_up=False)
+        decode_output(raw, READER_INITIAL_OUTPUT)
 
 
 def test_validate_action_claim_without_citations_rejected():
     raw = b'{"next_action":"answer","claims":[{"text":"Uncited claim.","citations":[]}],"refusal":null}'
     with pytest.raises(InvalidModelOutput):
-        validate_action(raw, follow_up=False)
+        decode_output(raw, READER_INITIAL_OUTPUT)
 
 
 def test_validate_action_claim_more_than_four_citations_rejected():
     cits = ",".join(f'{{"source_ref":"s{i}","evidence_quote":"q{i}"}}' for i in range(5))
     raw = f'{{"next_action":"answer","claims":[{{"text":"Overcited.","citations":[{cits}]}}],"refusal":null}}'.encode("utf-8")
     with pytest.raises(InvalidModelOutput):
-        validate_action(raw, follow_up=False)
+        decode_output(raw, READER_INITIAL_OUTPUT)
 
 
 def test_validate_action_whitespace_only_text_rejected():
     raw = b'{"next_action":"answer","claims":[{"text":"   ","citations":[{"source_ref":"s1","evidence_quote":"q1"}]}],"refusal":null}'
     with pytest.raises(InvalidModelOutput):
-        validate_action(raw, follow_up=False)
+        decode_output(raw, READER_INITIAL_OUTPUT)
 
 
 def test_validate_action_whitespace_only_refusal_rejected():
     raw = b'{"next_action":"answer","claims":[],"refusal":"   \n  "}'
     with pytest.raises(InvalidModelOutput):
-        validate_action(raw, follow_up=False)
+        decode_output(raw, READER_INITIAL_OUTPUT)
 
 
 def test_validate_action_whitespace_only_query_rejected():
     raw = b'{"next_action":"search_same_paper","query":"   "}'
     with pytest.raises(InvalidModelOutput):
-        validate_action(raw, follow_up=False)
+        decode_output(raw, READER_INITIAL_OUTPUT)
 
 
 def test_validate_action_oversized_query_rejected():
     raw = f'{{"next_action":"search_same_paper","query":"{"q" * 2401}"}}'.encode("utf-8")
     with pytest.raises(InvalidModelOutput):
-        validate_action(raw, follow_up=False)
+        decode_output(raw, READER_INITIAL_OUTPUT)
 
 
 def test_validate_action_oversized_claim_text_rejected():
@@ -211,43 +211,43 @@ def test_validate_action_oversized_claim_text_rejected():
         f'],"refusal":null}}'
     ).encode("utf-8")
     with pytest.raises(InvalidModelOutput):
-        validate_action(raw, follow_up=False)
+        decode_output(raw, READER_INITIAL_OUTPUT)
 
 
 def test_validate_action_duplicate_json_keys_rejected():
     raw = b'{"next_action":"answer","next_action":"answer","claims":[],"refusal":"Refused"}'
     with pytest.raises(InvalidModelOutput):
-        validate_action(raw, follow_up=False)
+        decode_output(raw, READER_INITIAL_OUTPUT)
 
 
 def test_validate_action_trailing_data_rejected():
     raw = b'{"next_action":"search_same_paper","query":"attention"} trailing garbage'
     with pytest.raises(InvalidModelOutput):
-        validate_action(raw, follow_up=False)
+        decode_output(raw, READER_INITIAL_OUTPUT)
 
 
 def test_validate_action_nan_constant_rejected():
     raw = b'{"next_action":"answer","claims":[],"refusal":NaN}'
     with pytest.raises(InvalidModelOutput):
-        validate_action(raw, follow_up=False)
+        decode_output(raw, READER_INITIAL_OUTPUT)
 
 
 def test_validate_action_unsupported_action_rejected():
     raw = b'{"next_action":"execute_code","code":"import os; os.system(\'ls\')"}'
     with pytest.raises(InvalidModelOutput):
-        validate_action(raw, follow_up=False)
+        decode_output(raw, READER_INITIAL_OUTPUT)
 
 
 def test_validate_action_non_object_json_rejected():
     raw = b'["next_action", "answer"]'
     with pytest.raises(InvalidModelOutput):
-        validate_action(raw, follow_up=False)
+        decode_output(raw, READER_INITIAL_OUTPUT)
 
 
 def test_validate_action_malformed_utf8_rejected():
     raw = b'{"next_action":"search_same_paper","query":"\xff\xfe invalid"}'
     with pytest.raises(InvalidModelOutput):
-        validate_action(raw, follow_up=False)
+        decode_output(raw, READER_INITIAL_OUTPUT)
 
 
 
@@ -261,7 +261,7 @@ def test_client_fails_closed_when_unconfigured():
     client = GenerationClient(settings)
 
     async def run():
-        async for _ in client.stream([{"role": "user", "content": "test"}]):
+        async for _ in client.stream([{"role": "user", "content": "test"}], output=READER_INITIAL_OUTPUT, schema_name='reader_action'):
             pass
 
     with pytest.raises(GenerationFailure) as exc:
@@ -288,10 +288,7 @@ def test_client_pre_expired_deadline_fails_timeout():
     client = GenerationClient(settings)
 
     async def run():
-        async for _ in client.stream(
-            [{"role": "user", "content": "test"}],
-            deadline=time.monotonic() - 1.0,
-        ):
+        async for _ in client.stream([{"role": "user", "content": "test"}], output=READER_INITIAL_OUTPUT, schema_name='reader_action', deadline=time.monotonic() - 1.0,):
             pass
 
     with pytest.raises(GenerationFailure) as exc:
@@ -358,7 +355,7 @@ def test_stream_successful_answer_action():
 
         async def run():
             events = []
-            async for ev in client.stream([{"role": "user", "content": "Explain attention."}]):
+            async for ev in client.stream([{"role": "user", "content": "Explain attention."}], output=READER_INITIAL_OUTPUT, schema_name='reader_action'):
                 events.append(ev)
             return events
 
@@ -368,8 +365,8 @@ def test_stream_successful_answer_action():
 
         terminal = next(event for event in events if event.kind=='completed')
         assert terminal.kind == "completed"
-        assert isinstance(terminal.action, AnswerAction)
-        assert terminal.action.claims[0].text == "Self-attention calculates weights."
+        assert isinstance(terminal.output, AnswerAction)
+        assert terminal.output.claims[0].text == "Self-attention calculates weights."
         metadata = next(event for event in events if event.kind=='metadata')
         assert metadata.echoed_model == "ag/gemini-3.8-flash-low"
         assert metadata.finish_reason == "stop"
@@ -407,15 +404,15 @@ def test_stream_fragmented_utf8_multibyte_across_chunks():
 
         async def run():
             events = []
-            async for ev in client.stream([{"role": "user", "content": "Query"}]):
+            async for ev in client.stream([{"role": "user", "content": "Query"}], output=READER_INITIAL_OUTPUT, schema_name='reader_action'):
                 events.append(ev)
             return events
 
         events = asyncio.run(run())
         terminal = events[-1]
         assert terminal.kind == "completed"
-        assert isinstance(terminal.action, SearchAction)
-        assert "attention ✨" in terminal.action.query
+        assert isinstance(terminal.output, SearchAction)
+        assert "attention ✨" in terminal.output.query
 
 
 def test_stream_fragmented_sse_and_multiline_data():
@@ -447,14 +444,14 @@ def test_stream_fragmented_sse_and_multiline_data():
 
         async def run():
             events = []
-            async for ev in client.stream([{"role": "user", "content": "Query"}]):
+            async for ev in client.stream([{"role": "user", "content": "Query"}], output=READER_INITIAL_OUTPUT, schema_name='reader_action'):
                 events.append(ev)
             return events
 
         events = asyncio.run(run())
         assert events[-1].kind == "completed"
-        assert isinstance(events[-1].action, SearchAction)
-        assert events[-1].action.query == "transformer"
+        assert isinstance(events[-1].output, SearchAction)
+        assert events[-1].output.query == "transformer"
 
 
 def test_stream_duplicate_keys_in_model_json_fails_invalid_model_output():
@@ -474,7 +471,7 @@ def test_stream_duplicate_keys_in_model_json_fails_invalid_model_output():
         client = GenerationClient(settings)
 
         async def run():
-            async for _ in client.stream([{"role": "user", "content": "Query"}]):
+            async for _ in client.stream([{"role": "user", "content": "Query"}], output=READER_INITIAL_OUTPUT, schema_name='reader_action'):
                 pass
 
         with pytest.raises(InvalidModelOutput):
@@ -498,7 +495,7 @@ def test_stream_trailing_garbage_fails_invalid_model_output():
         client = GenerationClient(settings)
 
         async def run():
-            async for _ in client.stream([{"role": "user", "content": "Query"}]):
+            async for _ in client.stream([{"role": "user", "content": "Query"}], output=READER_INITIAL_OUTPUT, schema_name='reader_action'):
                 pass
 
         with pytest.raises(InvalidModelOutput):
@@ -522,7 +519,7 @@ def test_stream_unknown_fields_in_model_json_fails_invalid_model_output():
         client = GenerationClient(settings)
 
         async def run():
-            async for _ in client.stream([{"role": "user", "content": "Query"}]):
+            async for _ in client.stream([{"role": "user", "content": "Query"}], output=READER_INITIAL_OUTPUT, schema_name='reader_action'):
                 pass
 
         with pytest.raises(InvalidModelOutput):
@@ -548,7 +545,7 @@ def test_stream_bounds_exceeded_raises_payload_too_large():
         client = GenerationClient(settings)
 
         async def run():
-            async for _ in client.stream([{"role": "user", "content": "Query"}]):
+            async for _ in client.stream([{"role": "user", "content": "Query"}], output=READER_INITIAL_OUTPUT, schema_name='reader_action'):
                 pass
 
         with pytest.raises(GenerationFailure) as exc:
@@ -569,7 +566,7 @@ def test_stream_http_429_rate_limited():
         client = GenerationClient(settings)
 
         async def run():
-            async for _ in client.stream([{"role": "user", "content": "Query"}]):
+            async for _ in client.stream([{"role": "user", "content": "Query"}], output=READER_INITIAL_OUTPUT, schema_name='reader_action'):
                 pass
 
         with pytest.raises(GenerationFailure) as exc:
@@ -590,7 +587,7 @@ def test_stream_http_5xx_unavailable():
         client = GenerationClient(settings)
 
         async def run():
-            async for _ in client.stream([{"role": "user", "content": "Query"}]):
+            async for _ in client.stream([{"role": "user", "content": "Query"}], output=READER_INITIAL_OUTPUT, schema_name='reader_action'):
                 pass
 
         with pytest.raises(GenerationFailure) as exc:
@@ -614,7 +611,7 @@ def test_stream_aborted_connection_unexpected_eof():
         client = GenerationClient(settings)
 
         async def run():
-            async for _ in client.stream([{"role": "user", "content": "Query"}]):
+            async for _ in client.stream([{"role": "user", "content": "Query"}], output=READER_INITIAL_OUTPUT, schema_name='reader_action'):
                 pass
 
         with pytest.raises(GenerationFailure) as exc:
@@ -636,10 +633,7 @@ def test_stream_timeout_or_deadline_exceeded():
         client = GenerationClient(settings)
 
         async def run():
-            async for _ in client.stream(
-                [{"role": "user", "content": "Query"}],
-                deadline=time.monotonic() + 0.15,
-            ):
+            async for _ in client.stream([{"role": "user", "content": "Query"}], output=READER_INITIAL_OUTPUT, schema_name='reader_action', deadline=time.monotonic() + 0.15,):
                 pass
 
         with pytest.raises(GenerationFailure) as exc:
@@ -666,7 +660,7 @@ def test_stream_missing_usage_keeps_none_never_invents_zero():
 
         async def run():
             events = []
-            async for ev in client.stream([{"role": "user", "content": "Query"}]):
+            async for ev in client.stream([{"role": "user", "content": "Query"}], output=READER_INITIAL_OUTPUT, schema_name='reader_action'):
                 events.append(ev)
             return events
 
@@ -697,7 +691,7 @@ def test_stream_done_without_finish_stop_rejected():
         client = GenerationClient(settings)
 
         async def run():
-            async for _ in client.stream([{"role": "user", "content": "Query"}]):
+            async for _ in client.stream([{"role": "user", "content": "Query"}], output=READER_INITIAL_OUTPUT, schema_name='reader_action'):
                 pass
 
         with pytest.raises(GenerationFailure) as exc:
@@ -722,7 +716,7 @@ def test_stream_truncation_finish_reason_length_rejected():
         client = GenerationClient(settings)
 
         async def run():
-            async for _ in client.stream([{"role": "user", "content": "Query"}]):
+            async for _ in client.stream([{"role": "user", "content": "Query"}], output=READER_INITIAL_OUTPUT, schema_name='reader_action'):
                 pass
 
         with pytest.raises(GenerationFailure) as exc:
@@ -746,7 +740,7 @@ def test_stream_multiple_choices_rejected():
         client = GenerationClient(settings)
 
         async def run():
-            async for _ in client.stream([{"role": "user", "content": "Query"}]):
+            async for _ in client.stream([{"role": "user", "content": "Query"}], output=READER_INITIAL_OUTPUT, schema_name='reader_action'):
                 pass
 
         with pytest.raises(GenerationFailure) as exc:
@@ -770,7 +764,7 @@ def test_stream_tool_calls_rejected():
         client = GenerationClient(settings)
 
         async def run():
-            async for _ in client.stream([{"role": "user", "content": "Query"}]):
+            async for _ in client.stream([{"role": "user", "content": "Query"}], output=READER_INITIAL_OUTPUT, schema_name='reader_action'):
                 pass
 
         with pytest.raises(GenerationFailure) as exc:
@@ -803,7 +797,7 @@ def test_stream_cancellation_closes_connection():
         client = GenerationClient(settings)
 
         async def run():
-            gen = client.stream([{"role": "user", "content": "Query"}])
+            gen = client.stream([{"role": "user", "content": "Query"}], output=READER_INITIAL_OUTPUT, schema_name='reader_action')
             ev = await anext(gen)
             assert ev.kind == "content"
             # Cancel iteration by closing the generator early
@@ -821,7 +815,7 @@ def test_stream_cancellation_closes_connection():
 def test_invalid_action_diagnostics_never_disclose_provider_output(raw):
     import traceback
     with pytest.raises(InvalidModelOutput) as caught:
-        validate_action(raw,follow_up=False)
+        decode_output(raw, READER_INITIAL_OUTPUT)
     diagnostic = ''.join(traceback.format_exception(caught.value))
     assert 'private-provider-marker' not in diagnostic
 
@@ -840,7 +834,7 @@ def test_provider_delta_is_delivered_before_provider_finishes():
     with local_fault_server(response_fn) as endpoint:
         settings = gateway_settings(generation_endpoint=endpoint,generation_api_key='test-key')
         async def run():
-            stream = GenerationClient(settings).stream([{'role':'user','content':'Question'}])
+            stream = GenerationClient(settings).stream([{'role':'user','content':'Question'}], output=READER_INITIAL_OUTPUT, schema_name='reader_action')
             try:
                 event = await asyncio.wait_for(anext(stream),timeout=2)
                 assert event.kind=='content' and event.text==first
@@ -864,7 +858,7 @@ def test_provider_cannot_append_content_after_stop_before_terminal_marker():
     with local_fault_server(response_fn) as endpoint:
         settings = gateway_settings(generation_endpoint=endpoint,generation_api_key='test-key')
         async def run():
-            async for event in GenerationClient(settings).stream([{'role':'user','content':'Question'}]):
+            async for event in GenerationClient(settings).stream([{'role':'user','content':'Question'}], output=READER_INITIAL_OUTPUT, schema_name='reader_action'):
                 pass
         with pytest.raises(GenerationFailure) as caught:
             asyncio.run(run())
@@ -881,7 +875,7 @@ def _collect_fault_stream(body,content_type='text/event-stream',status=200):
     with local_fault_server(response_fn) as endpoint:
         settings = gateway_settings(generation_endpoint=endpoint,generation_api_key='test-key')
         async def run():
-            return [event async for event in GenerationClient(settings).stream([{'role':'user','content':'Question'}])]
+            return [event async for event in GenerationClient(settings).stream([{'role':'user','content':'Question'}], output=READER_INITIAL_OUTPUT, schema_name='reader_action')]
         return asyncio.run(run())
 
 
@@ -919,7 +913,7 @@ def test_sse_media_type_is_an_exact_case_insensitive_token(content_type,accepted
     wire = _terminal_wire()+b'data: [DONE]\n\n'
     if accepted:
         events = _collect_fault_stream(wire,content_type=content_type)
-        assert events[-1].kind=='completed' and events[-1].action.refusal is not None
+        assert events[-1].kind=='completed' and events[-1].output.refusal is not None
     else:
         with pytest.raises(GenerationFailure) as caught:
             _collect_fault_stream(wire,content_type=content_type)
@@ -945,7 +939,7 @@ def test_pass_timeout_never_cancels_consumer_while_generator_is_suspended():
         settings = gateway_settings(generation_endpoint=endpoint,generation_api_key='test-key',
             generation_pass_seconds=1)
         async def run():
-            stream = GenerationClient(settings).stream([{'role':'user','content':'Question'}])
+            stream = GenerationClient(settings).stream([{'role':'user','content':'Question'}], output=READER_INITIAL_OUTPUT, schema_name='reader_action')
             try:
                 assert (await anext(stream)).kind=='content'
                 await asyncio.sleep(1.1)
@@ -972,7 +966,7 @@ def test_provider_done_closes_an_open_connection_without_waiting_for_eof():
         async def run():
             try:
                 async def consume():
-                    return [event async for event in GenerationClient(settings).stream([{'role':'user','content':'Question'}])]
+                    return [event async for event in GenerationClient(settings).stream([{'role':'user','content':'Question'}], output=READER_INITIAL_OUTPUT, schema_name='reader_action')]
                 events = await asyncio.wait_for(consume(),timeout=2)
                 assert events[-1].kind=='completed'
                 assert not release.is_set()
@@ -983,7 +977,7 @@ def test_provider_done_closes_an_open_connection_without_waiting_for_eof():
 
 def test_refusal_uses_overall_output_bound_not_the_claim_text_limit():
     refusal = 'Insufficient evidence. '+('The supplied sources do not establish this measurement. '*40)
-    action = validate_action(json.dumps({'next_action':'answer','claims':[],'refusal':refusal}).encode(),follow_up=False)
+    action = decode_output(json.dumps({'next_action':'answer','claims':[],'refusal':refusal}).encode(), READER_INITIAL_OUTPUT)
     assert action.refusal==refusal and action.claims==()
 
 
@@ -1000,7 +994,7 @@ def test_actual_usage_remains_observable_when_final_action_is_invalid():
     with local_fault_server(response_fn) as endpoint:
         settings = gateway_settings(generation_endpoint=endpoint,generation_api_key='test-key')
         async def run():
-            async for event in GenerationClient(settings).stream([{'role':'user','content':'Question'}]):
+            async for event in GenerationClient(settings).stream([{'role':'user','content':'Question'}], output=READER_INITIAL_OUTPUT, schema_name='reader_action'):
                 observed.append(event)
         with pytest.raises(InvalidModelOutput):
             asyncio.run(run())
@@ -1011,7 +1005,7 @@ def test_actual_usage_remains_observable_when_final_action_is_invalid():
 
 def test_leading_utf8_bom_does_not_discard_valid_sse_action():
     events = _collect_fault_stream(b'\xef\xbb\xbf'+_terminal_wire()+b'data: [DONE]\n\n')
-    assert events[-1].kind=='completed' and events[-1].action.refusal=='Insufficient evidence.'
+    assert events[-1].kind=='completed' and events[-1].output.refusal=='Insufficient evidence.'
 
 
 def test_provider_backend_identity_cannot_change_within_one_pass():
@@ -1045,7 +1039,7 @@ def test_invalid_provider_compression_has_only_safe_domain_diagnostics():
     with local_fault_server(response_fn) as endpoint:
         settings = gateway_settings(generation_endpoint=endpoint,generation_api_key='test-key')
         async def run():
-            return [event async for event in GenerationClient(settings).stream([{'role':'user','content':'Question'}])]
+            return [event async for event in GenerationClient(settings).stream([{'role':'user','content':'Question'}], output=READER_INITIAL_OUTPUT, schema_name='reader_action')]
         with pytest.raises(GenerationFailure) as caught:
             asyncio.run(run())
         assert caught.value.code=='INVALID_RESPONSE'
@@ -1060,7 +1054,7 @@ def test_required_answer_fields_cannot_be_synthesized(omitted):
         payload['refusal'] = None
     del payload[omitted]
     with pytest.raises(InvalidModelOutput):
-        validate_action(json.dumps(payload).encode(),follow_up=False)
+        decode_output(json.dumps(payload).encode(), READER_INITIAL_OUTPUT)
 
 
 @pytest.mark.parametrize('limit,reported,accepted',[(8192,8193,False),(8,9,False),(8,8,True)])
@@ -1075,7 +1069,7 @@ def test_provider_usage_must_respect_the_configured_output_token_ceiling(limit,r
         settings = gateway_settings(generation_endpoint=endpoint,generation_api_key='test-key',
             generation_max_output_tokens=limit)
         async def run():
-            return [event async for event in GenerationClient(settings).stream([{'role':'user','content':'Question'}])]
+            return [event async for event in GenerationClient(settings).stream([{'role':'user','content':'Question'}], output=READER_INITIAL_OUTPUT, schema_name='reader_action')]
         if accepted:
             assert asyncio.run(run())[-1].kind=='completed'
         else:
@@ -1107,7 +1101,7 @@ def test_pass_deadline_closes_provider_while_consumer_holds_a_delta():
         settings = gateway_settings(generation_endpoint=endpoint,generation_api_key='test-key',
             generation_pass_seconds=1)
         async def run():
-            stream = GenerationClient(settings).stream([{'role':'user','content':'Question'}])
+            stream = GenerationClient(settings).stream([{'role':'user','content':'Question'}], output=READER_INITIAL_OUTPUT, schema_name='reader_action')
             try:
                 assert (await anext(stream)).kind=='content'
                 assert await asyncio.to_thread(closed.wait,2)
@@ -1127,7 +1121,7 @@ def test_large_unicode_provider_frame_remains_bounded_in_the_pending_content_que
     pieces = [event.text for event in events if event.kind=='content']
     assert all(len(piece.encode('utf-8'))<=16384 for piece in pieces)
     assert ''.join(pieces)==action
-    assert events[-1].action.refusal==refusal
+    assert events[-1].output.refusal==refusal
 
 
 
@@ -1142,7 +1136,7 @@ def test_large_unicode_provider_frame_remains_bounded_in_the_pending_content_que
 def test_validate_action_rejects_nul_and_lone_surrogates(template, bad_val):
     raw = template.replace('{val}', bad_val).encode('utf-8')
     with pytest.raises(InvalidModelOutput):
-        validate_action(raw, follow_up=False)
+        decode_output(raw, READER_INITIAL_OUTPUT)
 
 
 def test_stream_retains_queued_metadata_when_pass_times_out_after_stop(monkeypatch):
@@ -1151,12 +1145,12 @@ def test_stream_retains_queued_metadata_when_pass_times_out_after_stop(monkeypat
     clock = {"now": 1000.0}
     monkeypatch.setattr(time, "monotonic", lambda: clock["now"])
 
-    orig_validate_action = client_mod.validate_action
-    def timing_out_validate_action(*args, **kwargs):
+    orig_decode_output = client_mod.decode_output
+    def timing_out_decode_output(*args, **kwargs):
         clock["now"] = 1010.0
-        return orig_validate_action(*args, **kwargs)
+        return orig_decode_output(*args, **kwargs)
 
-    monkeypatch.setattr(client_mod, "validate_action", timing_out_validate_action)
+    monkeypatch.setattr(client_mod, "decode_output", timing_out_decode_output)
 
     def response_fn(handler, body):
         handler.send_response(200)
@@ -1174,7 +1168,7 @@ def test_stream_retains_queued_metadata_when_pass_times_out_after_stop(monkeypat
 
         async def run():
             client = GenerationClient(settings)
-            async for event in client.stream([{"role": "user", "content": "Question"}], deadline=1005.0):
+            async for event in client.stream([{"role": "user", "content": "Question"}], output=READER_INITIAL_OUTPUT, schema_name='reader_action', deadline=1005.0):
                 observed.append((event, clock["now"]))
 
         with pytest.raises(GenerationFailure) as exc:
@@ -1213,7 +1207,7 @@ def test_stream_late_postdeadline_new_metadata_is_not_treated_as_on_time(monkeyp
 
         async def run():
             client = GenerationClient(settings)
-            stream = client.stream([{"role": "user", "content": "Question"}], deadline=1005.0)
+            stream = client.stream([{"role": "user", "content": "Question"}], output=READER_INITIAL_OUTPUT, schema_name='reader_action', deadline=1005.0)
             first = await anext(stream)
             observed.append(first)
             clock["now"] = 1010.0
@@ -1269,7 +1263,7 @@ def test_stream_retains_on_time_metadata_when_full_queue_times_out(monkeypatch):
                         yield event
 
             client._stream_events = record
-            stream = client.stream([{"role": "user", "content": "Question"}], deadline=1005.0)
+            stream = client.stream([{"role": "user", "content": "Question"}], output=READER_INITIAL_OUTPUT, schema_name='reader_action', deadline=1005.0)
             await anext(stream)
             await received.wait()
             clock["now"] = 1010.0
@@ -1308,7 +1302,7 @@ def test_stream_finish_reason_length_yields_metadata_before_payload_too_large():
         settings = gateway_settings(generation_endpoint=endpoint, generation_api_key='test-key')
         async def run():
             client = GenerationClient(settings)
-            async for event in client.stream([{'role': 'user', 'content': 'Question'}]):
+            async for event in client.stream([{'role': 'user', 'content': 'Question'}], output=READER_INITIAL_OUTPUT, schema_name='reader_action'):
                 observed.append(event)
 
         with pytest.raises(GenerationFailure) as exc:
@@ -1345,7 +1339,7 @@ def test_stream_echoed_model_rejects_nul_and_surrogates(bad_model):
         settings = gateway_settings(generation_endpoint=endpoint, generation_api_key='test-key')
         async def run():
             client = GenerationClient(settings)
-            async for event in client.stream([{'role': 'user', 'content': 'Question'}]):
+            async for event in client.stream([{'role': 'user', 'content': 'Question'}], output=READER_INITIAL_OUTPUT, schema_name='reader_action'):
                 observed.append(event)
 
         with pytest.raises(GenerationFailure) as exc:
@@ -1381,7 +1375,7 @@ def test_stream_terminal_frame_usage_preserved_when_connection_stalls_before_don
         async def run():
             client = GenerationClient(settings)
             try:
-                async for event in client.stream([{'role': 'user', 'content': 'Question'}], deadline=time.monotonic() + 0.25):
+                async for event in client.stream([{'role': 'user', 'content': 'Question'}], output=READER_INITIAL_OUTPUT, schema_name='reader_action', deadline=time.monotonic() + 0.25):
                     observed.append(event)
             finally:
                 cleanup_event.set()
@@ -1443,7 +1437,7 @@ def test_stream_conflicting_terminal_frame_invalidates_retained_metadata(conflic
         settings = gateway_settings(generation_endpoint=endpoint, generation_api_key='test-key')
         async def run():
             client = GenerationClient(settings)
-            async for event in client.stream([{'role': 'user', 'content': 'Question'}], on_metadata=on_metadata):
+            async for event in client.stream([{'role': 'user', 'content': 'Question'}], output=READER_INITIAL_OUTPUT, schema_name='reader_action', on_metadata=on_metadata):
                 observed.append(event)
 
         with pytest.raises(GenerationFailure) as exc:
