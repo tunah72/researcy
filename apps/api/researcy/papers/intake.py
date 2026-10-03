@@ -114,6 +114,7 @@ class IntakeMetadata:
     source_url: str | None = None
     source_media_type: str | None = None
     warning: str | None = None
+    abstract: str | None = None
 
 
 def check_idempotency(
@@ -228,8 +229,8 @@ def accept_pdf(
                 """
                 INSERT INTO papers (
                     id, owner_id, source, canonical_arxiv_id, title, authors, year,
-                    active_version_id, acceptance_state
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'accepted')
+                    active_version_id, acceptance_state, abstract
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'accepted', %s)
                 """,
                 (
                     paper_id,
@@ -240,6 +241,7 @@ def accept_pdf(
                     metadata.authors,
                     metadata.year,
                     version_id,
+                    metadata.abstract,
                 ),
             )
             conn.execute(

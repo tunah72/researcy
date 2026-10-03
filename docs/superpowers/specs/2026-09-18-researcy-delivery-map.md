@@ -197,18 +197,20 @@ The sequence follows the reader-first product dependency: identity and a ready o
 - at most three distinct actual arXiv IDs, with title, authors, metadata/abstract-grounded reason, arXiv URL, and request ID;
 - recommendation rationales remain metadata-only and are not full-text citations;
 - explicit user selection reuses the existing Library import flow; recommendations never auto-import;
-- structured next-action qualification through the configured `ag/gemini-3.8-flash-low` product route via 9Router;
+- structured next-action qualification through direct `gemini-3.8-flash` primary; manual between-run 9Router alternative only, separately qualified;
 - request-level agent trace, latency, and cost evidence.
 
 **Exit gate:**
 
-- a real request through the route and configured 9Router path returns no more than three distinct, valid arXiv recommendations, with each rationale grounded only in returned arXiv metadata/abstract;
-- structured next-action qualification is exercised on the real route before M4 may be marked `Verified`; the record contains the route, outcome, agent trace, measured latency, and cost with its source;
+- a real request through the approved primary path returns no more than three distinct, valid arXiv recommendations, with each rationale grounded only in returned arXiv metadata/abstract;
+- master revision 2.3 schema-aware qualification observes actual search/reasons, stop, adversarial containment and subsequent valid output; controlled malformed/unsupported rejection is separately labelled. Record route, outcome, agent trace, measured latency and actual usage/cost provenance, including approved null/unavailable monetary mapping;
 - no recommendation enters the user's Library until the user explicitly adds it through the existing import flow;
 - no results produce `papers: []`; a missing title produces no invented recommendation; an unavailable arXiv API produces a retriable error and no fabricated result;
 - invalid or duplicate IDs, provider failure, interrupted work, and rejected structured next actions are handled without displaying unsupported recommendations or importing papers.
 
-**Status:** Not started
+**Status:** Planned
+
+**Owner approval — 2026-10-03:** Both [M4 child specification](./2026-10-03-researcy-m4-discovery-agent-design.md) and [implementation plan](../plans/2026-10-03-researcy-m4-discovery-agent.md) approved; the owner explicitly approved the three master revision 2.3 amendment items and M1 prerequisite exception. M1 remains Implemented. Implementation uses isolated `feat-m4-discovery-agent`; owner permits isolated stack/native runtime and at most twelve public-paper hosted attempts, not owner-data migration/worker/cutover or publishing/push/merge/prune. Approval is not gate evidence.
 
 ### M5 — ResearchAgent, Evaluation, and Interview Demo
 

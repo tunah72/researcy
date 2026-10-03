@@ -1,7 +1,7 @@
 # Researcy System Design
 
 **Status:** Approved master specification
-**Revision:** 2.2
+**Revision:** 2.3
 **Approved:** 2026-09-24 (revision 2.0); 2026-10-02 (M3-only revision 2.1); owner-approved Gemini primary/manual fallback and schema-aware G6 amendment below (revision 2.2)
 **Baseline:** Revision 1.1 approved 2026-09-19
 **Delivery:** Milestone-gated M1–M5; no calendar timebox
@@ -14,6 +14,10 @@
 **Owner-approved generation amendment — revision 2.2:** The owner requests direct Gemini API generation as primary, prefers `gemini-3.8-flash`, and explicitly selects “Chuyển thủ công giữa các run” and “Duyệt gate phù hợp schema enforcement”. M3 primary uses Google's HTTPS OpenAI-compatible endpoint, `gemini-3.8-flash`, explicit low reasoning, provider JSON Schema and streaming usage. 9Router `ag/gemini-3.8-flash-low` remains an operator-selected alternative for subsequent runs only, never automatic same-run retry/failover. Preserve the two-generation-call ceiling, 60-second pass/150-second run bounds, backend authorization/action/citation validation and private logging boundaries.
 
 This supersedes M3's fixed-9Router route and natural-provider-malformed-output requirements in §§10.1 and 21 and its child/delivery-map gate: qualify real Gemini application graph answer/search, adversarial action/scope containment and valid subsequent output; supplement with explicitly labelled controlled malformed/unsupported production-transport/graph rejection showing zero unauthorized tools/publication. Controlled outputs are not described as natural Google output, and schema containment is not described as observed natural invalid-action rejection. Schema requests never replace backend checks. The original no-automatic-fallback rule remains. Historical Q0/Q0.1 and earlier M3 evidence are immutable; M4/M5 require their own future route qualification. Implementation/requalification must follow the reviewed cutover plan, and M3 stays Implemented until every amended gate has recorded evidence.
+
+**Owner-approved M4 amendment — revision 2.3, 2026-10-03:** The owner explicitly selected “Duyệt Gemini primary”, “Duyệt schema-aware gate” and “Duyệt null/unavailable” for M4. M4 primary is direct `gemini-3.8-flash` at `https://generativelanguage.googleapis.com/v1beta/openai`, low reasoning, role/pass JSON Schema and streaming usage. 9Router `ag/gemini-3.8-flash-low` is a manual between-run alternative only, never automatic retry/fallback. Each selected route needs its own Discovery qualification; M3/Q0 do not qualify M4. Preserve one initial/one reasons follow-up, one official metadata search, ten unique inspected records and three recommendations.
+
+M4 qualification observes actual application transport/graph search→validated reasons, stop, adversarial action/URL/filter containment and a valid subsequent run. Supplement with explicitly labelled controlled malformed/unsupported HTTP provider-stream→decoder→graph rejection proving zero unauthorized tools/publication; never label these natural provider output. Backend validation and manual metadata-grounded reason assessment remain required. Applicable unavailable monetary tariff/billing mapping may be recorded `estimated_cost: null`, `cost_source: unavailable`, with reason/source investigation and actual attempts/usage completeness/latency, never zero/free cost or another route's tariff. This supersedes M4 route/qualification/cost interpretations in §§10/21 and delivery-map M4 only; M5 and historical evidence are unchanged.
 
 ## 1. Product thesis
 

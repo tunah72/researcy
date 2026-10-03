@@ -10,6 +10,7 @@ import re
 import tempfile
 import threading
 import time
+import unicodedata
 from urllib.parse import urljoin, urlsplit
 import xml.etree.ElementTree as ET
 
@@ -154,6 +155,7 @@ class ArxivMetadata:
     title: str | None
     authors: list[str] | None
     year: int | None
+    abstract: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -424,7 +426,9 @@ def _fetch_metadata(
             except (ValueError, IndexError):
                 pass
 
-    return ArxivMetadata(title=title, authors=authors or None, year=year), latest_version
+    summary = entry.find('atom:summary',ns)
+    abstract = ' '.join(summary.text.split()) if summary is not None and summary.text else None
+    return ArxivMetadata(title=title, authors=authors or None, year=year,abstract=abstract or None), latest_version
 
 
 def _stream_pdf_to_sink(
@@ -634,3 +638,20 @@ def fetch_official_arxiv(
     finally:
         if owned_client:
             client.close()
+
+
+_RELATED_STOPWORDS = frozenset('a an and are as at be by for from in is it of on or that the this to was were with all you need'.split())
+
+
+def related_title_terms(title: str | None) -> tuple[str, ...]:
+    if not isinstance(title,str):
+        raise APIError(409,'DISCOVERY_METADATA_MISSING','This paper needs a usable title before related-paper search.')
+    cleaned = ' '.join(title.split())
+    if (not 1<=len(cleaned)<=1000 or cleaned.casefold() in {'untitled','untitled document','unknown','unknown title','error'}
+        or any(unicodedata.category(c) in {'Cc','Cs'} and c not in '\r\n\t' for c in title)):
+        raise APIError(409,'DISCOVERY_METADATA_MISSING','This paper needs a usable title before related-paper search.')
+    terms = tuple(dict.fromkeys(word.casefold() for word in re.findall(r'[^\W_]+',cleaned)
+        if len(word)<=80 and word.casefold() not in _RELATED_STOPWORDS))[:12]
+    if not terms:
+        raise APIError(409,'DISCOVERY_METADATA_MISSING','This paper needs a usable title before related-paper search.')
+    return terms
