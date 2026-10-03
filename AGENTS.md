@@ -26,7 +26,7 @@ Browser
        -> bounded in-process LangGraph roles
   -> Python document worker
   -> native ARM64 embedding runtime
-  -> local 9Router -> configured hosted generation route
+  -> direct Gemini generation; manual between-run 9Router alternative
 ```
 
 Repository layout:
@@ -40,7 +40,7 @@ Repository layout:
 Core boundaries:
 
 - Next.js owns presentation, browser interaction state, and same-origin `/api/*` and `/auth/*` access. It does not own authorization, retrieval, prompts, ingestion, or sessions.
-- FastAPI owns OAuth, opaque sessions, CSRF, authorization, paper intake, business rules, safe errors, and future bounded agent orchestration.
+- FastAPI owns OAuth, opaque sessions, CSRF, authorization, paper intake, business rules, safe errors, and bounded agent orchestration.
 - PostgreSQL is authoritative for users, sessions, papers, immutable document versions, job state, provenance, conversations, claims, and citations.
 - MinIO objects are private. Never derive object keys from client filenames or expose storage credentials/public object URLs.
 - Qdrant is never authoritative for text, ownership, provenance, or job state.
@@ -48,7 +48,9 @@ Core boundaries:
 - Backend code derives owner, paper, version, and retrieval filters. Never trust client- or model-supplied ownership/filter values.
 - Product model configuration is separate from development-agent tooling. Keep the approved product route unless an approved specification changes it.
 
-M2 and M3 are `Verified` according to the delivery map and their recorded isolated-stack acceptance. M3 implements the immutable original-PDF Reader, version-pinned conversations, owner-scoped hybrid retrieval, bounded ReaderAgent streaming and exact accepted citations. Master revision 2.2 selects direct `gemini-3.8-flash` primary and a manual between-run 9Router alternative, never automatic fallback; monetary cost may remain null/unavailable with documented provenance. The owner reported successful manual M3 testing and explicitly authorized commit/push/PR/merge, local-main synchronization and full main-stack startup, including forward migrations and processing queued papers. Record actual cutover results separately; approval is not runtime evidence. M1 remains `Implemented`; M4/M5 discovery/research-direction features remain future scope. Preserve historical Q0/M2 evidence and disclosed shared-host resource limitations.
+M2, M3 and M4 are `Verified` according to the delivery map and their recorded isolated-stack acceptance. M3 implements the immutable original-PDF Reader, version-pinned conversations, owner-scoped hybrid retrieval, bounded ReaderAgent streaming and exact accepted citations. M4 adds explicit metadata-only DiscoveryAgent recommendations and a separate user-triggered Add using existing import/processing. It does not extract uploaded-PDF title/abstract through RAG or automatically import recommendations. Master revision 2.3 selects direct `gemini-3.8-flash` primary with schema-aware Discovery qualification and a manual between-run 9Router alternative, never automatic fallback; monetary cost may remain null/unavailable with documented provenance. The owner reported successful M4 manual testing/all quality gates and explicitly authorized commit/push/PR/merge, local-main synchronization and full main-stack startup, including forward migrations and processing queued papers. Record actual cutover results separately in the M4 acceptance report; approval is not runtime evidence. M1 historical acceptance reconciliation remains separate; M5 research-direction features remain future scope. Preserve historical Q0/M2 evidence and disclosed shared-host resource limitations.
+
+M4 main cutover completed on 2026-10-04 via PR #4. Recorded evidence in `docs/superpowers/reports/2026-10-03-researcy-m4-acceptance.md` covers merged-source suites/build, forward migration `0007_m4_discovery` applied twice, preserved eight paper/version/job/idempotency identities, native preflight and running main Reader/idle-Discovery/security/OAuth-start smoke at `http://localhost:3000`. All eight existing jobs were already succeeded. This cutover made no fresh hosted generation call and does not establish new provider readiness, billed cost or M1 acceptance. Keep the ignored main Compose override in every command; retain original/private volumes and remote feature/worktree audit history.
 
 ## Non-negotiable contracts
 
@@ -150,7 +152,7 @@ Do not add `-v` unless the user explicitly intends to delete local PostgreSQL an
 
 M2 processing setup (only after owner-stack cutover authorization): configure native Ollama with the approved `bge-m3:567m` digest; build the `processing` profile, apply migrations twice before worker startup, start Qdrant, and run `docker compose --profile processing run --rm --no-deps worker python -m researcy.ingestion.preflight --check`. This checks dependencies without claiming jobs. Starting `worker` consumes existing queued papers; do not start it on owner data implicitly. Resource acceptance must run without builds/tests and meet the approved host swap/pressure and service/native limits.
 
-M3 main startup requires the same processing dependencies for Reader retrieval. Configure `GENERATION_PROVIDER=gemini`, the exact Google OpenAI-compatible endpoint, `GENERATION_MODEL=gemini-3.8-flash` and the authorized `GENERATION_API_KEY`; never commit keys. An explicitly blank endpoint/key deliberately disables generation. If using an ignored private Compose override, include it in every build/up/exec/down command; it does not replace `.env` OAuth/session configuration. Build API/web/worker from the updated main source, apply forward migrations twice before worker startup, run native processing preflight, then start both `web` and `processing` profiles. Keep original/private volumes and confirm the main origin remains `http://localhost:3000`. Shutdown of the full stack uses `docker compose --profile web --profile processing down` without `-v`. Provider generation readiness must be distinguished from `/health` liveness; an earlier isolated qualification is not a fresh paid main-stack run.
+M3/M4 main startup requires the same processing dependencies for Reader retrieval and explicit recommendation Add-to-ready. Configure `GENERATION_PROVIDER=gemini`, the exact Google OpenAI-compatible endpoint, `GENERATION_MODEL=gemini-3.8-flash` and the authorized `GENERATION_API_KEY`; never commit keys. An explicitly blank endpoint/key deliberately disables generation. If using an ignored private Compose override, include it in every build/up/exec/down command; it does not replace `.env` OAuth/session configuration. Build API/web/worker from the updated main source, apply forward migrations twice before worker startup, run native processing preflight, then start both `web` and `processing` profiles. Keep original/private volumes and confirm the main origin remains `http://localhost:3000`. Shutdown of the full stack uses `docker compose --profile web --profile processing down` without `-v`. Provider generation readiness must be distinguished from `/health` liveness; an earlier isolated qualification is not a fresh paid main-stack run.
 
 
 ### Backend

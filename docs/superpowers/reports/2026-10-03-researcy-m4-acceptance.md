@@ -204,3 +204,45 @@ Fresh feature-tree full backend suite, same frozen isolated command: **963 passe
 Stopped isolated web/API/worker and owned `m4-native-ollama`; retained infrastructure only until backend suite finished, then full isolated Compose down **without -v** succeeded. Observed no M4 acceptance containers left; PostgreSQL/MinIO/Qdrant volumes remain. Worktree, ignored progress/private artifacts and remote audit branch are preserved; shared gateway and unrelated service handles untouched.
 
 Main checkout had two untracked historical M4 Draft files that collide with incoming tracked approved documents. Moved them byte-identically to ignored `.omp/runtime/m4-owner-drafts-20261004/` before synchronization; SHA-256 preserved: child `c7db7fb98c6bc94f8d27e527b9b016ccb25297e8bb4dbfb98e7956f71dc41e6c`, plan `f3481a86c07296d4dccab0f3a6e47090cb17eed932fea39960f749f341aa0781`. Owner next-env/context changes remain separate, never stashed/reset/committed with M4. PR/main cutover is still pending at this checkpoint.
+
+## Merged-main cutover evidence — 2026-10-04
+
+Feature commit `e6011018478d834745e2c8ff1dcd175e3f747d09` was pushed before publication. [PR #4](https://github.com/tunah72/researcy/pull/4) was created and merged with merge commit `5a1fef6feca5d7ba6a98b233c5f6a16c7c4a41ad`. Main checkout fast-forwarded successfully; local HEAD and origin/main both matched that merge commit. Remote feature branch and worktree remain as audit history. The three pre-existing owner next-env/context files stayed byte-identical; the two preserved historical Draft documents retain their recorded hashes.
+
+### Verification on the merged source
+
+- Backend: `docker compose --env-file /dev/null -p researcy-m4-merge-tests -f compose.yaml -f /tmp/researcy-m4.private.yaml run --rm --no-deps -T api python -m pytest tests -q -p no:cacheprovider` — **963 passed,1 opt-in real-network skip in500.46s**.
+- Frontend: `docker run --rm -v /Users/tuananhduong/Projects/researcy/apps/web:/app -v researcy-m4-merge-tests-web-deps:/app/node_modules -w /app node:22.14.0-alpine3.21 sh -c 'npm ci && npm test -- --maxWorkers=1'` — **124 passed,12files in16.92s**,0npm audit vulnerabilities. The first installation attempt used a noexec tmpfs dependency mount and failed esbuild validation with EACCES before tests; replacing that test-harness mount with a dedicated executable Docker volume resolved it without source changes. Existing PDF.js Node legacy-build warning remains.
+- Temporary merged-test infrastructure was brought down **without -v** after backend verification. No acceptance/test containers remain running; their persisted data volumes are retained.
+- Production main build: `docker compose -p researcy -f compose.yaml -f .omp/runtime/m3-main.private.yaml --profile web --profile processing build api web worker` — **PASS in58.86s**, including fresh Next.js production compilation and TypeScript. Manifest lists: API `2e3d91b34f71a9860d16c2448ef71a6a6135183c0b393f07a75ceafe25f64386`, worker `ebad31a5357d736d6f2bd7a5565d50904d9fc721ceb288e1d6e70a5849f51955`, web `3cb6d35998cd6660407411717954394c04a2467a71d1292c1908401f1f33da25`.
+
+### Preserved-data startup
+
+Every main Compose operation used project `researcy`, root `compose.yaml`, the existing ignored `.omp/runtime/m3-main.private.yaml` and root `.env`; no secret values or expanded configuration were emitted. Started original PostgreSQL/MinIO/Qdrant volumes, waited for infrastructure and ran minio-init after MinIO startup; initializer exited0. No volume deletion, source reassignment or seed/demo data.
+
+Before worker startup, ran `docker compose -p researcy -f compose.yaml -f .omp/runtime/m3-main.private.yaml run --rm --no-deps -T api alembic upgrade head` twice, both exit0. Database revision advanced from `0006_m3_lexical` to **`0007_m4_discovery`**. Before/after counts and internal identity digests matched for all **8papers,8immutable document versions,8jobs,8idempotency outcomes**, including original version hashes/object keys; no private identity values were logged.
+
+Started a new main-owned native Ollama service with one parallel request, one loaded model, bounded queue2 and no blob pruning. Approved local embedding preflight, `docker compose -p researcy -f compose.yaml -f .omp/runtime/m3-main.private.yaml --profile processing run --rm --no-deps -T worker python -m researcy.ingestion.preflight --check`, returned **OK: preflight passed**.
+
+Then `docker compose -p researcy -f compose.yaml -f .omp/runtime/m3-main.private.yaml --profile web --profile processing up -d --wait api web worker` succeeded. API,web,worker,PostgreSQL,MinIO,Qdrant are running; API/PostgreSQL/Qdrant report healthy and `/health` returns200. Web remains **http://localhost:3000**, API loopback8000. Native runtime remains persistent for main processing. All8existing jobs are already succeeded; this startup does not claim newly processed owner jobs. Final source/ingestion/idempotency identity digests still match the pre-migration baseline.
+
+### Actual production main smoke
+
+Used one temporary server-issued opaque smoke session scoped to an existing owner's published source, not a new Google callback or fabricated identity. Same-origin owned detail returned200, stage ready and Reader metadata; original-PDF range returned206 with1024bytes and a valid PDF signature. No source content, cookies or private evidence are committed.
+
+Actual Chromium at1440px rendered the existing original PDF, persisted Discussion and idle Related papers control. Observed one main landmark, no horizontal overflow and visible keyboard focus on Related papers; fresh screenshot/accessibility proof of the metadata-only explanation and separate Add contract. No search or Ask submitted. At390px, the approved ≥1024px Reader gate appeared, with download/Library alternatives and no horizontal overflow; this is not a mobile Reader claim.
+
+Changed M4 endpoint `POST /api/papers/{paper_id}/related:search` exercised over the production same-origin proxy before any provider dispatch:
+
+| Boundary | Observed result | Request ID |
+|---|---|---|
+| No session |401 UNAUTHENTICATED|`c884c6e9-7f1f-432d-b0a6-7ef7257d166c`|
+| Wrong CSRF |403 CSRF_REJECTED|`843190c0-b6d4-41f4-94c0-0743276dd9fa`|
+| Owned source with forbidden query |422 INVALID_REQUEST|`ac33d1bc-f433-4b43-93cc-24743dfe7bae`|
+| Nonexistent private source |404 RESOURCE_NOT_FOUND|`5c25bfc8-8ecd-421e-b8d5-bb06ce67e520`|
+
+OAuth start returned302 to accounts.google.com with the exact main callback `http://localhost:3000/auth/google/callback`. Real owner Google completion is the earlier owner-reported manual acceptance, not a newly executed assistant login.
+
+Effective product configuration is direct Gemini, `gemini-3.8-flash`, endpoint/key configured. **No fresh hosted generation in this main smoke**: Discovery run count remained0 and Reader run count remained2. This proves no automatic dispatch, not fresh hosted-provider readiness or billing. Assistant qualification total remains8/12; owner manual calls are separate. Browser cookies cleared and proof tab closed; exactly the one newly issued smoke session was removed, and its subsequent `/api/me` request returned401. Existing owner sessions and data remain untouched.
+
+Cutover complete; M4 remains Verified with the isolated gates and owner acceptance above. Historical Q0/M1 evidence and upstream acquisition/upload-metadata limitations are unchanged.

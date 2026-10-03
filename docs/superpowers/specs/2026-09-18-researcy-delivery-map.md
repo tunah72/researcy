@@ -216,6 +216,8 @@ The sequence follows the reader-first product dependency: identity and a ready o
 
 **Owner acceptance/integration authorization — 2026-10-04:** Owner reports all M4 manual checks meet the quality gate and authorizes document update, M4 process cleanup, commit/push/PR/merge, local-main synchronization and main-stack startup. [Acceptance record](../reports/2026-10-03-researcy-m4-acceptance.md#owner-acceptance-and-integration-authorization--2026-10-04) distinguishes owner observations, preserved upload-metadata/upstream-acquisition limitations and pending actual main cutover evidence. M4 remains Verified. Preserve volumes/worktrees/private artifacts; M1/Q0 history unchanged.
 
+**Main integration/cutover — 2026-10-04:** [PR #4](https://github.com/tunah72/researcy/pull/4) merged; local main fast-forwarded to merge `5a1fef6`. [Actual cutover evidence](../reports/2026-10-03-researcy-m4-acceptance.md#merged-main-cutover-evidence--2026-10-04) records merged-source963passed/1opt-in skip and124passed, fresh API/web/worker production build, migration0007 twice, preserved8paper/version/job/idempotency identities, approved native preflight, full main stack at localhost3000 and real Reader/PDF/idle-Discovery/security/OAuth-start smoke. No new hosted generation, provider-readiness claim or M1 promotion. Isolated processes stopped without deleting volumes; worktree/remote audit branch and owner artifacts retained.
+
 ### M5 — ResearchAgent, Evaluation, and Interview Demo
 
 **Outcome:** A user requests research directions grounded in the current paper and one to three explicitly selected, ready related papers; the end-to-end journey and its quality, security, reliability, and cost claims are reproducible.
