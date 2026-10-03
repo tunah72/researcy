@@ -188,3 +188,19 @@ Use **http://localhost:3000**, not3004 or127.0.0.1. This URL now serves M4 isola
 Start with one Related run; a successful search/reason branch normally uses2hosted passes and may incur provider charges. Assistant acceptance remains8/12; owner actions are separate manual observations, not invented assistant evidence. Discovery quota20accepted runs/hour/owner. arXiv406/429/503 may require waiting for the displayed explicit retry/cooldown; do not repeatedly submit or infer a fabricated result.
 
 All isolated services remain running for manual testing; old3004 web binding is removed. No publish/push/merge/owner cutover performed.
+
+## Owner acceptance and integration authorization — 2026-10-04
+
+Owner explicitly reports completed M4 manual testing and that all work meets the quality gate: “Tôi đã kiểm tra xong kết quả công việc của M4. Tất cả công việc đạt quality gate.” This is owner-reported acceptance, not a fabricated new agent-observed journey. Earlier owner feedback confirmed real arXiv import/processing, RAG and Discovery working as expected after the OAuth manual handoff. The uploaded PDF case used stored title `2303.09833v1 test`, absent abstract/arXiv ID and a completed stop action with1generation/0metadata searches; this remains the documented metadata-only limitation, not a full-text discovery claim. Recent explicit Add acquisition failures included metadata200/PDF406 and PDF200 followed by transport failure; upstream availability risk remains disclosed.
+
+Owner now authorizes document reconciliation, stopping M4 processes, commit/push, PR creation and merge to main, local-main synchronization and main startup. Main startup includes the required forward migration and processing preflight before worker consumes queued owner papers; authorization is not runtime proof. Keep private volumes and owner artifacts. No deletion of worktrees, remote audit branches, credentials or owner data is inferred from process cleanup.
+
+M4 stays Verified; the owner's real-account manual acceptance supplements the recorded isolated G1–G7 evidence. M1 historical acceptance reconciliation remains a separate record and is not silently rewritten. Integration/cutover results will be recorded separately after actual execution.
+
+### Pre-integration verification and process cleanup — 2026-10-04
+
+Fresh feature-tree full backend suite, same frozen isolated command: **963 passed,1 opt-in real-network skip in638.82s**. Full frontend through pinned Node22.14 container `npm test -- --maxWorkers=1`: **124 passed,12files in26.75s**; existing PDF.js Node legacy-build warning unchanged, no lint claim. Source has no production edits since the recorded final build/reviews; this checkpoint adds owner-acceptance documents only.
+
+Stopped isolated web/API/worker and owned `m4-native-ollama`; retained infrastructure only until backend suite finished, then full isolated Compose down **without -v** succeeded. Observed no M4 acceptance containers left; PostgreSQL/MinIO/Qdrant volumes remain. Worktree, ignored progress/private artifacts and remote audit branch are preserved; shared gateway and unrelated service handles untouched.
+
+Main checkout had two untracked historical M4 Draft files that collide with incoming tracked approved documents. Moved them byte-identically to ignored `.omp/runtime/m4-owner-drafts-20261004/` before synchronization; SHA-256 preserved: child `c7db7fb98c6bc94f8d27e527b9b016ccb25297e8bb4dbfb98e7956f71dc41e6c`, plan `f3481a86c07296d4dccab0f3a6e47090cb17eed932fea39960f749f341aa0781`. Owner next-env/context changes remain separate, never stashed/reset/committed with M4. PR/main cutover is still pending at this checkpoint.
