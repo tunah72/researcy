@@ -1,7 +1,11 @@
-from dataclasses import replace
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 from uuid import uuid4
 
 import pytest
+import psycopg
+
+from conftest import _database_url
 
 from test_conversations import reader_source
 
@@ -93,3 +97,26 @@ def test_active_slot_expiry_and_rolling_quota(reader_source):
         reserve_discovery(conn,source,str(uuid4()))
     assert caught.value.status_code==429
     assert caught.value.retry_after>0
+
+
+def test_concurrent_requests_reserve_one_owner_slot(reader_source):
+    from researcy.discovery.repository import load_active_metadata,reserve_discovery
+    from researcy.errors import APIError
+    conn,scope=reader_source['conn'],reader_source['scope']
+    conn.execute('UPDATE papers SET title=%s WHERE owner_id=%s AND id=%s',('Attention mechanisms',scope.owner_id,scope.paper_id))
+    conn.commit()
+    source=load_active_metadata(conn,scope.owner_id,scope.paper_id)
+    barrier=Barrier(2)
+    database=_database_url(conn.info.dbname)
+    def attempt(_):
+        with psycopg.connect(database) as separate:
+            barrier.wait(timeout=5)
+            try:
+                reserve_discovery(separate,source,str(uuid4()))
+                return 'reserved'
+            except APIError as error:
+                return error.code
+    with ThreadPoolExecutor(max_workers=2) as workers:
+        outcomes=list(workers.map(attempt,range(2)))
+    assert sorted(outcomes)==['DISCOVERY_RUN_ACTIVE','reserved']
+    assert conn.execute("SELECT count(*) FROM discovery_runs WHERE owner_id=%s AND state='running'",(scope.owner_id,)).fetchone()==(1,)
