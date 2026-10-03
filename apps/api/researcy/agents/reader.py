@@ -2,10 +2,14 @@ import asyncio
 from collections.abc import AsyncIterator
 from contextlib import aclosing
 from dataclasses import dataclass,field
+from functools import partial
 import json
 import logging
 import time
 from typing import TypedDict
+from threading import Event
+
+from anyio import to_thread
 
 from langgraph.graph import END,START,StateGraph
 from starlette.concurrency import run_in_threadpool
@@ -18,7 +22,7 @@ from researcy.conversations import repository
 from researcy.db import get_conn
 from researcy.errors import APIError
 from researcy.generation.client import GenerationClient
-from researcy.generation.models import AnswerAction,Claim,GenerationFailure,InvalidModelOutput,SearchAction
+from researcy.generation.models import AnswerAction,Claim,GenerationEvent,GenerationFailure,InvalidModelOutput,SearchAction
 from researcy.retrieval import hybrid
 from researcy.retrieval.repository import ReadyDocument
 from .reader_parser import ClaimParser
@@ -64,6 +68,7 @@ class _Context:
     published: bool = False
     final_events: tuple[ReaderEvent,...] = ()
     delivered: int = 0
+    cancel: Event = field(default_factory=Event)
 
     def common(self) -> dict:
         return {'run_id':str(self.reservation.run_id),'message_id':str(self.reservation.assistant_message_id),
@@ -133,11 +138,21 @@ async def _accept_claim(context: _Context,claim: Claim) -> None:
         context.first_delta = time.monotonic()
 
 
+async def _retrieve_hits(context: _Context,query: str):
+    try:
+        return await to_thread.run_sync(partial(hybrid.retrieve_same_paper,
+            context.document,query,deadline=context.deadline,cancel=context.cancel),
+            abandon_on_cancel=True)
+    except asyncio.CancelledError:
+        context.cancel.set()
+        raise
+
+
 async def _retrieve(state: _State) -> dict:
     context = state['context']
     context.history = await run_in_threadpool(_database,repository.load_history,
         context.reservation.scope.owner_id,context.reservation.conversation_id)
-    hits = await run_in_threadpool(hybrid.retrieve_same_paper,context.document,context.reservation.question)
+    hits = await _retrieve_hits(context,context.reservation.question)
     context.catalog = make_evidence_catalog(hits)
     return {'action':None}
 
@@ -153,6 +168,13 @@ async def _generate(state: _State) -> dict:
     kind = 'repair' if context.repair else 'follow_up' if context.searches else 'initial'
     measurement = {'kind':kind,'usage':None,'echoed_model':None,'finish_reason':None}
     context.passes.append(measurement)
+
+    def record_metadata(event: GenerationEvent | None) -> None:
+        # Receive accounting independently of delta backpressure or iterator cancellation.
+        measurement.update(usage=event.usage if event else None,
+            echoed_model=event.echoed_model if event else None,
+            finish_reason=event.finish_reason if event else None)
+
     instructions = _SYSTEM
     if context.calls>1:
         instructions += '\nThis final pass must answer or refuse. search_same_paper is forbidden.'
@@ -169,7 +191,8 @@ async def _generate(state: _State) -> dict:
     context.citations.clear()
     validation_error: Exception | None = None
     try:
-        async with aclosing(GenerationClient(context.settings).stream(messages,follow_up=context.calls>1,deadline=context.deadline)) as stream:
+        async with aclosing(GenerationClient(context.settings).stream(messages,follow_up=context.calls>1,
+            deadline=context.deadline,on_metadata=record_metadata)) as stream:
             async for event in stream:
                 if event.kind=='content' and validation_error is None:
                     try:
@@ -179,7 +202,7 @@ async def _generate(state: _State) -> dict:
                         # Retain supplied terminal accounting; no more claims or tools after rejection.
                         validation_error = error
                 elif event.kind=='metadata':
-                    measurement.update(usage=event.usage,echoed_model=event.echoed_model,finish_reason=event.finish_reason)
+                    record_metadata(event)
                     if validation_error is not None:
                         raise validation_error
                 else:
@@ -192,13 +215,16 @@ async def _generate(state: _State) -> dict:
                 raise InvalidModelOutput('Invalid streamed claim envelope.')
         elif not isinstance(action,SearchAction):
             raise InvalidModelOutput('Invalid model action.')
-    except (APIError,InvalidModelOutput) as error:
+    except (APIError,InvalidModelOutput,GenerationFailure) as error:
         resolvable = isinstance(error,APIError) and error.code=='EVIDENCE_UNRESOLVED'
-        answer_output = isinstance(error,InvalidModelOutput) and parser.action=='answer'
+        truncated = isinstance(error,GenerationFailure) and error.code=='PAYLOAD_TOO_LARGE'
+        answer_output = parser.action=='answer' and (isinstance(error,InvalidModelOutput) or truncated)
         if (resolvable or answer_output) and not context.drafts and context.calls==1:
             context.repair = True
             context.repairs = 1
             return {'action':None}
+        if truncated:
+            raise GenerationFailure('GENERATION_INVALID_OUTPUT') from None
         if isinstance(error,InvalidModelOutput) and parser.action!='answer':
             raise GenerationFailure('GENERATION_INVALID_ACTION') from None
         raise
@@ -212,7 +238,7 @@ async def _search(state: _State) -> dict:
     if not isinstance(action,SearchAction) or context.calls!=1 or context.repairs:
         raise InvalidModelOutput('Invalid search branch.')
     context.searches = 1
-    hits = await run_in_threadpool(hybrid.retrieve_same_paper,context.document,action.query)
+    hits = await _retrieve_hits(context,action.query)
     context.catalog = make_evidence_catalog(hits)
     return {'action':None}
 
@@ -279,7 +305,7 @@ def _safe_code(error: Exception) -> str:
     if isinstance(error,InvalidModelOutput):
         return 'GENERATION_INVALID_OUTPUT'
     if isinstance(error,GenerationFailure):
-        return error.code if error.code in repository.SAFE_RUN_CODES else 'GENERATION_INVALID_OUTPUT' if error.code=='INVALID_RESPONSE' else 'GENERATION_UNAVAILABLE'
+        return error.code if error.code in repository.SAFE_RUN_CODES else 'GENERATION_INVALID_OUTPUT' if error.code in ('INVALID_RESPONSE','PAYLOAD_TOO_LARGE') else 'GENERATION_UNAVAILABLE'
     if isinstance(error,APIError) and error.code in repository.SAFE_RUN_CODES:
         return error.code
     if isinstance(error,TimeoutError):
@@ -287,11 +313,15 @@ def _safe_code(error: Exception) -> str:
     return 'READER_FAILED'
 
 
-async def run_reader(reservation: RunReservation,document: ReadyDocument,settings: Settings) -> AsyncIterator[ReaderEvent]:
+async def run_reader(reservation: RunReservation,document: ReadyDocument,settings: Settings,
+    *,deadline: float | None=None) -> AsyncIterator[ReaderEvent]:
     started = time.monotonic()
     if document.scope!=reservation.scope or reservation.is_replay:
         raise APIError(409,'READER_RUN_NOT_ACTIVE','This answer is no longer running.')
-    context = _Context(reservation,document,settings,asyncio.Queue(maxsize=1),started,started+150)
+    run_deadline = started+repository.RUN_SECONDS
+    if deadline is not None:
+        run_deadline = min(run_deadline,deadline)
+    context = _Context(reservation,document,settings,asyncio.Queue(maxsize=1),started,run_deadline)
     sentinel = object()
     async def execute():
         try:
@@ -312,6 +342,7 @@ async def run_reader(reservation: RunReservation,document: ReadyDocument,setting
                 await run_in_threadpool(_database,repository.fail_run,reservation,code,False,'\n\n'.join(context.drafts))
                 await context.queue.put(_event(context,'answer.failed',code=code,message='The answer could not be completed. Please submit a new question to retry.'))
         finally:
+            context.cancel.set()
             try:
                 latency = round((time.monotonic()-started)*1000)
                 first = round((context.first_delta-started)*1000) if context.first_delta is not None else None

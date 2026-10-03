@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import math
 import sys
 import time
+from threading import Event
 from uuid import UUID
 
 import httpx2
@@ -139,6 +140,9 @@ def search_dense(
     document: ReadyDocument,
     query: str,
     limit: int = 5,
+    *,
+    deadline: float | None=None,
+    cancel: Event | None=None,
 ) -> list[EvidenceHit]:
     """Search one authenticated immutable publication, never index-supplied text."""
     if not isinstance(document, ReadyDocument):
@@ -157,7 +161,7 @@ def search_dense(
 
     # 2. Expensive embedding work outside database transaction
     try:
-        embedding_client = EmbeddingClient(profile)
+        embedding_client = EmbeddingClient(profile,deadline=deadline,cancel=cancel)
         embedding_client.preflight()
         vector_bytes = embedding_client.embed([query])
         validate_vectors(vector_bytes, 1, profile.dimension)
@@ -173,10 +177,12 @@ def search_dense(
     # 3. Expensive Qdrant search outside database transaction
     collection = expected_collection
     settings = get_settings()
-    deadline = time.monotonic() + settings.worker_io_deadline_seconds
+    qdrant_deadline = time.monotonic() + settings.worker_io_deadline_seconds
+    if deadline is not None:
+        qdrant_deadline = min(qdrant_deadline,deadline)
 
     try:
-        qdrant = index.QdrantClient(endpoint=settings.qdrant_endpoint, deadline=deadline)
+        qdrant = index.QdrantClient(endpoint=settings.qdrant_endpoint, deadline=qdrant_deadline,cancel=cancel)
         search_payload = {
             "vector": query_vector,
             "filter": {

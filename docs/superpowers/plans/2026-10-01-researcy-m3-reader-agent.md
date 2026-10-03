@@ -380,9 +380,9 @@ docker compose --env-file /dev/null -p researcy-m3-acceptance -f compose.yaml -f
 - [ ] G6 actual 9Router product output through actual graph for answer/search branches and real malformed/unsupported output rejected without tool. Record route config, validated action/tool trace, model-call count, usage source, first-delta/total latency, estimated/billed cost distinction and tariff source. Bounded attempts that do not elicit required negative output leave specific gate interpretation blocker; never replace with mock/corrupted payload or relax criteria.
 - [x] G7 final backend 719 passed/one opt-in skip; pinned Node 22.14 frontend 113 passed; production builds and recorded actual keyboard/focus/width/zoom/crop/rotation/contrast/reduced-motion/scroll/composer/state journeys. Original boxes compared individually against authoritative geometry, not page-only screenshots.
 - [x] No-build/no-test finite Reader resource observation recorded: API/web within preserved caps, no OOM/restarts; native process RSS and host swap/pressure measured with limitations explicit. No M2 evidence rewrite, model change or owner-application shutdown.
-- [ ] Request code review and resolve blocking findings. Remove throwaway fault/measurement scripts and exact run-owned resources, preserve owner data/all historical evidence. No broad prune or volume deletion.
+- [x] Request code review and resolve blocking findings. Independent final targeted backend review is clean; current backend 756 passed/one opt-in skip, final production build and actual path smokes recorded. Throwaway processes/exact temporary test settings removed; owner data/historical evidence preserved. G6 is still open; no publication/prune/volume deletion.
 - [x] Safe evidence report records exact executed environment/commands, outcomes, request IDs, original hash/version and measurement provenance; private text/screenshots/secrets remain outside Git.
-- [x] Delivery map reconciled to Implemented only. M1/M2/historical Q0 unchanged; G6/tariff/complete acceptance remains blocked. No owner cutover, push, merge or prune.
+- [x] Delivery map reconciled to Implemented only. M1/M2/historical Q0 unchanged; G6 remains blocked, while unavailable monetary cost is an owner-approved documented limitation. No owner cutover, push, merge or prune.
 
 ## 3. Coverage and review checkpoint
 
@@ -401,3 +401,11 @@ docker compose --env-file /dev/null -p researcy-m3-acceptance -f compose.yaml -f
 Self-review completed at draft level: reading-first order preserves complete M3; forward migrations do not alter M2 immutable source; source/version/quote/page conventions consistent; existing exported search callers must migrate with references; HTTP SSE and DB terminal races explicit; no third pass, fake stream, fabricated tariffs, Q0 qualification substitution or automatic owner cutover. Actual module versions/compatibility are verified when frozen dependencies are installed, not invented here.
 
 **Approval checkpoint:** Owner reviews both complete drafts and named decisions before implementation. Recommended execution is serial controller-led task → RED/GREEN → real smoke → review → scoped commit. Approval must specify whether M3 may proceed while M1's detailed record remains incomplete; all actual M3 exit gates remain unchanged. Publication/owner-data actions require separate authorization.
+
+## Owner-approved closure clarification — 2026-10-02
+
+The owner retained G6's actual graph negative/valid-after-negative gate and approved monetary cost `null` / `unavailable` with documented reason, actual per-attempt usage, calls and latency. Master revision 2.1 and child §10 record the limited approval. Historical tariff-blocked checkpoints above remain historical; the unavailable applicable tariff is now a measurement limitation, not an M3 acceptance blocker. No tariff calculator, alternate route/model, free-cost assertion or weakened G6 interpretation is authorized.
+
+Task 9 final backend review is complete: demonstrated RED → GREEN corrections and independent final targeted clean verdict are recorded in the acceptance report. G6 remains unchecked; the approved cost clarification is not permission to infer Verified.
+
+Final backend verification after closure corrections: **756 passed, 1 opt-in arXiv skipped in 497.28s**, production API build and observed same-origin/live-client plus final local-provider-stall/cancellation/malformed-accounting smokes recorded in the report. Frontend remained unchanged; its previous 113-pass/build/browser evidence is retained, not relabelled as a new run. G6 stays unchecked.

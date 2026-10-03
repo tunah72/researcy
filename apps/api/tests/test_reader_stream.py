@@ -168,7 +168,7 @@ def test_stream_real_sse_events_and_terminal_order(reader_source, monkeypatch):
     monkeypatch.setenv('DATABASE_URL', _database_url(conn.info.dbname))
 
     hits = tuple(hydrate_hits(document, [(chunk_id, 1.0) for chunk_id in sorted(document.chunk_ids)]))
-    monkeypatch.setattr(hybrid, 'retrieve_same_paper', lambda pinned, query: hits)
+    monkeypatch.setattr(hybrid, 'retrieve_same_paper', lambda pinned, query, **kwargs: hits)
     quote = ''.join(fragment.quote for fragment in hits[0].locations)
     action = {
         'next_action': 'answer',
@@ -253,7 +253,7 @@ def test_stream_duplicate_uuid_replay_and_running_replay(reader_source, monkeypa
     monkeypatch.setenv('DATABASE_URL', _database_url(conn.info.dbname))
 
     hits = tuple(hydrate_hits(document, [(chunk_id, 1.0) for chunk_id in sorted(document.chunk_ids)]))
-    monkeypatch.setattr(hybrid, 'retrieve_same_paper', lambda pinned, query: hits)
+    monkeypatch.setattr(hybrid, 'retrieve_same_paper', lambda pinned, query, **kwargs: hits)
     quote = ''.join(fragment.quote for fragment in hits[0].locations)
     action = {
         'next_action': 'answer',
@@ -473,3 +473,196 @@ def test_stream_disconnect_interrupts_a_backpressured_send(reader_source,monkeyp
     asyncio.run(run())
     assert conn.execute('SELECT state FROM reader_runs WHERE owner_id=%s AND id=%s',
         (document.scope.owner_id,reservation.run_id)).fetchone()==('interrupted',)
+
+
+def test_stream_stalled_initial_headers_bounded_interruption_without_second_write(reader_source, monkeypatch):
+    from types import SimpleNamespace
+    conn, document = reader_source['conn'], reader_source['document']
+    monkeypatch.setenv('DATABASE_URL', _database_url(conn.info.dbname))
+    monkeypatch.setattr('researcy.conversations.stream.RUN_SECONDS', 0.05, raising=False)
+    conversation = create_owned_conversation(conn, document.scope.owner_id, document)
+    reservation = reserve_run(conn, document.scope.owner_id, conversation.id, uuid4(), 'Stalled headers?', uuid4())
+    async def runner(run, doc, settings):
+        yield SimpleNamespace(event='answer.delta', data={'run_id': str(run.run_id),
+            'message_id': str(run.assistant_message_id), 'sequence': 1, 'text': 'hello', 'request_id': str(run.request_id)})
+    response = ReaderStreamResponse(reservation, document, Settings.from_env(), reservation.request_id, runner=runner)
+    sent_messages = []
+    async def run():
+        never = asyncio.Event()
+        async def send(message):
+            sent_messages.append(message)
+            if message['type'] == 'http.response.start':
+                await never.wait()
+        async def receive():
+            await never.wait()
+        task = asyncio.create_task(response({'type': 'http'}, receive, send))
+        try:
+            await asyncio.wait_for(task, timeout=0.5)
+        finally:
+            pending = [item for item in asyncio.all_tasks() if item is not asyncio.current_task() and not item.done()]
+            for item in pending:
+                item.cancel()
+            await asyncio.sleep(0)
+            for item in pending:
+                if not item.done():
+                    item.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+    asyncio.run(run())
+    assert len(sent_messages) == 1
+    assert sent_messages[0]['type'] == 'http.response.start'
+    state_row = conn.execute('SELECT state, validation_outcome FROM reader_runs WHERE owner_id=%s AND id=%s',
+        (document.scope.owner_id, reservation.run_id)).fetchone()
+    assert state_row == ('interrupted', 'READER_INTERRUPTED')
+
+
+def test_stream_stalled_body_send_deadline_interrupts_and_acloses_generator_without_second_write(reader_source, monkeypatch):
+    from types import SimpleNamespace
+    conn, document = reader_source['conn'], reader_source['document']
+    monkeypatch.setenv('DATABASE_URL', _database_url(conn.info.dbname))
+    monkeypatch.setattr('researcy.conversations.stream.RUN_SECONDS', 0.05, raising=False)
+    conversation = create_owned_conversation(conn, document.scope.owner_id, document)
+    reservation = reserve_run(conn, document.scope.owner_id, conversation.id, uuid4(), 'Stalled body?', uuid4())
+    generator_closed = False
+    async def runner(run, doc, settings):
+        nonlocal generator_closed
+        try:
+            yield SimpleNamespace(event='answer.delta', data={'run_id': str(run.run_id),
+                'message_id': str(run.assistant_message_id), 'sequence': 1, 'text': 'streaming claim text', 'request_id': str(run.request_id)})
+            while True:
+                await asyncio.sleep(1)
+        finally:
+            generator_closed = True
+    response = ReaderStreamResponse(reservation, document, Settings.from_env(), reservation.request_id, runner=runner)
+    sent_messages = []
+    async def run():
+        never = asyncio.Event()
+        async def send(message):
+            sent_messages.append(message)
+            if message['type'] == 'http.response.body' and b'event: answer.delta' in message.get('body', b''):
+                await never.wait()
+        async def receive():
+            await never.wait()
+        task = asyncio.create_task(response({'type': 'http'}, receive, send))
+        try:
+            await asyncio.wait_for(task, timeout=0.5)
+        finally:
+            pending = [item for item in asyncio.all_tasks() if item is not asyncio.current_task() and not item.done()]
+            for item in pending:
+                item.cancel()
+            await asyncio.sleep(0)
+            for item in pending:
+                if not item.done():
+                    item.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+    asyncio.run(run())
+    assert generator_closed is True
+    delta_bodies = [m for m in sent_messages if m['type'] == 'http.response.body' and b'event: answer.delta' in m.get('body', b'')]
+    assert len(delta_bodies) == 1
+    error_bodies = [m for m in sent_messages if m['type'] == 'http.response.body' and b'event: answer.failed' in m.get('body', b'')]
+    assert len(error_bodies) == 0
+    # Total body messages: exactly the initial comment + the single stalled answer.delta attempt
+    body_messages = [m for m in sent_messages if m['type'] == 'http.response.body']
+    assert len(body_messages) == 2
+    state_row = conn.execute('SELECT state, validation_outcome FROM reader_runs WHERE owner_id=%s AND id=%s',
+        (document.scope.owner_id, reservation.run_id)).fetchone()
+    assert state_row == ('interrupted', 'READER_INTERRUPTED')
+
+
+def test_stream_writable_graph_deadline_preserves_terminal_failure(reader_source, monkeypatch):
+    from researcy.generation.client import GenerationClient
+    from researcy.ingestion.models import LostLease
+
+    conn, document = reader_source['conn'], reader_source['document']
+    monkeypatch.setenv('DATABASE_URL', _database_url(conn.info.dbname))
+    monkeypatch.setattr('researcy.conversations.stream.RUN_SECONDS', 0.05, raising=False)
+    conversation = create_owned_conversation(conn, document.scope.owner_id, document)
+    reservation = reserve_run(conn, document.scope.owner_id, conversation.id, uuid4(), 'Graph deadline?', uuid4())
+
+    def delayed_retrieve(pinned, query, *, deadline=None, cancel=None, **kwargs):
+        if cancel is not None:
+            cancel.wait(timeout=2.0)
+        raise LostLease()
+
+    monkeypatch.setattr(hybrid, 'retrieve_same_paper', delayed_retrieve)
+
+    generation_called = False
+    def fake_stream(*args, **kwargs):
+        nonlocal generation_called
+        generation_called = True
+        raise AssertionError('Generation should not be called')
+
+    monkeypatch.setattr(GenerationClient, 'stream', fake_stream)
+
+    response = ReaderStreamResponse(
+        reservation=reservation,
+        document=document,
+        settings=Settings.from_env(),
+        request_id=str(reservation.request_id),
+    )
+
+    sent_messages = []
+    async def run():
+        async def send(message):
+            sent_messages.append(message)
+        async def receive():
+            await asyncio.Event().wait()
+        task = asyncio.create_task(response({'type': 'http'}, receive, send))
+        try:
+            await asyncio.wait_for(task, timeout=1.0)
+        finally:
+            pending = [item for item in asyncio.all_tasks() if item is not asyncio.current_task() and not item.done()]
+            for item in pending:
+                item.cancel()
+            await asyncio.sleep(0)
+            for item in pending:
+                if not item.done():
+                    item.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+
+    asyncio.run(run())
+
+    assert not generation_called
+    body_chunks = [m['body'] for m in sent_messages if m['type'] == 'http.response.body']
+    payload = b''.join(body_chunks).decode('utf-8')
+    events = _parse_sse(payload)
+    failed_events = [e for e in events if e.get('event') == 'answer.failed']
+    assert len(failed_events) == 1
+    assert failed_events[0]['data']['code'] == 'READER_DEADLINE_EXCEEDED'
+
+    state_row = conn.execute('SELECT state, validation_outcome FROM reader_runs WHERE owner_id=%s AND id=%s',
+        (document.scope.owner_id, reservation.run_id)).fetchone()
+    assert state_row == ('failed', 'READER_DEADLINE_EXCEEDED')
+
+
+def test_committed_citation_sequence_uses_terminal_delivery_grace(reader_source, monkeypatch):
+    from types import SimpleNamespace
+
+    conn, document = reader_source['conn'], reader_source['document']
+    monkeypatch.setenv('DATABASE_URL', _database_url(conn.info.dbname))
+    clock = {'now': 1000.0}
+    monkeypatch.setattr(time, 'monotonic', lambda: clock['now'])
+    conversation = create_owned_conversation(conn, document.scope.owner_id, document)
+    reservation = reserve_run(conn, document.scope.owner_id, conversation.id, uuid4(), 'Committed boundary?', uuid4())
+    bodies = []
+
+    async def runner(run, doc, settings):
+        clock['now'] = 1150.0
+        yield SimpleNamespace(event='citation.resolved', data={'citation_id': str(uuid4())})
+        yield SimpleNamespace(event='answer.completed', data={'message_id': str(run.assistant_message_id)})
+
+    async def exercise():
+        async def send(message):
+            await asyncio.sleep(0)
+            if message['type'] == 'http.response.body':
+                bodies.append(message['body'])
+
+        async def receive():
+            await asyncio.Event().wait()
+
+        response = ReaderStreamResponse(reservation, document, Settings.from_env(),
+            reservation.request_id, runner=runner)
+        await response({'type': 'http'}, receive, send)
+
+    asyncio.run(exercise())
+    events = _parse_sse(b''.join(bodies).decode())
+    assert [event['event'] for event in events] == ['citation.resolved', 'answer.completed']

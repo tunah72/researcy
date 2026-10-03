@@ -183,6 +183,8 @@ Safe failures distinguish unready, unavailable original, invalid action/output, 
 
 Reuse structured `researcy` logs/request IDs; do not add tracing services. Per run record role, scope/version, chosen validated action/tool, retrieval source refs/counts, initial/follow-up/repair counters, actual generation attempts, validation outcome, end state and monotonic latency. Usage from provider stream usage metadata with source/provenance, not string-length token estimates. If stream ends without usage, record unknown/partial, never zero. Estimated cost requires documented route tariff and currency/version/date; distinguish reported billed cost from estimate and free/subscription marginal cost. Missing usage/tariff is a measurement blocker, not permission to invent prices. Store metadata only, never prompts/document text/evidence quotes/provider bodies/credentials/session/CSRF values in logs.
 
+**Owner-approved cost clarification — 2026-10-02:** Master revision 2.1 permits M3 monetary cost to remain `null` / `unavailable` when the applicable account tariff/billing-unit mapping cannot be established, provided the reason/source investigation and actual per-attempt usage, calls and latency are recorded. Missing tariff is then a documented measurement limitation, not an M3 acceptance blocker; missing usage is still unknown/partial, never zero. No inferred free price or unrelated API tariff is accepted.
+
 Health separates process liveness from dependency readiness; checks are read-only and bounded, never generate billable traffic or claim jobs automatically. Real generation readiness is established by explicit qualification, not `/health` 200.
 
 ## 11. Acceptance gates and evidence
@@ -209,10 +211,14 @@ Only all exit gates with recorded evidence advance M3 to Verified. Failed gates 
 
 Owner review requested for: complete scope; PDF/Range contract and width; version-pinned persistence/reload/idempotent submission; simple-FTS/RRF limits; claim-level structured streaming and repair semantics; provisional operating caps; explicit M3 prerequisite exception while M1 record stays Implemented.
 
-Implementation can deliver Reader first without generation availability, but M3 cannot close until actual gateway endpoint/authorized credentials/route and usage/cost source are reachable, real structured actions qualify, and full journeys pass. Native cold load/container connectivity and isolated stack setup remain execution checks. No additional runtime proof is claimed by this design session.
+Implementation can deliver Reader first without generation availability, but M3 cannot close until actual gateway endpoint/authorized credentials/route are reachable, usage and monetary-cost provenance follow §10 (including the approved unavailable-cost case), real structured actions qualify, and full journeys pass. Native cold load/container connectivity and isolated stack setup remain execution checks. No additional runtime proof is claimed by this design session.
 
 Self-review: source-vs-normalized quote distinction, multipage citations, page 3 index vs physical page 4, incremental output vs whole-envelope acceptance, no repair after emitted delta, one search-or-repair budget, stream interruption vs persistence race, no invented cost, source-pinned ownership, no M4/M5 UI claims and immutable historical status reconciled. Both documents remain drafts; no implementation authorized by their creation.
 
 ### Owner approval — 2026-10-01
 
 The owner stated: “Tôi phê duyệt specification và implement plan.” This approves both documents and the named decisions presented for review, including proceeding with M3 while M1 remains `Implemented`. All M3 gates and product model routes remain unchanged. Implementation is authorized in the isolated M3 worktree; owner-data cutover, publishing, push, merge and prune are not authorized.
+
+### Owner acceptance decision — 2026-10-02
+
+The owner selected “Giữ gate hiện tại” for G6: actual graph malformed/unsupported rejection and valid-after-negative remain required; controlled graph negatives plus standalone client negatives do not close that gate. The owner selected “Duyệt cost unavailable”: apply the limited master revision 2.1 / §10 monetary-cost clarification. This is not approval to change the model/route, retry automatically, restart the gateway, publish or mark M3 Verified.

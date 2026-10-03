@@ -20,6 +20,17 @@ class GenerationFailure(Exception):
         return self.code
 
 
+def _validate_safe_string(value: str, name: str) -> str:
+    if not value.strip():
+        raise ValueError(f"{name} cannot be whitespace only")
+    if "\x00" in value:
+        raise ValueError(f"{name} contains invalid characters")
+    try:
+        value.encode("utf-8")
+    except UnicodeError as exc:
+        raise ValueError(f"{name} contains invalid encoding") from exc
+    return value
+
 
 class Claim(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -29,13 +40,10 @@ class Claim(BaseModel):
 
     @model_validator(mode="after")
     def validate_content(self) -> "Claim":
-        if not self.text.strip():
-            raise ValueError("Claim text cannot be whitespace only")
+        _validate_safe_string(self.text, "Claim text")
         for cit in self.citations:
-            if not cit.evidence_quote.strip():
-                raise ValueError("Evidence quote cannot be whitespace only")
-            if not cit.source_ref.strip():
-                raise ValueError("Source reference cannot be whitespace only")
+            _validate_safe_string(cit.evidence_quote, "Evidence quote")
+            _validate_safe_string(cit.source_ref, "Source reference")
         return self
 
 
@@ -49,8 +57,7 @@ class AnswerAction(BaseModel):
     @model_validator(mode="after")
     def validate_action(self) -> "AnswerAction":
         if self.refusal is not None:
-            if not self.refusal.strip():
-                raise ValueError("Refusal cannot be whitespace only")
+            _validate_safe_string(self.refusal, "Refusal")
             if len(self.claims) > 0:
                 raise ValueError("Refusal action cannot contain claims")
         else:
@@ -70,10 +77,8 @@ class SearchAction(BaseModel):
 
     @model_validator(mode="after")
     def validate_content(self) -> "SearchAction":
-        if not self.query.strip():
-            raise ValueError("Query cannot be whitespace only")
+        _validate_safe_string(self.query, "Query")
         return self
-
 
 @dataclass(frozen=True, slots=True)
 class GenerationEvent:

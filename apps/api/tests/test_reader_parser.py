@@ -268,3 +268,16 @@ def test_refusal_field_order_does_not_turn_empty_claims_into_a_contradiction():
     assert parser.feed(b'{"next_action":"answer","refusal":"Insufficient evidence.","claims":[]}')==()
     parser.finish()
     assert parser.action=='answer'
+
+
+@pytest.mark.parametrize('bad_val', [r'\u0000', r'\ud800'])
+@pytest.mark.parametrize('template', [
+    '{{"next_action":"answer","refusal":null,"claims":[{{"text":"Claim {val}","citations":[{{"source_ref":"S1","evidence_quote":"Quote 1."}}]}}]}}',
+    '{{"next_action":"answer","refusal":null,"claims":[{{"text":"Valid claim","citations":[{{"source_ref":"S1","evidence_quote":"Quote {val}"}}]}}]}}',
+    '{{"next_action":"answer","refusal":null,"claims":[{{"text":"Valid claim","citations":[{{"source_ref":"S1{val}","evidence_quote":"Quote 1."}}]}}]}}',
+])
+def test_claim_parser_rejects_nul_and_surrogate_before_emitting_delta(template, bad_val):
+    parser = ClaimParser()
+    chunk = template.format(val=bad_val).encode()
+    with pytest.raises(InvalidModelOutput):
+        parser.feed(chunk)

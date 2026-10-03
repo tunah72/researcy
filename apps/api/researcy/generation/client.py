@@ -1,6 +1,6 @@
 import asyncio
 import codecs
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import AsyncExitStack, aclosing
 from io import StringIO
 import json
@@ -127,18 +127,27 @@ class GenerationClient:
         self._transport = transport
 
     async def stream(self,messages: list[dict[str,str]],*,follow_up: bool=False,
-        deadline: float | None=None) -> AsyncIterator[GenerationEvent]:
+        deadline: float | None=None,
+        on_metadata: Callable[[GenerationEvent | None], None] | None=None) -> AsyncIterator[GenerationEvent]:
         pass_deadline = time.monotonic()+self.settings.generation_pass_seconds
         if deadline is not None:
             pass_deadline = min(pass_deadline,deadline)
         queue: asyncio.Queue = asyncio.Queue(maxsize=16)
         finished = object()
         timed_out = False
+        terminal_metadata: GenerationEvent | None = None
+        metadata_delivered = False
+        def checkpoint_terminal(event: GenerationEvent | None) -> None:
+            nonlocal terminal_metadata
+            terminal_metadata = event
+            if on_metadata is not None:
+                on_metadata(event)
         async def produce():
-            nonlocal timed_out
+            nonlocal timed_out,terminal_metadata
             try:
                 async with asyncio.timeout_at(pass_deadline):
-                    async with aclosing(self._stream_events(messages,follow_up=follow_up,deadline=pass_deadline)) as source:
+                    async with aclosing(self._stream_events(messages,follow_up=follow_up,deadline=pass_deadline,
+                        checkpoint_terminal=checkpoint_terminal)) as source:
                         async for event in source:
                             if event.kind=='content':
                                 encoded = event.text.encode('utf-8')
@@ -148,7 +157,17 @@ class GenerationClient:
                                     text = decoder.decode(encoded[offset:offset+16380],final=offset+16380>=len(encoded))
                                     if text:
                                         await queue.put(GenerationEvent(kind='content',text=text))
+                            elif event.kind=='metadata':
+                                if timed_out:
+                                    raise GenerationFailure('GENERATION_TIMEOUT')
+                                if terminal_metadata is None:
+                                    continue
+                                terminal_metadata = event
+                                await queue.put(event)
                             else:
+                                if timed_out or time.monotonic()>=pass_deadline:
+                                    timed_out = True
+                                    raise GenerationFailure('GENERATION_TIMEOUT')
                                 await queue.put(event)
             except asyncio.CancelledError:
                 raise
@@ -165,14 +184,33 @@ class GenerationClient:
         try:
             while True:
                 item = await queue.get()
-                if timed_out:
-                    raise GenerationFailure('GENERATION_TIMEOUT')
                 if item is finished:
                     await task
+                    if timed_out:
+                        raise GenerationFailure('GENERATION_TIMEOUT')
                     return
                 if isinstance(item,Exception):
+                    if terminal_metadata is not None and not metadata_delivered:
+                        metadata_delivered = True
+                        yield terminal_metadata
                     raise item from None
-                yield item
+                if item.kind=='content':
+                    if timed_out or time.monotonic()>=pass_deadline:
+                        continue
+                    yield item
+                elif item.kind=='completed':
+                    if timed_out or time.monotonic()>=pass_deadline:
+                        raise GenerationFailure('GENERATION_TIMEOUT')
+                    yield item
+                elif item.kind=='metadata':
+                    if terminal_metadata is None:
+                        continue
+                    metadata_delivered = True
+                    yield item
+                    if timed_out or time.monotonic()>=pass_deadline:
+                        raise GenerationFailure('GENERATION_TIMEOUT')
+                else:
+                    yield item
         finally:
             if not task.done():
                 task.cancel()
@@ -182,7 +220,11 @@ class GenerationClient:
                 pass
 
     async def _stream_events(self,messages: list[dict[str,str]],*,follow_up: bool=False,
-        deadline: float | None=None) -> AsyncIterator[GenerationEvent]:
+        deadline: float | None=None,
+        checkpoint_terminal: Callable[[GenerationEvent | None], None] | None=None) -> AsyncIterator[GenerationEvent]:
+        def notify_terminal(event: GenerationEvent | None) -> None:
+            if checkpoint_terminal is not None:
+                checkpoint_terminal(event)
         if not self.settings.generation_endpoint or not self.settings.generation_api_key:
             raise GenerationFailure('GENERATION_UNCONFIGURED')
         try:
@@ -208,7 +250,9 @@ class GenerationClient:
         usage: dict[str,Any] | None = None
         echoed_model: str | None = None
         stopped = False
+        stopped_at: float | None = None
         marked_done = False
+        truncated: str | None = None
         try:
             async with httpx2.AsyncClient(timeout=timeout,transport=self._transport,trust_env=False) as client:
                 async with AsyncExitStack() as stack:
@@ -239,50 +283,81 @@ class GenerationClient:
                             pending.clear()
                             if data.strip()=='[DONE]':
                                 if not stopped:
+                                    notify_terminal(None)
                                     raise GenerationFailure('INVALID_RESPONSE')
                                 marked_done = True
                                 break
                             try:
                                 frame = json.loads(data,object_pairs_hook=_reject_duplicate_keys,parse_constant=_reject_constant)
                             except (ValueError,RecursionError):
+                                notify_terminal(None)
                                 raise GenerationFailure('INVALID_RESPONSE') from None
                             if type(frame) is not dict or 'error' in frame:
+                                notify_terminal(None)
                                 raise GenerationFailure('INVALID_RESPONSE')
                             if 'model' in frame:
                                 if type(frame['model']) is not str:
+                                    notify_terminal(None)
                                     raise GenerationFailure('INVALID_RESPONSE')
+                                if '\x00' in frame['model']:
+                                    notify_terminal(None)
+                                    raise GenerationFailure('INVALID_RESPONSE')
+                                try:
+                                    frame['model'].encode('utf-8')
+                                except UnicodeError:
+                                    notify_terminal(None)
+                                    raise GenerationFailure('INVALID_RESPONSE') from None
                                 if echoed_model is not None and frame['model']!=echoed_model:
+                                    notify_terminal(None)
                                     raise GenerationFailure('INVALID_RESPONSE')
                                 echoed_model = frame['model']
                             if 'usage' in frame:
-                                reported = _usage(frame['usage'])
+                                try:
+                                    reported = _usage(frame['usage'])
+                                except GenerationFailure:
+                                    notify_terminal(None)
+                                    raise
                                 if reported is not None and reported.get('completion_tokens',0)>self.settings.generation_max_output_tokens:
+                                    notify_terminal(None)
                                     raise GenerationFailure('INVALID_RESPONSE')
                                 if usage is not None and reported is not None and reported!=usage:
+                                    notify_terminal(None)
                                     raise GenerationFailure('INVALID_RESPONSE')
                                 if reported is not None:
                                     usage = reported
                             choices = frame.get('choices')
                             if choices==[] or choices is None and 'usage' in frame:
+                                if stopped and stopped_at is not None and stopped_at<=pass_deadline:
+                                    notify_terminal(GenerationEvent(kind='metadata',usage=usage,echoed_model=echoed_model,finish_reason=truncated or 'stop'))
                                 continue
                             if type(choices) is not list or len(choices)!=1 or stopped:
+                                notify_terminal(None)
                                 raise GenerationFailure('INVALID_RESPONSE')
                             choice = choices[0]
                             if type(choice) is not dict:
+                                notify_terminal(None)
                                 raise GenerationFailure('INVALID_RESPONSE')
                             finish = choice.get('finish_reason')
                             if finish in ('length','max_tokens'):
-                                raise GenerationFailure('PAYLOAD_TOO_LARGE')
-                            if finish is not None:
+                                truncated = finish
+                                stopped = True
+                                stopped_at = time.monotonic()
+                            elif finish is not None:
                                 if finish!='stop':
+                                    notify_terminal(None)
                                     raise GenerationFailure('INVALID_RESPONSE')
                                 stopped = True
+                                stopped_at = time.monotonic()
+                            if stopped and stopped_at is not None and stopped_at<=pass_deadline:
+                                notify_terminal(GenerationEvent(kind='metadata',usage=usage,echoed_model=echoed_model,finish_reason=truncated or 'stop'))
                             delta = choice.get('delta',{})
                             if type(delta) is not dict or any(name in delta for name in ('tool_calls','tool_call','function_call')):
+                                notify_terminal(None)
                                 raise GenerationFailure('INVALID_RESPONSE')
                             content = delta.get('content')
                             if content is not None:
                                 if type(content) is not str:
+                                    notify_terminal(None)
                                     raise GenerationFailure('INVALID_RESPONSE')
                                 content_bytes += len(content.encode('utf-8'))
                                 if content_bytes>self.settings.generation_max_output_bytes:
@@ -291,6 +366,7 @@ class GenerationClient:
                                     content_parts.append(content)
                                     yield GenerationEvent(kind='content',text=content)
                     if not marked_done and pending:
+                        notify_terminal(None)
                         raise GenerationFailure('INVALID_RESPONSE')
         except (TimeoutError,httpx2.TimeoutException):
             raise GenerationFailure('GENERATION_TIMEOUT') from None
@@ -302,7 +378,11 @@ class GenerationClient:
             raise GenerationFailure('INVALID_RESPONSE') from None
         _check_deadline(pass_deadline)
         if not stopped:
+            notify_terminal(None)
             raise GenerationFailure('INVALID_RESPONSE')
+        if truncated is not None:
+            yield GenerationEvent(kind='metadata',usage=usage,echoed_model=echoed_model,finish_reason=truncated)
+            raise GenerationFailure('PAYLOAD_TOO_LARGE')
         yield GenerationEvent(kind='metadata',usage=usage,echoed_model=echoed_model,finish_reason='stop')
         _check_deadline(pass_deadline)
         action = validate_action(''.join(content_parts).encode('utf-8'),follow_up=follow_up)

@@ -1,11 +1,13 @@
 from collections.abc import Sequence
 from dataclasses import replace
+from threading import Event
 from uuid import UUID
 import psycopg
 
 from researcy.db import get_conn
 from researcy.errors import APIError
 from researcy.ingestion.jobs import short_transaction
+from researcy.ingestion.models import LostLease
 from .repository import ReadyDocument, EvidenceHit, hydrate_hits, search_dense
 
 
@@ -59,8 +61,13 @@ def pack_evidence(hits: Sequence[EvidenceHit]) -> tuple[EvidenceHit, ...]:
     return tuple(packed)
 
 
-def retrieve_same_paper(document: ReadyDocument, query: str) -> tuple[EvidenceHit, ...]:
-    dense = search_dense(document,query)
+def retrieve_same_paper(document: ReadyDocument, query: str, *,
+    deadline: float | None=None, cancel: Event | None=None) -> tuple[EvidenceHit, ...]:
+    if cancel is not None and cancel.is_set():
+        raise LostLease()
+    dense = search_dense(document,query,deadline=deadline,cancel=cancel)
+    if cancel is not None and cancel.is_set():
+        raise LostLease()
     lexical = search_lexical(document,query)
     by_id = {hit.chunk_id:hit for hit in (*dense,*lexical)}
     scores = _rank_scores([hit.chunk_id for hit in dense],[hit.chunk_id for hit in lexical])

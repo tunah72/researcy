@@ -1152,3 +1152,340 @@ def test_large_unicode_provider_frame_remains_bounded_in_the_pending_content_que
     assert all(len(piece.encode('utf-8'))<=16384 for piece in pieces)
     assert ''.join(pieces)==action
     assert events[-1].action.refusal==refusal
+
+
+
+@pytest.mark.parametrize('bad_val', [r'\u0000', r'\ud800'])
+@pytest.mark.parametrize('template', [
+    '{"next_action":"answer","claims":[{"text":"Claim with {val}","citations":[{"source_ref":"s1","evidence_quote":"q1"}]}],"refusal":null}',
+    '{"next_action":"answer","claims":[{"text":"Valid claim","citations":[{"source_ref":"s1","evidence_quote":"Quote with {val}"}]}],"refusal":null}',
+    '{"next_action":"answer","claims":[{"text":"Valid claim","citations":[{"source_ref":"s1{val}","evidence_quote":"q1"}]}],"refusal":null}',
+    '{"next_action":"answer","claims":[],"refusal":"Refusal with {val}"}',
+    '{"next_action":"search_same_paper","query":"Query with {val}"}',
+])
+def test_validate_action_rejects_nul_and_lone_surrogates(template, bad_val):
+    raw = template.replace('{val}', bad_val).encode('utf-8')
+    with pytest.raises(InvalidModelOutput):
+        validate_action(raw, follow_up=False)
+
+
+def test_stream_retains_queued_metadata_when_pass_times_out_after_stop(monkeypatch):
+    import researcy.generation.client as client_mod
+
+    clock = {"now": 1000.0}
+    monkeypatch.setattr(time, "monotonic", lambda: clock["now"])
+
+    orig_validate_action = client_mod.validate_action
+    def timing_out_validate_action(*args, **kwargs):
+        clock["now"] = 1010.0
+        return orig_validate_action(*args, **kwargs)
+
+    monkeypatch.setattr(client_mod, "validate_action", timing_out_validate_action)
+
+    def response_fn(handler, body):
+        handler.send_response(200)
+        handler.send_header("Content-Type", "text/event-stream")
+        handler.end_headers()
+        handler.wfile.write(_terminal_wire({"prompt_tokens": 20, "completion_tokens": 10, "total_tokens": 30}))
+        handler.wfile.write(b"data: [DONE]\n\n")
+        handler.wfile.flush()
+
+    with local_fault_server(response_fn) as endpoint:
+        settings = replace(
+            Settings.from_env(),
+            generation_endpoint=endpoint,
+            generation_api_key="test-key",
+            generation_pass_seconds=5,
+        )
+        observed = []
+
+        async def run():
+            client = GenerationClient(settings)
+            async for event in client.stream([{"role": "user", "content": "Question"}], deadline=1005.0):
+                observed.append((event, clock["now"]))
+
+        with pytest.raises(GenerationFailure) as exc:
+            asyncio.run(run())
+
+        assert exc.value.code == "GENERATION_TIMEOUT"
+        metadata_events = [e for e, _ in observed if e.kind == "metadata"]
+        assert len(metadata_events) == 1
+        assert metadata_events[0].usage == {"prompt_tokens": 20, "completion_tokens": 10, "total_tokens": 30}
+        assert all(e.kind != "completed" for e, _ in observed)
+        assert all(seen <= 1005.0 for e, seen in observed if e.kind == "content")
+
+
+def test_stream_late_postdeadline_new_metadata_is_not_treated_as_on_time(monkeypatch):
+    clock = {"now": 1000.0}
+    monkeypatch.setattr(time, "monotonic", lambda: clock["now"])
+
+    step_provider = threading.Event()
+
+    def response_fn(handler, body):
+        handler.send_response(200)
+        handler.send_header("Content-Type", "text/event-stream")
+        handler.end_headers()
+        handler.wfile.write(b'data: {"choices":[{"delta":{"content":"First "},"finish_reason":null}]}\n\n')
+        handler.wfile.flush()
+        step_provider.wait(timeout=5.0)
+        handler.wfile.write(_terminal_wire({"prompt_tokens": 20, "completion_tokens": 10, "total_tokens": 30}))
+        handler.wfile.write(b"data: [DONE]\n\n")
+        handler.wfile.flush()
+
+    with local_fault_server(response_fn) as endpoint:
+        settings = replace(
+            Settings.from_env(),
+            generation_endpoint=endpoint,
+            generation_api_key="test-key",
+            generation_pass_seconds=5,
+        )
+        observed = []
+
+        async def run():
+            client = GenerationClient(settings)
+            stream = client.stream([{"role": "user", "content": "Question"}], deadline=1005.0)
+            first = await anext(stream)
+            observed.append(first)
+            clock["now"] = 1010.0
+            step_provider.set()
+            async for event in stream:
+                observed.append(event)
+
+        with pytest.raises(GenerationFailure) as exc:
+            asyncio.run(run())
+
+        assert exc.value.code == "GENERATION_TIMEOUT"
+        assert all(e.kind != "metadata" for e in observed)
+        assert all(e.kind != "completed" for e in observed)
+
+
+def test_stream_retains_on_time_metadata_when_full_queue_times_out(monkeypatch):
+    from contextlib import aclosing
+
+    clock = {"now": 1000.0}
+    monkeypatch.setattr(time, "monotonic", lambda: clock["now"])
+    usage = {"prompt_tokens": 20, "completion_tokens": 10, "total_tokens": 30}
+    action = '{"next_action":"answer","claims":[],"refusal":"' + ("No evidence. " * 15) + '"}'
+
+    def response_fn(handler, body):
+        handler.send_response(200)
+        handler.send_header("Content-Type", "text/event-stream")
+        handler.end_headers()
+        for index in range(17):
+            text = action[index * len(action) // 17:(index + 1) * len(action) // 17]
+            frame = {"choices": [{"delta": {"content": text}, "finish_reason": None}]}
+            handler.wfile.write(("data: " + json.dumps(frame) + "\n\n").encode())
+        terminal = {"choices": [{"delta": {}, "finish_reason": "stop"}], "usage": usage}
+        handler.wfile.write(("data: " + json.dumps(terminal) + "\n\ndata: [DONE]\n\n").encode())
+        handler.wfile.flush()
+
+    with local_fault_server(response_fn) as endpoint:
+        settings = replace(Settings.from_env(), generation_endpoint=endpoint,
+            generation_api_key="test-key", generation_pass_seconds=5)
+        observed = []
+        received_at = []
+
+        async def run():
+            client = GenerationClient(settings)
+            source = client._stream_events
+            received = asyncio.Event()
+
+            async def record(*args, **kwargs):
+                async with aclosing(source(*args, **kwargs)) as events:
+                    async for event in events:
+                        if event.kind == "metadata":
+                            received_at.append(clock["now"])
+                            received.set()
+                        yield event
+
+            client._stream_events = record
+            stream = client.stream([{"role": "user", "content": "Question"}], deadline=1005.0)
+            await anext(stream)
+            await received.wait()
+            clock["now"] = 1010.0
+            await asyncio.sleep(0)
+            await asyncio.sleep(0)
+            async for event in stream:
+                observed.append(event)
+
+        with pytest.raises(GenerationFailure) as exc:
+            asyncio.run(run())
+        assert exc.value.code == "GENERATION_TIMEOUT"
+        assert received_at == [1000.0]
+        assert [event.kind for event in observed] == ["metadata"]
+        assert observed[0].usage == usage
+
+
+def test_stream_finish_reason_length_yields_metadata_before_payload_too_large():
+    usage = {'prompt_tokens': 50, 'completion_tokens': 100, 'total_tokens': 150}
+    observed = []
+
+    def response_fn(handler, body):
+        handler.send_response(200)
+        handler.send_header('Content-Type', 'text/event-stream')
+        handler.end_headers()
+        handler.wfile.write(b'data: {"choices":[{"delta":{"content":"Truncated text"},"finish_reason":null}]}\n\n')
+        frame = {
+            'choices': [{'delta': {}, 'finish_reason': 'length'}],
+            'usage': usage,
+            'model': 'ag/gemini-3.8-flash-low',
+        }
+        handler.wfile.write(('data: ' + json.dumps(frame) + '\n\n').encode())
+        handler.wfile.write(b'data: [DONE]\n\n')
+        handler.wfile.flush()
+
+    with local_fault_server(response_fn) as endpoint:
+        settings = replace(Settings.from_env(), generation_endpoint=endpoint, generation_api_key='test-key')
+        async def run():
+            client = GenerationClient(settings)
+            async for event in client.stream([{'role': 'user', 'content': 'Question'}]):
+                observed.append(event)
+
+        with pytest.raises(GenerationFailure) as exc:
+            asyncio.run(run())
+
+        assert exc.value.code == 'PAYLOAD_TOO_LARGE'
+        metadata_events = [e for e in observed if e.kind == 'metadata']
+        assert len(metadata_events) == 1
+        assert metadata_events[0].usage == usage
+        assert metadata_events[0].finish_reason == 'length'
+        assert metadata_events[0].echoed_model == 'ag/gemini-3.8-flash-low'
+        assert all(e.kind != 'completed' for e in observed)
+
+
+@pytest.mark.parametrize('bad_model', ['ag/gemini\x00flash', 'ag/gemini\ud800flash'])
+def test_stream_echoed_model_rejects_nul_and_surrogates(bad_model):
+    observed = []
+
+    def response_fn(handler, body):
+        handler.send_response(200)
+        handler.send_header('Content-Type', 'text/event-stream')
+        handler.end_headers()
+        action = '{"next_action":"answer","claims":[],"refusal":"Insufficient evidence."}'
+        frame = {
+            'model': bad_model,
+            'choices': [{'delta': {'content': action}, 'finish_reason': 'stop'}],
+            'usage': {'prompt_tokens': 10, 'completion_tokens': 5, 'total_tokens': 15},
+        }
+        wire = ('data: ' + json.dumps(frame) + '\n\ndata: [DONE]\n\n').encode('utf-8')
+        handler.wfile.write(wire)
+        handler.wfile.flush()
+
+    with local_fault_server(response_fn) as endpoint:
+        settings = replace(Settings.from_env(), generation_endpoint=endpoint, generation_api_key='test-key')
+        async def run():
+            client = GenerationClient(settings)
+            async for event in client.stream([{'role': 'user', 'content': 'Question'}]):
+                observed.append(event)
+
+        with pytest.raises(GenerationFailure) as exc:
+            asyncio.run(run())
+
+        assert exc.value.code == 'INVALID_RESPONSE'
+        assert observed == []
+
+
+def test_stream_terminal_frame_usage_preserved_when_connection_stalls_before_done():
+    cleanup_event = threading.Event()
+    usage = {'prompt_tokens': 40, 'completion_tokens': 20, 'total_tokens': 60}
+    observed = []
+
+    def response_fn(handler, body):
+        handler.send_response(200)
+        handler.send_header('Content-Type', 'text/event-stream')
+        handler.end_headers()
+        action = '{"next_action":"answer","claims":[],"refusal":"Insufficient evidence."}'
+        frame = {
+            'model': 'ag/gemini-3.8-flash-low',
+            'choices': [{'delta': {'content': action}, 'finish_reason': 'stop'}],
+            'usage': usage,
+        }
+        handler.wfile.write(('data: ' + json.dumps(frame) + '\n\n').encode('utf-8'))
+        handler.wfile.flush()
+        cleanup_event.wait(timeout=5.0)
+
+    with local_fault_server(response_fn) as endpoint:
+        settings = replace(
+            Settings.from_env(),
+            generation_endpoint=endpoint,
+            generation_api_key='test-key',
+            generation_pass_seconds=1,
+        )
+        async def run():
+            client = GenerationClient(settings)
+            try:
+                async for event in client.stream([{'role': 'user', 'content': 'Question'}], deadline=time.monotonic() + 0.25):
+                    observed.append(event)
+            finally:
+                cleanup_event.set()
+
+        with pytest.raises(GenerationFailure) as exc:
+            asyncio.run(run())
+
+        assert exc.value.code == 'GENERATION_TIMEOUT'
+        metadata_events = [e for e in observed if e.kind == 'metadata']
+        assert len(metadata_events) == 1
+        assert metadata_events[0].usage == usage
+        assert metadata_events[0].finish_reason == 'stop'
+        assert metadata_events[0].echoed_model == 'ag/gemini-3.8-flash-low'
+        assert all(e.kind != 'completed' for e in observed)
+
+
+@pytest.mark.parametrize('conflict_kind', ['usage', 'model', 'negative_usage', 'inconsistent_total'])
+def test_stream_conflicting_terminal_frame_invalidates_retained_metadata(conflict_kind):
+    initial_usage = {'prompt_tokens': 20, 'completion_tokens': 10, 'total_tokens': 30}
+    observed = []
+    checkpoint_history = []
+
+    def on_metadata(event):
+        checkpoint_history.append(event)
+
+    def response_fn(handler, body):
+        handler.send_response(200)
+        handler.send_header('Content-Type', 'text/event-stream')
+        handler.end_headers()
+        action = '{"next_action":"answer","claims":[],"refusal":"Insufficient evidence."}'
+        frame_a = {
+            'model': 'ag/gemini-3.8-flash-low',
+            'choices': [{'delta': {'content': action}, 'finish_reason': 'stop'}],
+            'usage': initial_usage,
+        }
+        handler.wfile.write(('data: ' + json.dumps(frame_a) + '\n\n').encode('utf-8'))
+        handler.wfile.flush()
+
+        if conflict_kind == 'usage':
+            conflicting_frame = {
+                'choices': [],
+                'usage': {'prompt_tokens': 99, 'completion_tokens': 10, 'total_tokens': 109},
+            }
+        elif conflict_kind in ('negative_usage', 'inconsistent_total'):
+            conflicting_frame = {'choices': [], 'usage': {
+                'prompt_tokens': -1 if conflict_kind == 'negative_usage' else 20,
+                'completion_tokens': 10, 'total_tokens': 999,
+            }}
+        else:
+            conflicting_frame = {
+                'model': 'conflicting-backend-model',
+                'choices': [],
+                'usage': initial_usage,
+            }
+        handler.wfile.write(('data: ' + json.dumps(conflicting_frame) + '\n\n').encode('utf-8'))
+        handler.wfile.flush()
+
+    with local_fault_server(response_fn) as endpoint:
+        settings = replace(Settings.from_env(), generation_endpoint=endpoint, generation_api_key='test-key')
+        async def run():
+            client = GenerationClient(settings)
+            async for event in client.stream([{'role': 'user', 'content': 'Question'}], on_metadata=on_metadata):
+                observed.append(event)
+
+        with pytest.raises(GenerationFailure) as exc:
+            asyncio.run(run())
+
+        assert exc.value.code == 'INVALID_RESPONSE'
+        metadata_events = [e for e in observed if e.kind == 'metadata']
+        assert metadata_events == []
+        assert len(checkpoint_history) >= 2
+        assert checkpoint_history[0] is not None
+        assert checkpoint_history[0].usage == initial_usage
+        assert checkpoint_history[-1] is None

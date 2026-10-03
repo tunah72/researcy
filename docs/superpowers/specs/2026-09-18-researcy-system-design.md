@@ -1,13 +1,15 @@
 # Researcy System Design
 
 **Status:** Approved master specification
-**Revision:** 2.0
-**Approved:** 2026-09-24
+**Revision:** 2.1
+**Approved:** 2026-09-24 (revision 2.0); 2026-10-02 (M3-only revision 2.1 amendment below)
 **Baseline:** Revision 1.1 approved 2026-09-19
 **Delivery:** Milestone-gated M1–M5; no calendar timebox
 **Primary portfolio objective:** Demonstrate a trustworthy, reader-first research product with optional, bounded discovery and research-direction workflows
 **Authority:** Normative source for product scope, system boundaries, cross-cutting contracts, and acceptance criteria. Child specifications may add local detail but may not silently override this document.
 **Change control:** A conflicting child specification or implementation plan requires an explicit master-spec revision and approval.
+
+**Owner-approved M3 amendment — 2026-10-02:** The owner explicitly selected “Duyệt cost unavailable” and “Giữ gate hiện tại” for G6. For M3 only, an unavailable applicable monetary tariff/billing mapping may be recorded as `estimated_cost: null`, `cost_source: unavailable`, with the reason and source investigation documented alongside actual per-attempt usage, call count and latency. This satisfies monetary-cost provenance reporting without claiming zero/free/billed cost or substituting another route's tariff. Unknown usage remains unknown/partial. G6 actual graph negative/valid-after-negative evidence, all other acceptance requirements, M4/M5 and historical Q0 evidence are unchanged. This supersedes M3 numeric-cost prerequisite interpretations of §§2, 10.1, 11, 17 and 21 only; it does not mark M3 Verified.
 
 ## 1. Product thesis
 

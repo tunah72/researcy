@@ -2,6 +2,7 @@ import asyncio
 from collections.abc import AsyncIterator,Callable
 import json
 import logging
+import time
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -11,7 +12,7 @@ from starlette.types import Receive,Scope,Send
 
 from researcy.config import Settings
 from researcy.conversations.models import RunReservation
-from researcy.conversations.repository import fail_run
+from researcy.conversations.repository import LEASE_GRACE_SECONDS, RUN_SECONDS, fail_run
 from researcy.db import get_conn
 from researcy.retrieval.repository import ReadyDocument
 
@@ -52,24 +53,27 @@ class ReaderStreamResponse(Response):
                 # Failed cleanup remains bounded by the persisted lease; no private diagnostics.
                 logging.getLogger('researcy').error('reader_stream_cleanup_failed run_id=%s',self.reservation.run_id)
 
-        async def write(payload: bytes,*,final: bool=False):
+        async def write(payload: bytes,*,final: bool=False,terminal: bool=False):
             nonlocal transport_failed
+            if transport_failed:
+                return
+            target_deadline = grace_deadline if (final or terminal) else deadline
             try:
-                if not payload:
-                    await send({'type':'http.response.body','body':b'','more_body':not final})
-                for offset in range(0,len(payload),TRANSPORT_CHUNK_SIZE):
-                    last = offset+TRANSPORT_CHUNK_SIZE>=len(payload)
-                    await send({'type':'http.response.body','body':payload[offset:offset+TRANSPORT_CHUNK_SIZE],
-                        'more_body':not (final and last)})
-            except Exception:
+                async with asyncio.timeout_at(target_deadline):
+                    if not payload:
+                        await send({'type':'http.response.body','body':b'','more_body':not final})
+                    for offset in range(0,len(payload),TRANSPORT_CHUNK_SIZE):
+                        last = offset+TRANSPORT_CHUNK_SIZE>=len(payload)
+                        await send({'type':'http.response.body','body':payload[offset:offset+TRANSPORT_CHUNK_SIZE],
+                            'more_body':not (final and last)})
+            except (Exception, asyncio.CancelledError):
                 transport_failed = True
                 raise
-
         async def failure(code: str,message: str):
             nonlocal terminal
             data = {'run_id':str(self.reservation.run_id),'message_id':str(self.reservation.assistant_message_id),
                 'code':code,'message':message,'request_id':self.request_id}
-            await write(('event: answer.failed\ndata: '+json.dumps(data,separators=(',',':'))+'\n\n').encode())
+            await write(('event: answer.failed\ndata: '+json.dumps(data,separators=(',',':'))+'\n\n').encode(),terminal=True)
             terminal = True
 
         async def produce():
@@ -86,15 +90,18 @@ class ReaderStreamResponse(Response):
                         break
                     if event.event=='answer.delta':
                         partial.append(event.data['text'])
-                    await write(wire)
-                    if event.event in ('answer.completed','answer.failed'):
+                    is_term = event.event in ('answer.completed','answer.failed')
+                    # Citation events are emitted only after the same atomic terminal commit.
+                    await write(wire,terminal=is_term or event.event=='citation.resolved')
+                    if is_term:
                         terminal = True
                         break
-                if not terminal:
+                if not terminal and not transport_failed:
                     await persist('READER_INTERRUPTED',True)
                     await failure('READER_INTERRUPTED','The answer was interrupted. Reload to see its saved state.')
-                await write(b'',final=True)
-            except asyncio.CancelledError:
+                if not transport_failed:
+                    await write(b'',final=True)
+            except (TimeoutError, asyncio.CancelledError):
                 raise
             except Exception:
                 if not terminal and not transport_failed:
@@ -111,20 +118,30 @@ class ReaderStreamResponse(Response):
                     return
 
         producer = listener = None
+        deadline = time.monotonic() + RUN_SECONDS
+        grace_deadline = deadline + LEASE_GRACE_SECONDS
         try:
-            await send({'type':'http.response.start','status':self.status_code,'headers':self.raw_headers})
+            async with asyncio.timeout_at(deadline):
+                await send({'type':'http.response.start','status':self.status_code,'headers':self.raw_headers})
             runner = self.runner
             if runner is None:
                 from researcy.agents.reader import run_reader
-                runner = run_reader
-            generator = runner(self.reservation,self.document,self.settings)
+                generator = run_reader(self.reservation,self.document,self.settings,deadline=deadline)
+            else:
+                generator = runner(self.reservation,self.document,self.settings)
             producer = asyncio.create_task(produce())
             listener = asyncio.create_task(disconnect())
-            done,_ = await asyncio.wait((producer,listener),return_when=asyncio.FIRST_COMPLETED)
-            if listener in done and not terminal:
-                transport_failed = True
-            if producer in done:
-                await producer
+            async with asyncio.timeout_at(grace_deadline):
+                done,_ = await asyncio.wait((producer,listener),return_when=asyncio.FIRST_COMPLETED)
+                if listener in done and not terminal:
+                    transport_failed = True
+                if producer in done:
+                    await producer
+        except TimeoutError:
+            transport_failed = True
+        except asyncio.CancelledError:
+            transport_failed = True
+            raise
         finally:
             tasks = [task for task in (producer,listener) if task is not None]
             for task in tasks:
