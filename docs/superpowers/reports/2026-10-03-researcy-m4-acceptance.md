@@ -162,3 +162,29 @@ Final rebuilt-worker native preflight `python -m researcy.ingestion.preflight --
 **M4 Verified in the authorized isolated environment.** This closure supersedes earlier in-progress checkpoints, not their historical observations. Limits remain: no real Google OAuth acceptance/M1 promotion, no natural empty or naturally malformed schema-enforced provider claim, no 9Router hosted alternative qualification, no billed-cost attribution, no new resource-capacity gate, no owner cutover/publish/push/merge/prune. Primary hosted evidence belongs to the recorded pre-final-review image; final safety changes are proved by focused regressions/full suites/local HTTP/final production smoke, not a second paid campaign. Hosted total remains **8/12**. No secrets, private source evidence or temporary smoke code are committed.
 
 Additional final accessibility observation on the actual1280px Reader: visible header/main button/link/heading/paragraph/label foreground-versus-effective-background contrast scan had no ratio below4.5; disabled-state exceptions were not used to conceal a failure. Chromium native `emulateMediaFeatures` observed `prefers-reduced-motion: reduce` true,0active animations and1main. High-level media emulation returned accepted options but did not change matchMedia; reported tool inconsistency and used native browser emulation instead. Proof tabs closed; no generation action.
+
+## Owner manual-test handoff and OAuth configuration repair — 2026-10-04
+
+Owner reported inability to sign in on M4. Effective acceptance API configuration had APP_ENV=test, no Google client ID/secret and a blank callback; `GET http://localhost:3004/auth/google/start` returned303 `/sign-in?error=oauth`. This is a manual-handoff configuration defect, not an observed regression in OAuth production code. Earlier M4 acceptance intentionally used synthetic sessions; it did not provide a usable real-Google sign-in environment.
+
+Existing owner OAuth configuration uses the registered callback `http://localhost:3000/auth/google/callback`; owner main services are stopped and port3000 was unused. Added secret-free private `/tmp/researcy-m4.manual.yaml` override with development environment, exact localhost3000 origin/callback, opaque environment-variable references for the existing Google credentials, and isolated web port3000. Credentials were read privately and passed only to the child Compose process; no root .env edit or secret output. Production image/source and isolated project/database/volumes unchanged; owner services/data were not started or migrated.
+
+Restarted isolated API/web/worker using compose.yaml, private acceptance override, production override and manual override. API healthOK; final native worker preflightOK. Effective product generation remains direct Gemini/gemini-3.8-flash with key configured. No new hosted generation call.
+
+Restored OAuth start302 to accounts.google.com, exact registered callback, OpenID scope and S256 PKCE. Actual unauthenticated production browser: Sign in → Continue with Google reached `accounts.google.com/v3/signin/identifier` and displayed “Sign in with Google” / “to continue to Researcy”. Fresh accessibility/screenshot observed. No account credentials, consent or provider safety checks submitted; full owner Google callback/session completion remains for the owner's manual interaction. Proof tab closed.
+
+### Manual test
+
+Use **http://localhost:3000**, not3004 or127.0.0.1. This URL now serves M4 isolated, not main. Use a fresh browser profile/private window to avoid old localhost cookies. Your real account's isolated Library may initially be empty; acceptance papers belong to synthetic identities and are not exposed or reassigned.
+
+1. Sign in → Continue with Google; complete your own Google authentication. Expect return to `/library`. Refresh remains signed in.
+2. Add paper → arXiv, enter `1706.03762` (or its official URL), submit once. Expect accepted/waiting/processing, then ready; open original PDF in Reader. Do not submit again while processing.
+3. At viewport width≥1024px, activate Related papers. Expect explicit loading then0–3 distinct canonical arXiv cards, authors where known, metadata-based reasons and official links. Empty is an allowed honest result; the live official relevance list may differ from earlier acceptance. Search alone must not add any Library item.
+4. If cards exist, choose one relevant unowned result and explicitly Add to Library. Expect saved/waiting, not instantaneous ready. View in Library → real processing → ready Reader. Refresh preserves the new paper; re-adding an existing canonical ID must not create duplicates.
+5. For a second explicit related search, try Cancel while loading. Expect cleared loading/stale result rejection; a later explicit search remains usable. No automatic retry.
+6. Refresh/reopen Reader: no automatic related search, previous Discussion remains independent. Optional Citation/Escape interaction checks existing Reader focus.
+7. Optional separate private profile with another Google account: its Library must not show the first account's papers.
+
+Start with one Related run; a successful search/reason branch normally uses2hosted passes and may incur provider charges. Assistant acceptance remains8/12; owner actions are separate manual observations, not invented assistant evidence. Discovery quota20accepted runs/hour/owner. arXiv406/429/503 may require waiting for the displayed explicit retry/cooldown; do not repeatedly submit or infer a fabricated result.
+
+All isolated services remain running for manual testing; old3004 web binding is removed. No publish/push/merge/owner cutover performed.
