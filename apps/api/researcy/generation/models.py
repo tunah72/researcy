@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import json
 from typing import Any, Literal
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError, model_validator
 
 from researcy.citations.models import ProposedCitation
 
@@ -80,11 +80,15 @@ class SearchAction(BaseModel):
         _validate_safe_string(self.query, "Query")
         return self
 
+READER_INITIAL_OUTPUT = TypeAdapter(AnswerAction | SearchAction)
+READER_FINAL_OUTPUT = TypeAdapter(AnswerAction)
+
+
 @dataclass(frozen=True, slots=True)
 class GenerationEvent:
     kind: Literal["content", "metadata", "completed"]
     text: str = ""
-    action: AnswerAction | SearchAction | None = None
+    output: BaseModel | None = None
     usage: dict[str, Any] | None = None
     echoed_model: str | None = None
     finish_reason: str | None = None
@@ -103,9 +107,9 @@ def _reject_constant(val: str) -> None:
     raise ValueError(f"JSON constant not allowed: {val}")
 
 
-def validate_action(raw: bytes, *, follow_up: bool) -> AnswerAction | SearchAction:
+def decode_output(raw: bytes, output: TypeAdapter) -> BaseModel:
     if not isinstance(raw, (bytes, bytearray)):
-        raise InvalidModelOutput("Raw action must be bytes")
+        raise InvalidModelOutput("Raw output must be bytes")
 
     try:
         text = raw.decode("utf-8")
@@ -127,21 +131,8 @@ def validate_action(raw: bytes, *, follow_up: bool) -> AnswerAction | SearchActi
     if not isinstance(parsed, dict):
         raise InvalidModelOutput("Model output must be a JSON object")
 
-    if "next_action" not in parsed:
-        raise InvalidModelOutput("Missing 'next_action'")
-
-    action_type = parsed["next_action"]
-    if action_type == "search_same_paper":
-        if follow_up:
-            raise InvalidModelOutput("search_same_paper is not allowed in follow-up generation")
-        try:
-            return SearchAction.model_validate(parsed)
-        except (ValidationError, ValueError):
-            raise InvalidModelOutput("Invalid search action.") from None
-    elif action_type == "answer":
-        try:
-            return AnswerAction.model_validate(parsed)
-        except (ValidationError, ValueError):
-            raise InvalidModelOutput("Invalid answer action.") from None
-    else:
-        raise InvalidModelOutput("Unsupported model action.")
+    try:
+        # Respect each role's model strictness; Reader JSON arrays become immutable tuples.
+        return output.validate_python(parsed)
+    except (ValidationError, ValueError, RecursionError):
+        raise InvalidModelOutput("Invalid model output schema.") from None

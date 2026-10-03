@@ -197,18 +197,24 @@ The sequence follows the reader-first product dependency: identity and a ready o
 - at most three distinct actual arXiv IDs, with title, authors, metadata/abstract-grounded reason, arXiv URL, and request ID;
 - recommendation rationales remain metadata-only and are not full-text citations;
 - explicit user selection reuses the existing Library import flow; recommendations never auto-import;
-- structured next-action qualification through the configured `ag/gemini-3.8-flash-low` product route via 9Router;
+- structured next-action qualification through direct `gemini-3.8-flash` primary; manual between-run 9Router alternative only, separately qualified;
 - request-level agent trace, latency, and cost evidence.
 
 **Exit gate:**
 
-- a real request through the route and configured 9Router path returns no more than three distinct, valid arXiv recommendations, with each rationale grounded only in returned arXiv metadata/abstract;
-- structured next-action qualification is exercised on the real route before M4 may be marked `Verified`; the record contains the route, outcome, agent trace, measured latency, and cost with its source;
+- a real request through the approved primary path returns no more than three distinct, valid arXiv recommendations, with each rationale grounded only in returned arXiv metadata/abstract;
+- master revision 2.3 schema-aware qualification observes actual search/reasons, stop, adversarial containment and subsequent valid output; controlled malformed/unsupported rejection is separately labelled. Record route, outcome, agent trace, measured latency and actual usage/cost provenance, including approved null/unavailable monetary mapping;
 - no recommendation enters the user's Library until the user explicitly adds it through the existing import flow;
 - no results produce `papers: []`; a missing title produces no invented recommendation; an unavailable arXiv API produces a retriable error and no fabricated result;
 - invalid or duplicate IDs, provider failure, interrupted work, and rejected structured next actions are handled without displaying unsupported recommendations or importing papers.
 
-**Status:** Not started
+**Status:** Verified
+
+**Owner approval — 2026-10-03:** Both [M4 child specification](./2026-10-03-researcy-m4-discovery-agent-design.md) and [implementation plan](../plans/2026-10-03-researcy-m4-discovery-agent.md) approved; the owner explicitly approved the three master revision 2.3 amendment items and M1 prerequisite exception. M1 remains Implemented. Implementation uses isolated `feat-m4-discovery-agent`; owner permits isolated stack/native runtime and at most twelve public-paper hosted attempts, not owner-data migration/worker/cutover or publishing/push/merge/prune. Approval is not gate evidence.
+
+**Final isolated verification — 2026-10-04:** [M4 acceptance](../reports/2026-10-03-researcy-m4-acceptance.md#final-amended-m4-gate-reconciliation--2026-10-04) records G1–G7: actual direct Gemini search/reasons/stop/hostile-metadata containment/subsequent valid qualification, official metadata and exact no-import integrity, owner-selected explicit Add→real processing ready, production browser, controlled real HTTP/TCP failure/security/quota/revocation, final963passed/1opt-in skip backend and124passed frontend, three-image production build and final no-finding reviews. Hosted total8/12. Synthetic identities do not promote M1 or establish Google OAuth acceptance; approved monetary-null billing-attribution limitation remains. Verification is isolated only, not owner cutover or publishing authorization.
+
+**Owner acceptance/integration authorization — 2026-10-04:** Owner reports all M4 manual checks meet the quality gate and authorizes document update, M4 process cleanup, commit/push/PR/merge, local-main synchronization and main-stack startup. [Acceptance record](../reports/2026-10-03-researcy-m4-acceptance.md#owner-acceptance-and-integration-authorization--2026-10-04) distinguishes owner observations, preserved upload-metadata/upstream-acquisition limitations and pending actual main cutover evidence. M4 remains Verified. Preserve volumes/worktrees/private artifacts; M1/Q0 history unchanged.
 
 ### M5 — ResearchAgent, Evaluation, and Interview Demo
 
@@ -254,7 +260,7 @@ The sequence follows the reader-first product dependency: identity and a ready o
 | GEN-01 | Vendor-hosted streaming grounded generation | 10 | M3 | Designed | Q0.1 report: three generation cases passed; final delivery remains M3 |
 | CIT-01 | Citation validation and quote-to-geometry resolution | 10 | M3 | Designed | Q0.1 report and one-case display evidence; final exact-PDF delivery remains M3 |
 | AGENT-01 | ReaderAgent — `POST /api/conversations/:conversationId/messages:stream` | 15 | M3 | Designed | [Approved M3 specification](./2026-10-01-researcy-m3-reader-agent-design.md); real-route structured-action, exact-PDF, trace/cost/latency gates remain required |
-| AGENT-02 | DiscoveryAgent — `POST /api/papers/:paperId/related:search` | 15 | M4 | Not started | Real-route structured next-action qualification, metadata-only rationales, explicit add, agent trace, cost, and latency |
+| AGENT-02 | DiscoveryAgent — `POST /api/papers/:paperId/related:search` | 15 | M4 | Verified | [M4 final acceptance](../reports/2026-10-03-researcy-m4-acceptance.md#final-amended-m4-gate-reconciliation--2026-10-04): isolated G1–G7, actual direct Gemini/schema-aware qualification, metadata/no-import integrity, explicit Add→ready and production browser; approved monetary-null attribution limitation,8/12 hosted attempts; no owner cutover |
 | AGENT-03 | ResearchAgent — `POST /api/papers/:paperId/research-directions:stream` | 15 | M5 | Not started | Selected-ready-paper citation journey, hypothesis labeling, agent trace, cost, latency, and evaluation |
 | UX-01 | Simplified editorial Library experience | 12, 13 | M1 | Implemented | [M1 acceptance report](../reports/2026-09-24-researcy-m1-acceptance.md); Chromium responsive/state checks passed; real OAuth gate pending |
 | UX-02 | Evidence-linked PDF and Discussion workspace | 12–14 | M3 | Designed | [Approved M3 specification](./2026-10-01-researcy-m3-reader-agent-design.md); Reader and exact-PDF browser acceptance not yet performed |

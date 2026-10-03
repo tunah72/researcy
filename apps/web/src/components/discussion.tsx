@@ -26,6 +26,7 @@ export interface DiscussionProps {
   onUnauthorized: () => void;
   activeCitationId?: string | null;
   evidence?: React.ReactNode;
+  secondaryActions?: React.ReactNode;
   canCreateConversation?: boolean;
 }
 
@@ -41,6 +42,7 @@ export function Discussion({
   onUnauthorized,
   activeCitationId,
   evidence,
+  secondaryActions,
   canCreateConversation = true,
 }: DiscussionProps): React.ReactElement {
   const [conversation, setConversation] = useState<Conversation | null>(null);
@@ -479,6 +481,7 @@ export function Discussion({
           ))}
         </div>
         {evidence && !messages.some(message => message.citations?.some(citation => citation.citation_id === activeCitationId)) && evidence}
+        {secondaryActions}
 
         {errorNotice && (
           <div className="discussion-error-banner" role="alert">

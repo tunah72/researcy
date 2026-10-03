@@ -317,6 +317,7 @@ def import_arxiv(
                         title=acquisition.metadata.title,
                         authors=acquisition.metadata.authors,
                         year=acquisition.metadata.year,
+                        abstract=acquisition.metadata.abstract,
                         source_version=acquisition.source_version,
                         requested_version=explicit_version,
                         canonical_arxiv_id=canonical_id,

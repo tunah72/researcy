@@ -7,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.datastructures import MutableHeaders
 
 from .auth.routes import router as auth_router
 from .config import get_settings
@@ -15,6 +16,7 @@ from .papers.routes import router as papers_router
 from .ingestion.routes import router as jobs_router
 from .conversations.routes import router as conversations_router
 from .citations.routes import router as citations_router
+from .discovery.routes import router as discovery_router
 
 
 class UploadBodyTooLarge(Exception):
@@ -48,6 +50,43 @@ class UploadBodyLimitMiddleware:
         await self.app(scope, limited_receive, send)
 
 
+class RequestIdMiddleware:
+    def __init__(self, app: Any):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        request_id = str(uuid4())
+        scope.setdefault("state", {})["request_id"] = request_id
+        started = False
+
+        async def send_with_request_id(message):
+            nonlocal started
+            if message["type"] == "http.response.start":
+                started = True
+                MutableHeaders(scope=message)["X-Request-ID"] = request_id
+            await send(message)
+
+        try:
+            # Do not create a competing receive task or require a response after disconnect.
+            await self.app(scope, receive, send_with_request_id)
+        except Exception as error:
+            if started:
+                raise
+            oversized = isinstance(error, UploadBodyTooLarge)
+            response = JSONResponse(
+                status_code=413 if oversized else 500,
+                content=error_payload(
+                    "PDF_TOO_LARGE" if oversized else "INTERNAL_ERROR",
+                    "The PDF exceeds the configured size limit." if oversized else "An unexpected error occurred.",
+                    request_id,
+                ),
+            )
+            await response(scope, receive, send_with_request_id)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Enable application diagnostics without exposing third-party HTTP request logs.
@@ -64,37 +103,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.add_middleware(UploadBodyLimitMiddleware)
+app.add_middleware(RequestIdMiddleware)
 app.include_router(auth_router)
 app.include_router(papers_router)
 app.include_router(jobs_router)
 app.include_router(conversations_router)
 app.include_router(citations_router)
+app.include_router(discovery_router)
 
 
-@app.middleware("http")
-async def request_id_middleware(request: Request, call_next):
-    request_id = str(uuid4())
-    request.state.request_id = request_id
-    try:
-        response = await call_next(request)
-    except UploadBodyTooLarge:
-        response = JSONResponse(
-            status_code=413,
-            content=error_payload(
-                "PDF_TOO_LARGE",
-                "The PDF exceeds the configured size limit.",
-                request_id,
-            ),
-        )
-    except Exception:
-        response = JSONResponse(
-            status_code=500,
-            content=error_payload(
-                "INTERNAL_ERROR", "An unexpected error occurred.", request_id
-            ),
-        )
-    response.headers["X-Request-ID"] = request_id
-    return response
 
 
 @app.exception_handler(APIError)

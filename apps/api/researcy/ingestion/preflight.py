@@ -27,7 +27,7 @@ from researcy.ingestion.models import IntegrityFailure, ProcessingProfile, Stage
 from researcy.papers.screening import screen_pdf
 from researcy.retrieval import embedding, index
 
-HEAD_REVISION = "0006_m3_lexical"
+HEAD_REVISION = "0007_m4_discovery"
 
 
 class PreflightFailure(Exception):

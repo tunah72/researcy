@@ -22,7 +22,10 @@ from researcy.conversations import repository
 from researcy.db import get_conn
 from researcy.errors import APIError
 from researcy.generation.client import GenerationClient
-from researcy.generation.models import AnswerAction,Claim,GenerationEvent,GenerationFailure,InvalidModelOutput,SearchAction
+from researcy.generation.models import (
+    AnswerAction,Claim,GenerationEvent,GenerationFailure,InvalidModelOutput,SearchAction,
+    READER_INITIAL_OUTPUT,READER_FINAL_OUTPUT,
+)
 from researcy.retrieval import hybrid
 from researcy.retrieval.repository import ReadyDocument
 from .reader_parser import ClaimParser
@@ -192,7 +195,8 @@ async def _generate(state: _State) -> dict:
     context.citations.clear()
     validation_error: Exception | None = None
     try:
-        async with aclosing(GenerationClient(context.settings).stream(messages,follow_up=context.calls>1,
+        async with aclosing(GenerationClient(context.settings).stream(messages,
+            output=READER_FINAL_OUTPUT if context.calls>1 else READER_INITIAL_OUTPUT,schema_name='reader_action',
             deadline=context.deadline,on_metadata=record_metadata)) as stream:
             async for event in stream:
                 if event.kind=='content' and validation_error is None:
@@ -207,7 +211,7 @@ async def _generate(state: _State) -> dict:
                     if validation_error is not None:
                         raise validation_error
                 else:
-                    action = event.action
+                    action = event.output
         if validation_error is not None:
             raise validation_error
         parser.finish()

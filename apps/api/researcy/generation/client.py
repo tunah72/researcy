@@ -14,13 +14,8 @@ import httpx2
 
 from researcy.config import GENERATION_MODELS, Settings, _validate_generation_endpoint
 from .models import (
-    AnswerAction, SearchAction, GenerationEvent, GenerationFailure, InvalidModelOutput, validate_action,
+    GenerationEvent, GenerationFailure, InvalidModelOutput, decode_output,
     _reject_constant, _reject_duplicate_keys,
-)
-
-_ACTION_SCHEMAS = (
-    TypeAdapter(AnswerAction | SearchAction).json_schema(),
-    TypeAdapter(AnswerAction).json_schema(),
 )
 
 
@@ -136,9 +131,10 @@ class GenerationClient:
         self.settings = settings
         self._transport = transport
 
-    async def stream(self,messages: list[dict[str,str]],*,follow_up: bool=False,
+    async def stream(self,messages: list[dict[str,str]],*,output: TypeAdapter,schema_name: str,
         deadline: float | None=None,
-        on_metadata: Callable[[GenerationEvent | None], None] | None=None) -> AsyncIterator[GenerationEvent]:
+        on_metadata: Callable[[GenerationEvent | None], None] | None=None,
+        on_response: Callable[[], None] | None=None) -> AsyncIterator[GenerationEvent]:
         pass_deadline = time.monotonic()+self.settings.generation_pass_seconds
         if deadline is not None:
             pass_deadline = min(pass_deadline,deadline)
@@ -156,8 +152,8 @@ class GenerationClient:
             nonlocal timed_out,terminal_metadata
             try:
                 async with asyncio.timeout_at(pass_deadline):
-                    async with aclosing(self._stream_events(messages,follow_up=follow_up,deadline=pass_deadline,
-                        checkpoint_terminal=checkpoint_terminal)) as source:
+                    async with aclosing(self._stream_events(messages,output=output,schema_name=schema_name,deadline=pass_deadline,
+                        checkpoint_terminal=checkpoint_terminal,on_response=on_response)) as source:
                         async for event in source:
                             if event.kind=='content':
                                 encoded = event.text.encode('utf-8')
@@ -229,9 +225,10 @@ class GenerationClient:
             except asyncio.CancelledError:
                 pass
 
-    async def _stream_events(self,messages: list[dict[str,str]],*,follow_up: bool=False,
+    async def _stream_events(self,messages: list[dict[str,str]],*,output: TypeAdapter,schema_name: str,
         deadline: float | None=None,
-        checkpoint_terminal: Callable[[GenerationEvent | None], None] | None=None) -> AsyncIterator[GenerationEvent]:
+        checkpoint_terminal: Callable[[GenerationEvent | None], None] | None=None,
+        on_response: Callable[[], None] | None=None) -> AsyncIterator[GenerationEvent]:
         def notify_terminal(event: GenerationEvent | None) -> None:
             if checkpoint_terminal is not None:
                 checkpoint_terminal(event)
@@ -261,7 +258,7 @@ class GenerationClient:
                 reasoning_effort='low',
                 stream_options={'include_usage':True},
                 response_format={'type':'json_schema','json_schema':{
-                    'name':'reader_action','strict':True,'schema':_ACTION_SCHEMAS[int(follow_up)]}},
+                    'name':schema_name,'strict':True,'schema':output.json_schema()}},
             )
         headers = {'Authorization':'Bearer '+self.settings.generation_api_key,'Accept':'text/event-stream'}
         content_parts: list[str] = []
@@ -279,6 +276,8 @@ class GenerationClient:
                     async with asyncio.timeout_at(pass_deadline):
                         response = await stack.enter_async_context(client.stream('POST',endpoint+'/chat/completions',
                             headers=headers,json=payload))
+                    if on_response is not None:
+                        on_response()
                     if response.status_code==429:
                         raise GenerationFailure('GENERATION_RATE_LIMITED')
                     if 500<=response.status_code<600:
@@ -418,6 +417,6 @@ class GenerationClient:
             raise GenerationFailure('PAYLOAD_TOO_LARGE')
         yield GenerationEvent(kind='metadata',usage=usage,echoed_model=echoed_model,finish_reason='stop')
         _check_deadline(pass_deadline)
-        action = validate_action(''.join(content_parts).encode('utf-8'),follow_up=follow_up)
+        decoded = decode_output(''.join(content_parts).encode('utf-8'),output)
         _check_deadline(pass_deadline)
-        yield GenerationEvent(kind='completed',action=action)
+        yield GenerationEvent(kind='completed',output=decoded)

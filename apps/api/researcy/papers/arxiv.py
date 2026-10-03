@@ -1,7 +1,9 @@
-from collections.abc import Callable
-from contextlib import contextmanager
+import asyncio
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
+from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
 from email.utils import parsedate_to_datetime
+from itertools import islice
 import logging
 import math
 import os
@@ -10,6 +12,7 @@ import re
 import tempfile
 import threading
 import time
+import unicodedata
 from urllib.parse import urljoin, urlsplit
 import xml.etree.ElementTree as ET
 
@@ -31,6 +34,10 @@ _MAX_RESPONSE_SECONDS = 60.0
 _MAX_METADATA_BYTES = 1024 * 1024
 _USER_AGENT = "Researcy/0.1 (https://github.com/tunah72/researcy)"
 _DEFAULT_HEADERS = {"User-Agent": _USER_AGENT}
+_ATOM_NAMESPACES = {
+    "atom": "http://www.w3.org/2005/Atom",
+    "opensearch": "http://a9.com/-/spec/opensearch/1.1/",
+}
 
 logger = logging.getLogger(__name__)
 
@@ -55,54 +62,85 @@ def _log_upstream(host: str, status: int | None, request_id: str | None) -> None
 
 
 class ArxivLimiter:
-    """Process-wide rate limiter and cooldown coordinator for official arXiv requests."""
+    """Process-wide request exclusion, pacing and cooldown for sync/async arXiv I/O."""
 
     def __init__(
         self,
         min_interval: float = 3.0,
         clock: Callable[[], float] | None = None,
         sleep: Callable[[float], None] | None = None,
+        async_sleep: Callable[[float], Awaitable[None]] | None = None,
     ):
         self._min_interval = min_interval
         self._clock = clock or time.monotonic
         self._sleep = sleep or time.sleep
-        # A response can establish cooldown while holding the request lease.
-        self._lock = threading.RLock()
-        self._last_request_started_at: float = 0.0
-        self._cooldown_until: float = 0.0
-
+        self._async_sleep = async_sleep or asyncio.sleep
+        self._request_lock = threading.Lock()
+        self._state_lock = threading.Lock()
+        self._last_request_started_at: float | None = None
+        self._cooldown_until = 0.0
 
     def set_cooldown(self, seconds: float) -> None:
-        with self._lock:
-            clock_fn = self._clock
-            expiry = clock_fn() + max(0.0, float(seconds))
-            if expiry > self._cooldown_until:
-                self._cooldown_until = expiry
+        with self._state_lock:
+            expiry = self._clock() + max(0.0, float(seconds))
+            self._cooldown_until = max(self._cooldown_until, expiry)
+
+    def _check_cooldown(self, now: float) -> None:
+        # Caller holds only the state lock, never while sleeping or doing I/O.
+        if now < self._cooldown_until:
+            raise ArxivUpstreamError(
+                "arXiv is temporarily unavailable. Please try again after the indicated interval.",
+                status_code=503,
+                retry_after=max(1, math.ceil(self._cooldown_until - now)),
+            )
+
+    def _spacing_delay(self) -> float:
+        with self._state_lock:
+            now = self._clock()
+            self._check_cooldown(now)
+            if self._last_request_started_at is None:
+                return 0.0
+            return max(0.0, self._min_interval - (now - self._last_request_started_at))
+
+    def _mark_started(self) -> None:
+        with self._state_lock:
+            now = self._clock()
+            self._check_cooldown(now)
+            self._last_request_started_at = now
 
     @contextmanager
-    def acquire(self):
-        if not self._lock.acquire(timeout=_MAX_RESPONSE_SECONDS):
+    def acquire(self) -> Iterator[None]:
+        if not self._request_lock.acquire(timeout=_MAX_RESPONSE_SECONDS):
             raise ArxivUpstreamError("arXiv is busy. Please wait before trying again.")
         try:
-            clock_fn = self._clock
-            sleep_fn = self._sleep
-            now = clock_fn()
-            if now < self._cooldown_until:
-                remaining = max(1, math.ceil(self._cooldown_until - now))
-                raise ArxivUpstreamError(
-                    "arXiv is temporarily unavailable. Please try again after the indicated interval.",
-                    status_code=503,
-                    retry_after=remaining,
-                )
-            if self._last_request_started_at > 0.0:
-                elapsed = now - self._last_request_started_at
-                if elapsed < self._min_interval:
-                    delay = self._min_interval - elapsed
-                    sleep_fn(delay)
-            self._last_request_started_at = clock_fn()
+            delay = self._spacing_delay()
+            if delay:
+                self._sleep(delay)
+            self._mark_started()
             yield
         finally:
-            self._lock.release()
+            self._request_lock.release()
+
+    @asynccontextmanager
+    async def acquire_async(self, *, deadline: float) -> AsyncIterator[None]:
+        # Nonblocking polling gives cancellation no detached thread or pending lease.
+        while True:
+            remaining = _search_remaining(deadline)
+            if self._request_lock.acquire(blocking=False):
+                break
+            await self._async_sleep(min(0.05, remaining))
+        try:
+            while True:
+                remaining = _search_remaining(deadline)
+                delay = self._spacing_delay()
+                if not delay:
+                    break
+                await self._async_sleep(min(delay, remaining))
+            _search_remaining(deadline)
+            self._mark_started()
+            yield
+        finally:
+            self._request_lock.release()
 
 
 _GLOBAL_LIMITER = ArxivLimiter()
@@ -154,6 +192,26 @@ class ArxivMetadata:
     title: str | None
     authors: list[str] | None
     year: int | None
+    abstract: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ArxivCandidate:
+    arxiv_id: str
+    title: str
+    authors: tuple[str, ...]
+    abstract: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class ArxivSearchResult:
+    candidates: tuple[ArxivCandidate, ...]
+    inspected_entries: int
+    inspected_unique: int
+    invalid_ids: int
+    duplicates: int
+    http_requests: int
+    redirects: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -275,6 +333,99 @@ def _parse_retry_after(value: str | None) -> int | None:
         return None
 
 
+def _redirect_destination(
+    response: httpx2.Response, current_url: str, redirects: int, service: str,
+) -> str | None:
+    if response.status_code not in {301, 302, 303, 307, 308}:
+        return None
+    if redirects >= _MAX_REDIRECTS:
+        raise ArxivUpstreamError(
+            f"Too many redirects from official arXiv {service} service.", status_code=502,
+        )
+    location = response.headers.get("Location")
+    if not location:
+        raise ArxivUpstreamError(
+            "Redirect missing Location header from official arXiv service.", status_code=502,
+        )
+    destination = urljoin(current_url, location)
+    _validate_destination_url(destination)
+    return destination
+
+
+def _check_upstream_status(
+    response: httpx2.Response, limiter: ArxivLimiter, service: str,
+    *, canonical_id: str | None = None,
+) -> None:
+    # 406 is a rejection, not proof of rate limiting; establish cooldown, never retry.
+    if response.status_code in {406, 429, 503}:
+        cooldown = _parse_retry_after(response.headers.get("Retry-After")) or 60
+        limiter.set_cooldown(cooldown)
+        raise ArxivUpstreamError(
+            "arXiv could not complete this request. Please wait before trying again.",
+            status_code=503, retry_after=cooldown,
+        )
+    if response.status_code == 404:
+        if service == "PDF":
+            raise ArxivVersionNotFound("The requested arXiv PDF version was not found.")
+        if canonical_id is not None:
+            raise ArxivNotFound(f"The arXiv paper {canonical_id} was not found.")
+    if response.status_code != 200:
+        raise ArxivUpstreamError(
+            f"The official arXiv {service} service is temporarily unavailable. Please try again later.",
+            status_code=502,
+        )
+
+
+class _MetadataTreeBuilder(ET.TreeBuilder):
+    def doctype(self, name: str, pubid: str | None, system: str | None) -> None:
+        # Reject DTDs before entity expansion, including UTF-16 encoded declarations.
+        raise ArxivUpstreamError(
+            "Official arXiv metadata must not contain document type declarations.", status_code=502,
+        )
+
+
+def _parse_atom_feed(content: bytes | bytearray) -> ET.Element:
+    try:
+        root = ET.fromstring(content, parser=ET.XMLParser(target=_MetadataTreeBuilder()))
+    except ET.ParseError:
+        raise ArxivUpstreamError(
+            "Failed to parse official arXiv metadata response.", status_code=502,
+        ) from None
+    if root.tag != "{http://www.w3.org/2005/Atom}feed":
+        raise ArxivUpstreamError("Invalid official arXiv metadata feed.", status_code=502)
+    return root
+
+
+def _entry_reference(entry: ET.Element) -> tuple[str, int | None]:
+    element = entry.find("atom:id", _ATOM_NAMESPACES)
+    if element is None or len(element):
+        raise InvalidArxivReference()
+    identifier = (element.text or "").strip()
+    # Atom's historical HTTP IDs are data; their URLs are never requested.
+    if identifier.startswith("http://"):
+        identifier = "https://" + identifier[len("http://"):]
+    try:
+        parsed = urlsplit(identifier)
+    except ValueError:
+        raise InvalidArxivReference() from None
+    if parsed.netloc in _OFFICIAL_DESTINATION_HOSTS and parsed.path == "/api/errors":
+        raise ArxivUpstreamError("The official arXiv metadata service returned an error.", status_code=502)
+    try:
+        return parse_arxiv_reference(identifier)
+    except ValueError:
+        raise InvalidArxivReference() from None
+
+
+def _normalized_atom_text(element: ET.Element | None) -> str | None:
+    if element is None or not element.text:
+        return None
+    return " ".join(element.text.split()) or None
+
+
+def _entry_abstract(entry: ET.Element) -> str | None:
+    return _candidate_text(entry.find("atom:summary", _ATOM_NAMESPACES))
+
+
 def _fetch_metadata(
     client: httpx2.Client,
     canonical_id: str,
@@ -298,44 +449,12 @@ def _fetch_metadata(
                     "GET", current_url, follow_redirects=False, headers=req_headers
                 ) as response:
                     _log_upstream(host, response.status_code, request_id)
-                    if response.status_code in {301, 302, 303, 307, 308}:
+                    destination = _redirect_destination(response, current_url, redirect_count, "metadata")
+                    if destination is not None:
                         redirect_count += 1
-                        if redirect_count > _MAX_REDIRECTS:
-                            raise ArxivUpstreamError(
-                                "Too many redirects from official arXiv metadata service.",
-                                status_code=502,
-                            )
-                        location = response.headers.get("Location")
-                        if not location:
-                            raise ArxivUpstreamError(
-                                "Redirect missing Location header from official arXiv service.",
-                                status_code=502,
-                            )
-                        current_url = urljoin(current_url, location)
+                        current_url = destination
                         continue
-
-                    # 406 is a rejection, not proof of rate limiting. Back off rather than probe again.
-                    if response.status_code in {406, 429, 503}:
-                        retry_after = _parse_retry_after(response.headers.get("Retry-After"))
-                        cooldown = retry_after or 60
-                        active_limiter.set_cooldown(cooldown)
-                        raise ArxivUpstreamError(
-                            "arXiv could not complete this request. Please wait before trying again.",
-                            status_code=503,
-                            retry_after=cooldown,
-                        )
-                    if response.status_code == 404:
-                        raise ArxivNotFound(f"The arXiv paper {canonical_id} was not found.")
-                    if response.status_code >= 500:
-                        raise ArxivUpstreamError(
-                            "The official arXiv metadata service is temporarily unavailable. Please try again later.",
-                            status_code=502,
-                        )
-                    if response.status_code != 200:
-                        raise ArxivUpstreamError(
-                            "The official arXiv metadata service is temporarily unavailable. Please try again later.",
-                            status_code=502,
-                        )
+                    _check_upstream_status(response, active_limiter, "metadata", canonical_id=canonical_id)
 
                     xml_content = bytearray()
                     for chunk in response.iter_bytes():
@@ -354,17 +473,8 @@ def _fetch_metadata(
             _log_upstream(host, None, request_id)
             raise
 
-    try:
-        root = ET.fromstring(xml_content)
-    except ET.ParseError:
-        raise ArxivUpstreamError(
-            "Failed to parse official arXiv metadata response.", status_code=502
-        ) from None
-
-    ns = {
-        "atom": "http://www.w3.org/2005/Atom",
-        "opensearch": "http://a9.com/-/spec/opensearch/1.1/",
-    }
+    root = _parse_atom_feed(xml_content)
+    ns = _ATOM_NAMESPACES
 
     total_results_elem = root.find("opensearch:totalResults", ns)
     if total_results_elem is not None and total_results_elem.text == "0":
@@ -374,15 +484,8 @@ def _fetch_metadata(
     if entry is None:
         raise ArxivNotFound(f"The arXiv paper {canonical_id} was not found.")
 
-    id_elem = entry.find("atom:id", ns)
-    if id_elem is None or not id_elem.text:
-        raise ArxivUpstreamError(
-            "Official arXiv metadata entry is missing an ID.", status_code=502
-        )
-
-    entry_id_str = id_elem.text.strip().replace("http://", "https://")
     try:
-        entry_canonical_id, entry_version = parse_arxiv_reference(entry_id_str)
+        entry_canonical_id, entry_version = _entry_reference(entry)
     except InvalidArxivReference:
         raise ArxivUpstreamError(
             "Official arXiv metadata contains an invalid entry identifier.",
@@ -396,12 +499,9 @@ def _fetch_metadata(
 
     latest_version = entry_version if entry_version is not None else 1
 
-    title_elem = entry.find("atom:title", ns)
-    title = None
-    if title_elem is not None and title_elem.text:
-        cleaned = " ".join(title_elem.text.split())
-        if cleaned and cleaned.lower() != "error":
-            title = cleaned
+    title = _normalized_atom_text(entry.find("atom:title", ns))
+    if title is not None and title.casefold() == "error":
+        title = None
 
     authors = [
         " ".join(name_elem.text.split())
@@ -424,7 +524,9 @@ def _fetch_metadata(
             except (ValueError, IndexError):
                 pass
 
-    return ArxivMetadata(title=title, authors=authors or None, year=year), latest_version
+    return ArxivMetadata(
+        title=title, authors=authors or None, year=year, abstract=_entry_abstract(entry),
+    ), latest_version
 
 
 def _stream_pdf_to_sink(
@@ -456,43 +558,12 @@ def _stream_pdf_to_sink(
                     "GET", current_url, follow_redirects=False, headers=req_headers
                 ) as response:
                     _log_upstream(host, response.status_code, request_id)
-                    if response.status_code in {301, 302, 303, 307, 308}:
+                    destination = _redirect_destination(response, current_url, redirect_count, "PDF")
+                    if destination is not None:
                         redirect_count += 1
-                        if redirect_count > _MAX_REDIRECTS:
-                            raise ArxivUpstreamError(
-                                "Too many redirects from official arXiv PDF service.",
-                                status_code=502,
-                            )
-                        location = response.headers.get("Location")
-                        if not location:
-                            raise ArxivUpstreamError(
-                                "Redirect missing Location header from official arXiv service.",
-                                status_code=502,
-                            )
-                        current_url = urljoin(current_url, location)
+                        current_url = destination
                         continue
-
-                    if response.status_code in {406, 429, 503}:
-                        retry_after = _parse_retry_after(response.headers.get("Retry-After"))
-                        cooldown = retry_after or 60
-                        active_limiter.set_cooldown(cooldown)
-                        raise ArxivUpstreamError(
-                            "arXiv could not complete this request. Please wait before trying again.",
-                            status_code=503,
-                            retry_after=cooldown,
-                        )
-                    if response.status_code == 404:
-                        raise ArxivVersionNotFound("The requested arXiv PDF version was not found.")
-                    if response.status_code >= 500:
-                        raise ArxivUpstreamError(
-                            "The official arXiv PDF service is temporarily unavailable. Please try again later.",
-                            status_code=502,
-                        )
-                    if response.status_code != 200:
-                        raise ArxivUpstreamError(
-                            "The official arXiv PDF service is temporarily unavailable. Please try again later.",
-                            status_code=502,
-                        )
+                    _check_upstream_status(response, active_limiter, "PDF")
 
                     total_bytes = 0
                     with open(path, "wb") as sink:
@@ -634,3 +705,209 @@ def fetch_official_arxiv(
     finally:
         if owned_client:
             client.close()
+
+
+_RELATED_STOPWORDS = frozenset('a an and are as at be by for from in is it of on or that the this to was were with all you need'.split())
+_TITLE_PLACEHOLDERS = frozenset({"untitled", "untitled document", "unknown", "unknown title", "error"})
+
+
+def _related_terms(text: str, exclude: tuple[str, ...] = ()) -> Iterator[str]:
+    seen = set(exclude)
+    for match in re.finditer(r"[^\W_]+", text):
+        term = match.group().casefold()
+        if len(term) <= 80 and term not in _RELATED_STOPWORDS and term not in seen:
+            seen.add(term)
+            yield term
+
+
+def _unsafe_metadata_unicode(text: str) -> bool:
+    # Directional overrides/isolates can disguise identities; legitimate ZWJ names remain valid.
+    return any(
+        (unicodedata.category(char) in {"Cc", "Cs"} and char not in "\r\n\t")
+        or unicodedata.bidirectional(char) in {"LRE", "RLE", "LRO", "RLO", "PDF", "LRI", "RLI", "FSI", "PDI"}
+        for char in text
+    )
+
+
+def _usable_title(title: str | None) -> bool:
+    return (
+        title is not None and 1 <= len(title) <= 1000
+        and title.casefold() not in _TITLE_PLACEHOLDERS
+        and any(char.isalnum() for char in title)
+    )
+
+
+def related_title_terms(title: str | None) -> tuple[str, ...]:
+    if not isinstance(title,str):
+        raise APIError(409,'DISCOVERY_METADATA_MISSING','This paper needs a usable title before related-paper search.')
+    cleaned = ' '.join(title.split())
+    if not _usable_title(cleaned) or _unsafe_metadata_unicode(title):
+        raise APIError(409,'DISCOVERY_METADATA_MISSING','This paper needs a usable title before related-paper search.')
+    terms = tuple(islice(_related_terms(cleaned), 12))
+    if not terms:
+        raise APIError(409,'DISCOVERY_METADATA_MISSING','This paper needs a usable title before related-paper search.')
+    return terms
+
+
+def build_related_query(title: str, abstract: str | None) -> str:
+    title_terms = related_title_terms(title)
+    title_group = "(" + " OR ".join(f'all:"{term}"' for term in title_terms) + ")"
+    abstract_terms = tuple(islice(_related_terms(abstract, title_terms), 8)) if abstract else ()
+    if not abstract_terms:
+        return title_group
+    abstract_group = "(" + " OR ".join(f'abs:"{term}"' for term in abstract_terms) + ")"
+    return title_group + " AND " + abstract_group
+
+
+def _candidate_text(element: ET.Element | None, max_length: int | None = None) -> str | None:
+    if element is not None and len(element):
+        raise ArxivUpstreamError("Official arXiv metadata contains unsupported structured text.", status_code=502)
+    if element is not None and element.text and _unsafe_metadata_unicode(element.text):
+        raise ArxivUpstreamError("Official arXiv metadata contains unsafe text.", status_code=502)
+    text = _normalized_atom_text(element)
+    if text is not None and max_length is not None and len(text) > max_length:
+        raise ArxivUpstreamError("Official arXiv metadata exceeds the safe field limits.", status_code=502)
+    return text
+
+
+def _search_candidates(content: bytearray, *, http_requests: int, redirects: int,
+    on_measurement: Callable[[dict[str, int]], None] | None = None) -> ArxivSearchResult:
+    root = _parse_atom_feed(content)
+    seen: dict[str, tuple[str | None, tuple[str, ...], str | None]] = {}
+    candidates = []
+    inspected_entries = invalid_ids = duplicates = 0
+    def measure() -> None:
+        if on_measurement is not None:
+            on_measurement({'inspected_entries':inspected_entries,'inspected_unique':len(seen),
+                'invalid_ids':invalid_ids,'duplicates':duplicates})
+    for entry in islice(root.iterfind("atom:entry", _ATOM_NAMESPACES), 10):
+        inspected_entries += 1
+        measure()
+        try:
+            canonical_id, _ = _entry_reference(entry)
+        except InvalidArxivReference:
+            invalid_ids += 1
+            measure()
+            continue
+        title = _candidate_text(entry.find("atom:title", _ATOM_NAMESPACES), 1000)
+        authors = tuple(
+            name for element in entry.iterfind("atom:author/atom:name", _ATOM_NAMESPACES)
+            if (name := _candidate_text(element, 200)) is not None
+        )
+        if len(authors) > 200:
+            raise ArxivUpstreamError("Official arXiv metadata exceeds the safe author limit.", status_code=502)
+        abstract = _candidate_text(entry.find("atom:summary", _ATOM_NAMESPACES))
+        metadata = (title, authors, abstract)
+        if canonical_id in seen:
+            duplicates += 1
+            measure()
+            if seen[canonical_id] != metadata:
+                raise ArxivUpstreamError(
+                    "The official arXiv service returned inconsistent metadata.", status_code=502,
+                )
+            continue
+        seen[canonical_id] = metadata
+        measure()
+        if _usable_title(title):
+            candidates.append(ArxivCandidate(canonical_id, title, authors, abstract))
+    return ArxivSearchResult(
+        candidates=tuple(candidates), inspected_entries=inspected_entries, inspected_unique=len(seen),
+        invalid_ids=invalid_ids, duplicates=duplicates, http_requests=http_requests, redirects=redirects,
+    )
+
+
+def _search_remaining(deadline: float) -> float:
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise TimeoutError("arXiv metadata search deadline exceeded")
+    return remaining
+
+
+def _validate_search_destination(current_url: str, initial_url: httpx2.URL) -> None:
+    _validate_destination_url(current_url)
+    try:
+        parsed = httpx2.URL(current_url)
+    except (ValueError, httpx2.InvalidURL):
+        raise ArxivUpstreamError("Invalid official arXiv metadata destination.", status_code=502) from None
+    if (
+        parsed.path != "/api/query" or parsed.fragment
+        or sorted(parsed.params.multi_items()) != sorted(initial_url.params.multi_items())
+    ):
+        raise ArxivUpstreamError(
+            "Official arXiv metadata search redirected outside the requested query.", status_code=502,
+        )
+
+
+async def search_official_arxiv_metadata(
+    query: str, *, deadline: float, request_id: str,
+    transport: httpx2.AsyncBaseTransport | None = None,
+    on_measurement: Callable[[dict[str, int | None]], None] | None = None,
+) -> ArxivSearchResult:
+    """Run exactly one bounded official metadata query, without fetching Atom links or PDFs."""
+    stage_deadline = min(deadline, time.monotonic() + _MAX_RESPONSE_SECONDS)
+    initial_url = httpx2.URL(
+        "https://export.arxiv.org/api/query",
+        params={
+            "search_query": query, "start": 0, "max_results": 10,
+            "sortBy": "relevance", "sortOrder": "descending",
+        },
+    )
+    current_url = str(initial_url)
+    limiter = _GLOBAL_LIMITER
+    http_requests = redirects = 0
+    measurements={'arxiv_http_request_attempts':0,'arxiv_http_requests':0,
+        'arxiv_http_requests_observed':0,'arxiv_redirects':0,
+        'inspected_entries':0,'inspected_unique':0,'invalid_ids':0,'duplicates':0}
+    def measure(counts: dict[str, int | None]) -> None:
+        measurements.update(counts)
+        if on_measurement is not None:
+            on_measurement(measurements)
+    host = initial_url.host
+    try:
+        _search_remaining(stage_deadline)
+        async with asyncio.timeout_at(stage_deadline):
+            async with httpx2.AsyncClient(
+                transport=transport, trust_env=False, follow_redirects=False, headers=_DEFAULT_HEADERS,
+            ) as client:
+                while True:
+                    _validate_search_destination(current_url, initial_url)
+                    host = urlsplit(current_url).netloc
+                    async with limiter.acquire_async(deadline=stage_deadline):
+                        remaining = _search_remaining(stage_deadline)
+                        timeout = httpx2.Timeout(min(_DEFAULT_TIMEOUT, remaining), connect=min(5.0, remaining))
+                        measure({'arxiv_http_request_attempts':measurements['arxiv_http_request_attempts']+1,
+                            'arxiv_http_requests':None})
+                        async with client.stream("GET", current_url, timeout=timeout) as response:
+                            http_requests += 1
+                            measure({'arxiv_http_requests':http_requests,'arxiv_http_requests_observed':http_requests})
+                            _log_upstream(host, response.status_code, request_id)
+                            destination = _redirect_destination(response, current_url, redirects, "metadata")
+                            if destination is not None:
+                                _validate_search_destination(destination, initial_url)
+                                redirects += 1
+                                measure({'arxiv_redirects':redirects})
+                                current_url = destination
+                                continue
+                            _check_upstream_status(response, limiter, "metadata")
+                            content = bytearray()
+                            async for chunk in response.aiter_bytes():
+                                _search_remaining(stage_deadline)
+                                if len(content) + len(chunk) > _MAX_METADATA_BYTES:
+                                    raise ArxivUpstreamError(
+                                        "The official arXiv metadata response exceeded the safe size limit.",
+                                        status_code=502,
+                                    )
+                                content.extend(chunk)
+                            break
+            _search_remaining(stage_deadline)
+            result = _search_candidates(content, http_requests=http_requests, redirects=redirects,on_measurement=measure)
+            _search_remaining(stage_deadline)
+            return result
+    except (TimeoutError, httpx2.TimeoutException):
+        _log_upstream(host, None, request_id)
+        raise ArxivUpstreamError(
+            "arXiv did not respond in time. Please wait and retry.", status_code=504,
+        ) from None
+    except httpx2.HTTPError:
+        _log_upstream(host, None, request_id)
+        raise ArxivUpstreamError("arXiv could not be reached. Please wait and retry.", status_code=503) from None

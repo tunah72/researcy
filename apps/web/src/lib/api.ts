@@ -76,6 +76,19 @@ export interface IntakeResponse {
   request_id: string;
 }
 
+export interface RelatedPaper {
+  arxiv_id: string;
+  title: string;
+  authors: string[];
+  reason: string;
+  arxiv_url: string;
+}
+
+export interface RelatedSearchResponse {
+  papers: RelatedPaper[];
+  request_id: string;
+}
+
 export type RunState = 'running' | 'completed' | 'refused' | 'failed' | 'interrupted';
 export type MessageRole = 'user' | 'assistant';
 
@@ -257,6 +270,20 @@ const USER_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   READER_RUN_NOT_ACTIVE: 'This answer is no longer active.',
   EVIDENCE_UNRESOLVED: 'The answer evidence could not be verified in the paper.',
   MESSAGE_CONFLICT: 'This question was already submitted. Try asking a new question.',
+  DISCOVERY_METADATA_MISSING: 'This paper needs a usable title before related-paper search.',
+  PAPER_NOT_READY: 'Wait for this paper to finish processing, then reload before searching again.',
+  DISCOVERY_SOURCE_CHANGED: 'This paper changed. Reload before searching again.',
+  DISCOVERY_RUN_ACTIVE: 'A related-paper search is already running. Please wait before trying again.',
+  DISCOVERY_RATE_LIMITED: 'Please wait before searching for related papers again.',
+  DISCOVERY_RUN_NOT_ACTIVE: 'This search is no longer running. Please search again.',
+  DISCOVERY_TIMEOUT: 'The related-paper search exceeded its time limit. Please search again.',
+  GENERATION_UNCONFIGURED: 'Generation is not configured. Please try later.',
+  GENERATION_UNAVAILABLE: 'Generation is unavailable. Please try later.',
+  GENERATION_RATE_LIMITED: 'Generation is busy. Please wait before trying again.',
+  GENERATION_TIMEOUT: 'Generation timed out. Please try again.',
+  GENERATION_FAILED: 'This request could not be completed. Please try again.',
+  GENERATION_INVALID_ACTION: 'The response could not be validated. Please try again.',
+  GENERATION_INVALID_OUTPUT: 'The response could not be validated. Please try again.',
 };
 
 export function userErrorMessage(error: unknown, fallback: string): string {
@@ -354,6 +381,11 @@ export async function fetchJob(jobId: string): Promise<JobResponse> {
 export async function retryJob(jobId: string, revision: number): Promise<JobResponse> {
   const res = await mutate(`/api/jobs/${encodeURIComponent(jobId)}/retry`, JSON.stringify({ retry_revision: revision }));
   return parseResponse<JobResponse>(res);
+}
+
+export async function searchRelatedPapers(paperId: string, signal?: AbortSignal): Promise<RelatedSearchResponse> {
+  const res = await mutate(`/api/papers/${encodeURIComponent(paperId)}/related:search`, undefined, undefined, signal);
+  return parseResponse<RelatedSearchResponse>(res);
 }
 
 export async function importArxiv(arxivIdOrUrl: string, idempotencyKey: string): Promise<IntakeResponse> {
