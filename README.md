@@ -151,7 +151,7 @@ flowchart TB
 
 ### 2.1. Exact PDF-Space Geometry Citations (Zero Approximate Fallback)
 Unlike typical RAG systems that provide vague page-level numbers or hallucinations, Researcy enforces an uncompromising mathematical citation contract:
-$$\text{Citation} = \langle \text{paper\_id}, \text{document\_version}, \text{source\_ref}, \text{verbatim\_quote}, \text{page}, [\text{box}_1, \dots, \text{box}_k] \rangle$$
+$$\text{Citation} = \langle \text{paper-id},\, \text{document-version},\, \text{source-ref},\, \text{verbatim-quote},\, \text{page},\, [\text{box}_1, \dots, \text{box}_k] \rangle$$
 - **Sub-Point Coordinate Mapping**: Bounding boxes are resolved in 72-dpi PDF user-space coordinates $(x_0, y_0, x_1, y_1)$ directly against layout-aware word extraction spans.
 - **Fail-Closed Verification**: If a model generates a quote with character deviations, hallucinated punctuation, or drift outside the verified document version, the engine rejects the citation or marks it unverified. **Page-only fallback is strictly prohibited**.
 
