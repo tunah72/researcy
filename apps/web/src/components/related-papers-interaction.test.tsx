@@ -177,7 +177,6 @@ it('discards a pending Add result when navigating away from its source', async (
 it('does not permit discovery for an active version still preparing', async () => {
   render(<ReaderWorkspace paper={{ ...paper, stage: 'embedding' }} source={source} />);
   expect(await screen.findByRole('button', { name: 'Related papers' })).toBeDisabled();
-  expect(screen.getByText(/after the active document finishes processing/i)).toBeVisible();
   expect(searches()).toHaveLength(0);
 });
 

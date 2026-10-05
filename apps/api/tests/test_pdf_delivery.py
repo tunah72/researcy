@@ -10,7 +10,7 @@ from researcy.retrieval import index
 
 
 @pytest.fixture
-def pdf_case(selected_index, client, tmp_path):
+def pdf_case(selected_index, client):
     fixture = selected_index
     deadline = time.monotonic() + 60
     index.index_selected(fixture['lease'], deadline)
@@ -18,7 +18,7 @@ def pdf_case(selected_index, client, tmp_path):
     index.publish_ready(fixture['conn'], fixture['lease'], receipt)
     scope = fixture['scope']
     _authenticate(client, fixture['conn'], scope.owner_id)
-    original = (tmp_path / 'original.pdf').read_bytes()
+    original = fixture['source_bytes']
     return scope, original, f'/api/papers/{scope.paper_id}/versions/{scope.document_version_id}/pdf'
 
 

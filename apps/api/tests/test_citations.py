@@ -95,6 +95,24 @@ def test_citation_get_exposes_only_owned_completed_accepted_evidence(reader_sour
     assert reader_client.get(path).status_code==reader_client.get(f'/api/citations/{uuid4()}').status_code==404
 
 
+def test_research_reader_uuid_collision_fails_closed(research_sources):
+    from test_research_repository import reserve
+    from researcy.research.repository import finish_research
+    from researcy.conversations.repository import create_owned_conversation,reserve_run,finish_run
+    from researcy.citations.repository import get_owned_citation
+    from researcy.errors import APIError
+    f=research_sources;conn=f['conn'];run=reserve(f)
+    ideas,citations=f['resolved_idea_for'](f['paper_ids'][0])
+    finish_research(conn,run,ideas,citations,{})
+    conversation=create_owned_conversation(conn,f['owner_id'],f['publications'][0]['document'])
+    reader=reserve_run(conn,f['owner_id'],conversation.id,uuid4(),'What is the exact evidence?',uuid4())
+    finish_run(conn,reader,['The source reports experimental limitations.'],citations,{})
+    with pytest.raises(APIError) as error:
+        get_owned_citation(conn,f['owner_id'],citations[0].citation.citation_id)
+    assert error.value.status_code==404
+
+
+
 @pytest.fixture
 def mapped_quote_source(queued_job,job_connections,request):
     from test_document_provenance import source_lines
@@ -143,6 +161,39 @@ def test_raw_ligature_dehyphenation_and_whitespace_preserve_original_characters(
     assert whitespace[0].evidence_quote=='An  efﬁcient'
     with pytest.raises(APIError):
         resolve_proposal(conn,document,catalog,ProposedCitation(source_ref='S1',evidence_quote='efficient'))
+
+
+@pytest.mark.parametrize('mapped_quote_source',[
+    [[('An \ufffd efﬁcient cafe\u0301 result 😀.',650,0,'text')]]
+],indirect=True)
+@pytest.mark.parametrize('escaped',[False,True])
+def test_decoded_and_streamed_unicode_quotes_preserve_every_raw_character(mapped_quote_source,escaped):
+    import json
+    from researcy.agents.reader_parser import ClaimParser
+    from researcy.citations.models import ProposedCitation
+    from researcy.citations.resolver import resolve_proposal
+    from researcy.errors import APIError
+    from researcy.generation.models import decode_output,READER_INITIAL_OUTPUT
+    conn,document,catalog,records = mapped_quote_source
+    quote = 'An \ufffd efﬁcient cafe\u0301 result 😀.'
+    raw = json.dumps({'next_action':'answer','claims':[{'text':'The recorded result is shown.',
+        'citations':[{'source_ref':'S1','evidence_quote':quote}]}],'refusal':None},ensure_ascii=escaped).encode()
+    action = decode_output(raw,READER_INITIAL_OUTPUT)
+    parser = ClaimParser()
+    claims = []
+    for byte in raw:
+        claims.extend(parser.feed(bytes((byte,))))
+    parser.finish()
+    assert action.claims[0].citations[0].evidence_quote=='An \ufffd efﬁcient cafe\u0301 result 😀.'
+    assert claims[0].citations[0].evidence_quote=='An \ufffd efﬁcient cafe\u0301 result 😀.'
+    resolved = resolve_proposal(conn,document,catalog,action.claims[0].citations[0])
+    span = next(record for record in records if record.kind=='span')
+    assert [(citation.page,citation.evidence_quote,citation.boxes) for citation in resolved]==[
+        (1,'An \ufffd efﬁcient cafe\u0301 result 😀.',span.character_boxes)]
+    with pytest.raises(APIError) as error:
+        resolve_proposal(conn,document,catalog,
+            ProposedCitation(source_ref='S1',evidence_quote='An  efﬁcient cafe\u0301 result 😀.'))
+    assert error.value.code=='EVIDENCE_UNRESOLVED'
 
 
 @pytest.mark.parametrize('mapped_quote_source',[
@@ -202,6 +253,27 @@ def test_exact_quote_can_select_or_exclude_boundary_dehyphenation(mapped_quote_s
         'phenated':spans[1].character_boxes[:8],
     }
     assert [(citation.page,citation.evidence_quote,citation.boxes) for citation in resolved]==[(1,quote,expected[quote])]
+
+
+@pytest.mark.parametrize('mapped_quote_source',[
+    [[('The method supports',650,0,'text'),('parallel measured evaluation.',630,0,'text')]]
+],indirect=True)
+def test_normalized_span_separator_is_not_raw_evidence(mapped_quote_source):
+    from researcy.citations.models import ProposedCitation
+    from researcy.citations.resolver import resolve_proposal
+    from researcy.errors import APIError
+    conn,document,catalog,records = mapped_quote_source
+    assert catalog['S1'].hit.text=='The method supports parallel measured evaluation.'
+    assert catalog['S1'].raw_excerpt=='The method supportsparallel measured evaluation.'
+    resolved = resolve_proposal(conn,document,catalog,
+        ProposedCitation(source_ref='S1',evidence_quote='supportsparallel'))
+    spans = [record for record in records if record.kind=='span']
+    assert [(citation.page,citation.evidence_quote,citation.boxes) for citation in resolved]==[
+        (1,'supportsparallel',spans[0].character_boxes[-8:]+spans[1].character_boxes[:8])]
+    with pytest.raises(APIError) as error:
+        resolve_proposal(conn,document,catalog,
+            ProposedCitation(source_ref='S1',evidence_quote='supports parallel'))
+    assert error.value.code=='EVIDENCE_UNRESOLVED'
 
 
 @pytest.mark.parametrize('mapped_quote_source',[

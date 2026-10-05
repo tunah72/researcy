@@ -65,6 +65,75 @@ def test_real_graph_publishes_only_exact_cited_claim_after_incremental_delta(rea
         (reservation.assistant_message_id,)).fetchall()==[(quote,'accepted')]
 
 
+@pytest.mark.parametrize('selected_index',[{
+    'source_texts':('An  exact hy-\nphenated result supports a measured claim.',),
+}],indirect=True)
+@pytest.mark.parametrize('branch',['initial','repair','follow_up'])
+def test_every_model_visible_evidence_representation_resolves_exactly(reader_source,monkeypatch,branch):
+    from conftest import _database_url
+    from researcy.agents.reader import run_reader
+    from researcy.citations.models import ProposedCitation
+    from researcy.citations.resolver import make_evidence_catalog,resolve_proposal
+    from researcy.conversations.repository import create_owned_conversation,reserve_run
+    from researcy.errors import APIError
+    from researcy.retrieval import hybrid
+    from researcy.retrieval.repository import hydrate_hits
+    conn,document = reader_source['conn'],reader_source['document']
+    monkeypatch.setenv('DATABASE_URL',_database_url(conn.info.dbname))
+    hits = tuple(hydrate_hits(document,[(chunk_id,1.) for chunk_id in sorted(document.chunk_ids)]))
+    catalog = make_evidence_catalog(hits)
+    assert catalog['S1'].raw_excerpt=='An  exact hy-phenated result supports a measured claim.'
+    assert hits[0].text=='An exact hyphenated result supports a measured claim.'
+    monkeypatch.setattr(hybrid,'retrieve_same_paper',lambda pinned,query,**kwargs:hits)
+    answer = {'next_action':'answer','claims':[{'text':'The paper reports a measured result.',
+        'citations':[{'source_ref':'S1','evidence_quote':'exact hy-phenated result'}]}],'refusal':None}
+    invalid = {'next_action':'answer','claims':[{'text':'The paper reports a measured result.',
+        'citations':[{'source_ref':'S1','evidence_quote':'exact hyphenated result'}]}],'refusal':None}
+    calls = []
+    def response_fn(handler,body):
+        calls.append(json.loads(body))
+        result = answer
+        if len(calls)==1 and branch=='repair':
+            result = invalid
+        elif len(calls)==1 and branch=='follow_up':
+            result = {'next_action':'search_same_paper','query':'measured result'}
+        handler.send_response(200)
+        handler.send_header('Content-Type','text/event-stream')
+        handler.end_headers()
+        # Independently authored controlled output, not a model/prompt echo.
+        frame = {'choices':[{'delta':{'content':json.dumps(result)},'finish_reason':'stop'}],
+            'usage':{'prompt_tokens':10,'completion_tokens':20,'total_tokens':30}}
+        handler.wfile.write(('data: '+json.dumps(frame)+'\n\n').encode())
+        handler.wfile.flush()
+    conversation = create_owned_conversation(conn,document.scope.owner_id,document)
+    reservation = reserve_run(conn,document.scope.owner_id,conversation.id,uuid4(),'What result is supported?',uuid4())
+    with local_fault_server(response_fn) as endpoint:
+        settings = gateway_settings(generation_endpoint=endpoint,generation_api_key='test-key')
+        async def run():
+            return [event async for event in run_reader(reservation,document,settings)]
+        events = asyncio.run(run())
+    assert events[-1].event=='answer.completed'
+    assert len(calls)==(1 if branch=='initial' else 2)
+    accepted = events[-1].data['citations'][0]
+    assert accepted['evidence_quote']=='exact hy-phenated result'
+    expected = resolve_proposal(conn,document,catalog,
+        ProposedCitation(source_ref='S1',evidence_quote='exact hy-phenated result'))[0]
+    assert accepted['page']==expected.page and accepted['boxes']==[list(box) for box in expected.boxes]
+    # The provider-facing evidence contract must not offer a second, transformed
+    # source representation that the exact downstream consumer cannot cite.
+    for call in calls:
+        supplied = json.loads(call['messages'][-1]['content'])['sources']
+        for source in supplied:
+            for field in ('normalized_text','raw_excerpt'):
+                if field in source:
+                    resolved = resolve_proposal(conn,document,catalog,
+                        ProposedCitation(source_ref=source['source_ref'],evidence_quote=source[field]))
+                    assert ''.join(citation.evidence_quote for citation in resolved)==catalog[source['source_ref']].raw_excerpt
+    with pytest.raises(APIError) as error:
+        resolve_proposal(conn,document,catalog,ProposedCitation(source_ref='S1',evidence_quote='exact hyphenated result'))
+    assert error.value.code=='EVIDENCE_UNRESOLVED'
+
+
 @pytest.mark.parametrize('case,expected_state,expected_calls,expected_searches,has_delta',[
     ('search_answer','completed',2,1,True),
     ('repair_answer','completed',2,0,True),

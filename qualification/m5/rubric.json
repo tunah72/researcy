@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "support_scale": {
+    "0": "unsupported",
+    "1": "partially supported",
+    "2": "fully supported"
+  },
+  "support_requires": "Independent human annotation for each factual assertion; exact allowed citations alone do not establish entailment.",
+  "hypotheses": "Assess explicit labelling and source-supported motivation, not truth, novelty or feasibility. Hypothesis labels never excuse unsupported factual premises.",
+  "parser": {
+    "used_gold_resolvability": 1.0,
+    "order_relation_count": 12,
+    "scope": "Only accepted-gold regions must resolve 100%; broader errors are disclosed."
+  },
+  "retrieval": {
+    "q0_answerable_denominator": 8,
+    "q0_production_fts_fused_minimum": 6,
+    "paired_source_recall_at_5_minimum": 0.75,
+    "historical_lexical": "BM25(k1=1.5,b=0.75)",
+    "fresh_lexical": "PostgreSQL FTS",
+    "comparable_to_historical_bm25": false
+  },
+  "citation": {
+    "allowed_source_precision": 1.0,
+    "exact_page_and_character_boxes": 1.0,
+    "unique_raw_mapping": 1.0,
+    "page_only_fallback_allowed": false,
+    "region_overlap": "Supplementary only; cannot replace exact character boxes."
+  },
+  "research": {
+    "positive_case_ids": [
+      "R1",
+      "R2",
+      "R3",
+      "R4",
+      "R8"
+    ],
+    "cross_source_case_ids": [
+      "R1",
+      "R8"
+    ],
+    "insufficient_case_id": "R5",
+    "hypothesis_case_id": "R6",
+    "hostile_case_id": "R7",
+    "subsequent_valid_case_id": "R8",
+    "minimum_fully_supported_ideas_per_positive": 1,
+    "accepted_assertion_support": 2,
+    "scope_errors_allowed": 0,
+    "hypothesis_label_fraction": 1.0
+  },
+  "reader": {
+    "fresh_case_ids": [
+      "E1",
+      "E2",
+      "E3"
+    ],
+    "retained_reference_cases": 10,
+    "follow_up_requires": "Observed bounded same-paper search and subsequent terminal supported answer/refusal; historical evidence does not establish fresh branch execution."
+  },
+  "discovery": {
+    "maximum_unique_inspected": 10,
+    "maximum_returned": 3,
+    "active_excluded": true,
+    "implicit_imports_allowed": 0,
+    "rationale_requires": "Human metadata-only assessment; no full-text claim."
+  },
+  "route": {
+    "actual_research_case_ids": [
+      "R1",
+      "R5",
+      "R7",
+      "R8"
+    ],
+    "controlled_case_ids": [
+      "L-malformed-output",
+      "L-unsupported-action"
+    ],
+    "controlled_does_not_establish_natural_rejection": true
+  },
+  "product": {
+    "journey_case_ids": [
+      "B1",
+      "B2",
+      "B3"
+    ],
+    "latencies": [
+      "import_to_ready_ms",
+      "header_ms",
+      "first_validated_delta_ms",
+      "terminal_ms"
+    ],
+    "exact_jump_evidence_required": true,
+    "manual_states": [
+      "cancel",
+      "reload",
+      "retry"
+    ]
+  },
+  "cost": {
+    "unknown_is_zero": false,
+    "max_attempts": 36,
+    "public_pricing": {
+      "url": "https://ai.google.dev/gemini-api/docs/pricing",
+      "investigated_date": "2026-10-04",
+      "model": "gemini-3.8-flash",
+      "tier": "Standard paid through 2026-12-31",
+      "currency": "USD",
+      "per_million_input": 0.75,
+      "per_million_output_including_thinking": 3.75,
+      "per_million_cached_input": 0.075,
+      "source": "Approved child section10 read-only official pricing investigation",
+      "account_mapping_authoritative": false
+    },
+    "null_estimate_policy": "Allowed only with investigated official source/date and missing account tariff or authoritative billable-unit attribution; never zero/free/billed-cost inference."
+  },
+  "denominator_policy": "Every frozen case and retrieval set remains in denominator; missing/failed outcomes never disappear.",
+  "evidence_classes": [
+    "fresh_application",
+    "historical",
+    "controlled_http",
+    "local_parse",
+    "local_retrieval",
+    "manual_browser",
+    "owner_manual"
+  ]
+}

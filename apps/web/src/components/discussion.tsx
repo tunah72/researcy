@@ -28,6 +28,8 @@ export interface DiscussionProps {
   evidence?: React.ReactNode;
   secondaryActions?: React.ReactNode;
   canCreateConversation?: boolean;
+  generationDisabled?: string;
+  onBusyChange?: (busy: boolean) => void;
 }
 
 interface RetryState {
@@ -44,6 +46,8 @@ export function Discussion({
   evidence,
   secondaryActions,
   canCreateConversation = true,
+  generationDisabled,
+  onBusyChange,
 }: DiscussionProps): React.ReactElement {
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -161,6 +165,11 @@ export function Discussion({
   const hasRunningMessage = messages.some(message => message.role === 'assistant' && message.state === 'running');
   const composerBlocked = status === 'loading' || status === 'streaming' || hasRunningMessage ||
     (!conversation && (status === 'error' || !canCreateConversation));
+  const submissionBlocked = composerBlocked || Boolean(generationDisabled);
+  useEffect(() => {
+    onBusyChange?.(status === 'streaming' || hasRunningMessage);
+    return () => onBusyChange?.(false);
+  }, [status, hasRunningMessage, onBusyChange]);
 
   const handleLoadMore = async () => {
     if (!conversation || !nextAfter || status === 'loading' || submitting.current) return;
@@ -187,7 +196,7 @@ export function Discussion({
   };
 
   const executeSubmission = async (questionText: string) => {
-    if (submitting.current || composerBlocked || !questionText.trim()) return;
+    if (submitting.current || submissionBlocked || !questionText.trim()) return;
     submitting.current = true;
     setErrorNotice(null);
     setStatus('streaming');
@@ -492,7 +501,7 @@ export function Discussion({
                   type="button"
                   className="btn btn-secondary"
                   onClick={handleRetry}
-                  disabled={status === 'streaming'}
+                  disabled={status === 'streaming' || Boolean(generationDisabled)}
                 >
                   Retry
                 </button>
@@ -507,7 +516,7 @@ export function Discussion({
         <span role="status" aria-live="polite">
           {status === 'streaming' ? 'Preparing an evidence-linked answer.' : hasRunningMessage ?
             'A saved run is still pending. Reload history to check its persisted state.' :
-            !conversation && !canCreateConversation ? 'Discussion is unavailable for this historical document version.' : ''}
+            !conversation && !canCreateConversation ? 'Discussion is unavailable for this historical document version.' : generationDisabled || ''}
         </span>
         <textarea
           id="discussion-question-input"
@@ -525,7 +534,7 @@ export function Discussion({
           <button
             type="submit"
             className="btn btn-primary"
-            disabled={composerBlocked || !input.trim()}
+            disabled={submissionBlocked || !input.trim()}
           >
             {status === 'streaming' ? 'Thinking...' : 'Ask'}
           </button>

@@ -1,8 +1,8 @@
 # Researcy System Design
 
 **Status:** Approved master specification
-**Revision:** 2.3
-**Approved:** 2026-09-24 (revision 2.0); 2026-10-02 (M3-only revision 2.1); owner-approved Gemini primary/manual fallback and schema-aware G6 amendment below (revision 2.2)
+**Revision:** 2.4
+**Approved:** 2026-09-24 (revision 2.0); 2026-10-02 (M3-only revision 2.1); Gemini primary/schema-aware M3 revision 2.2; 2026-10-03 (M4 revision 2.3); 2026-10-04 (M5 revision 2.4)
 **Baseline:** Revision 1.1 approved 2026-09-19
 **Delivery:** Milestone-gated M1–M5; no calendar timebox
 **Primary portfolio objective:** Demonstrate a trustworthy, reader-first research product with optional, bounded discovery and research-direction workflows
@@ -18,6 +18,10 @@ This supersedes M3's fixed-9Router route and natural-provider-malformed-output r
 **Owner-approved M4 amendment — revision 2.3, 2026-10-03:** The owner explicitly selected “Duyệt Gemini primary”, “Duyệt schema-aware gate” and “Duyệt null/unavailable” for M4. M4 primary is direct `gemini-3.8-flash` at `https://generativelanguage.googleapis.com/v1beta/openai`, low reasoning, role/pass JSON Schema and streaming usage. 9Router `ag/gemini-3.8-flash-low` is a manual between-run alternative only, never automatic retry/fallback. Each selected route needs its own Discovery qualification; M3/Q0 do not qualify M4. Preserve one initial/one reasons follow-up, one official metadata search, ten unique inspected records and three recommendations.
 
 M4 qualification observes actual application transport/graph search→validated reasons, stop, adversarial action/URL/filter containment and a valid subsequent run. Supplement with explicitly labelled controlled malformed/unsupported HTTP provider-stream→decoder→graph rejection proving zero unauthorized tools/publication; never label these natural provider output. Backend validation and manual metadata-grounded reason assessment remain required. Applicable unavailable monetary tariff/billing mapping may be recorded `estimated_cost: null`, `cost_source: unavailable`, with reason/source investigation and actual attempts/usage completeness/latency, never zero/free cost or another route's tariff. This supersedes M4 route/qualification/cost interpretations in §§10/21 and delivery-map M4 only; M5 and historical evidence are unchanged.
+
+**Owner-approved M5 amendment — revision 2.4, 2026-10-04:** The owner approved both M5 documents and their named decisions with “Tôi phê duyệt.” M5 retains direct Gemini primary and manual between-run 9Router only. Its own qualification requires actual Research application transport/graph supported, insufficient-evidence, hostile-input containment and subsequent valid cases, plus separately labelled controlled malformed/unsupported HTTP rejection. Neither M3/M4 nor schema configuration substitutes for these observations. All other M5 gates remain required.
+
+For M5 only, when applicable account tariff or compatibility usage-to-billable-unit mapping cannot be established, monetary `estimated_cost` may be null with `cost_source: unavailable`, reason, investigated official source/date and actual per-attempt calls, usage completeness and latency. Known public pricing must still be reported; compute an offline estimate when mapping is authoritative, separately from billed cost. Unknown is not zero/free or a spend guarantee. This supersedes M5 numeric-cost interpretations only, not other gates or historical Q0/M2/M3/M4 evidence. Isolated execution has a ceiling of 36 hosted generation attempts; approval does not authorize main cutover, publication or account/security changes.
 
 ## 1. Product thesis
 

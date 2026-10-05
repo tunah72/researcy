@@ -5,6 +5,7 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from researcy.citations.models import ResolvedCitation, StoredCitation
+from researcy.citations.persistence import validate_stored_citation
 from researcy.errors import APIError
 from researcy.ingestion.jobs import short_transaction
 from researcy.ingestion.models import DocumentScope
@@ -231,46 +232,14 @@ def fail_run(conn: psycopg.Connection, reservation: RunReservation, safe_code: s
 def _persist_citations(conn: psycopg.Connection, row: dict, citations: tuple[StoredCitation, ...]) -> None:
     for ordinal, stored in enumerate(citations):
         citation = stored.citation
-        if (citation.paper_id!=row['paper_id'] or citation.document_version!=row['document_version']
-            or not stored.raw_fragments or any(fragment.page_index+1!=citation.page for fragment in stored.raw_fragments)):
-            raise APIError(422,'EVIDENCE_UNRESOLVED','The answer evidence cannot be resolved exactly.')
-        page = conn.execute('''SELECT id FROM document_pages WHERE owner_id=%s AND paper_id=%s
-            AND document_version_id=%s AND page_index=%s''',
-            (row['owner_id'],row['paper_id'],row['document_version'],citation.page-1)).fetchone()
-        if page is None:
-            raise APIError(422,'EVIDENCE_UNRESOLVED','The answer evidence cannot be resolved exactly.')
-        fragments, quote_parts, exact_boxes = [], [], []
-        source_ids = [fragment.span_id for fragment in stored.raw_fragments]
-        sources = conn.execute('''SELECT s.id,s.raw_text,s.boxes FROM document_spans s
-            JOIN document_blocks b ON b.id=s.block_id AND b.owner_id=s.owner_id
-              AND b.document_version_id=s.document_version_id AND b.page_id=s.page_id
-            WHERE s.owner_id=%s AND s.paper_id=%s AND s.document_version_id=%s
-              AND s.page_id=%s AND s.id=ANY(%s) AND NOT b.excluded''',
-            (row['owner_id'],row['paper_id'],row['document_version'],page[0],source_ids)).fetchall()
-        by_id = {span_id:(raw,boxes) for span_id,raw,boxes in sources}
-        for fragment in stored.raw_fragments:
-            source = by_id.get(fragment.span_id)
-            if (source is None or type(fragment.source_start) is not int or type(fragment.source_end) is not int
-                or not 0<=fragment.source_start<fragment.source_end<=len(source[0])):
-                raise APIError(422,'EVIDENCE_UNRESOLVED','The answer evidence cannot be resolved exactly.')
-            raw, source_boxes = source
-            quote = raw[fragment.source_start:fragment.source_end]
-            boxes = tuple(tuple(box) for box in source_boxes[fragment.source_start:fragment.source_end])
-            if fragment.quote!=quote or fragment.boxes!=boxes:
-                raise APIError(422,'EVIDENCE_UNRESOLVED','The answer evidence cannot be resolved exactly.')
-            quote_parts.append(quote)
-            exact_boxes.extend(boxes)
-            fragments.append({'span_id':str(fragment.span_id),'source_start':fragment.source_start,
-                'source_end':fragment.source_end,'quote':quote})
-        exact_quote = ''.join(quote_parts)
-        if citation.evidence_quote!=exact_quote or citation.boxes!=tuple(exact_boxes):
-            raise APIError(422,'EVIDENCE_UNRESOLVED','The answer evidence cannot be resolved exactly.')
+        canonical = validate_stored_citation(conn,
+            DocumentScope(row['owner_id'],row['paper_id'],row['document_version']),stored)
         conn.execute('''INSERT INTO citations(id,owner_id,conversation_id,assistant_message_id,paper_id,document_version,
             claim_index,source_ref,evidence_quote,page_id,page,boxes,raw_fragments,ordinal,section,state)
             VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'accepted')''',
             (citation.citation_id,row['owner_id'],row['conversation_id'],row['assistant_message_id'],row['paper_id'],
-             row['document_version'],stored.claim_index,citation.source_ref,exact_quote,page[0],citation.page,
-             Jsonb(exact_boxes),Jsonb(fragments),ordinal,citation.section))
+             row['document_version'],stored.claim_index,citation.source_ref,canonical.evidence_quote,canonical.page_id,citation.page,
+             Jsonb(canonical.boxes),Jsonb(canonical.raw_fragments),ordinal,citation.section))
 
 
 def finish_run(conn: psycopg.Connection, reservation: RunReservation, accepted_claims: list[str],

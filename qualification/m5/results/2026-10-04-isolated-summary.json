@@ -1,0 +1,256 @@
+{
+  "schema_version": 1,
+  "campaign_id": "m5-20261004-frozen-1",
+  "manifest_sha256": "91e6f258dbcbe3023f3331b8a5794d55f8fc0160c6066f3bfa1dbc25ced92664",
+  "accepted": false,
+  "evidence_class": "actual_isolated_partial_campaign_not_acceptance",
+  "charged_hosted_attempts": 7,
+  "attempt_budget": 36,
+  "parser": {
+    "resolvable_regions": {
+      "numerator": 58,
+      "denominator": 67,
+      "value": 0.8656716417910447
+    },
+    "text_coverage": {
+      "numerator": 4135,
+      "denominator": 5357,
+      "value": 0.7718872503266754
+    },
+    "sections": {
+      "numerator": 21,
+      "denominator": 67,
+      "value": 0.31343283582089554
+    },
+    "reading_order": {
+      "numerator": 12,
+      "denominator": 12,
+      "value": 1.0
+    },
+    "missing_region_ids": [
+      "2105.02358:p0:l7:0-135",
+      "2105.02358:p0:l8:0-136",
+      "2105.02358:p0:l9:0-134",
+      "2105.02358:p0:l10:0-141",
+      "2105.02358:p0:l11:0-138",
+      "2202.09741:p0:l5:0-136",
+      "2202.09741:p0:l6:0-131",
+      "2202.09741:p0:l7:0-140",
+      "2202.09741:p0:l8:0-131"
+    ],
+    "missing_order_ids": [],
+    "layout_region_counts": {},
+    "scope": "frozen_gold_regions_only",
+    "accepted": false
+  },
+  "retrieval": {
+    "scope_errors": 0,
+    "tuple_identity": {
+      "numerator": 138,
+      "denominator": 138,
+      "value": 1.0
+    },
+    "missing_set_ids": [
+      "R1:A-attention",
+      "R1:B-linear",
+      "R2:A-multihead",
+      "R3:A-position",
+      "R4:A-attention",
+      "R4:B-linear",
+      "R4:C-challenges",
+      "R4:D-memory",
+      "R7:H-attention",
+      "R7:B-linear",
+      "R8:A-attention",
+      "R8:B-linear"
+    ],
+    "historical_lexical": "BM25",
+    "fresh_lexical": "PostgreSQL FTS",
+    "historical_comparability_claimed": false,
+    "q0": {
+      "dense": {
+        "recall_at_2": {
+          "numerator": 3,
+          "denominator": 8,
+          "value": 0.375
+        },
+        "recall_at_5": {
+          "numerator": 6,
+          "denominator": 8,
+          "value": 0.75
+        },
+        "mrr": {
+          "numerator": 3.2833333333333337,
+          "denominator": 8,
+          "value": 0.4104166666666667
+        }
+      },
+      "lexical": {
+        "recall_at_2": {
+          "numerator": 1,
+          "denominator": 8,
+          "value": 0.125
+        },
+        "recall_at_5": {
+          "numerator": 1,
+          "denominator": 8,
+          "value": 0.125
+        },
+        "mrr": {
+          "numerator": 1.0,
+          "denominator": 8,
+          "value": 0.125
+        }
+      },
+      "fused": {
+        "recall_at_2": {
+          "numerator": 3,
+          "denominator": 8,
+          "value": 0.375
+        },
+        "recall_at_5": {
+          "numerator": 6,
+          "denominator": 8,
+          "value": 0.75
+        },
+        "mrr": {
+          "numerator": 3.7833333333333337,
+          "denominator": 8,
+          "value": 0.4729166666666667
+        }
+      },
+      "packed": {
+        "recall_at_2": {
+          "numerator": 3,
+          "denominator": 8,
+          "value": 0.375
+        },
+        "recall_at_5": {
+          "numerator": 6,
+          "denominator": 8,
+          "value": 0.75
+        },
+        "mrr": {
+          "numerator": 3.7833333333333337,
+          "denominator": 8,
+          "value": 0.4729166666666667
+        },
+        "recall": {
+          "numerator": 6,
+          "denominator": 8,
+          "value": 0.75
+        }
+      }
+    },
+    "paired": {
+      "dense": {
+        "recall_at_2": {
+          "numerator": 1,
+          "denominator": 14,
+          "value": 0.07142857142857142
+        },
+        "recall_at_5": {
+          "numerator": 1,
+          "denominator": 14,
+          "value": 0.07142857142857142
+        },
+        "mrr": {
+          "numerator": 1.0,
+          "denominator": 14,
+          "value": 0.07142857142857142
+        }
+      },
+      "lexical": {
+        "recall_at_2": {
+          "numerator": 0,
+          "denominator": 14,
+          "value": 0.0
+        },
+        "recall_at_5": {
+          "numerator": 0,
+          "denominator": 14,
+          "value": 0.0
+        },
+        "mrr": {
+          "numerator": 0.0,
+          "denominator": 14,
+          "value": 0.0
+        }
+      },
+      "fused": {
+        "recall_at_2": {
+          "numerator": 1,
+          "denominator": 14,
+          "value": 0.07142857142857142
+        },
+        "recall_at_5": {
+          "numerator": 1,
+          "denominator": 14,
+          "value": 0.07142857142857142
+        },
+        "mrr": {
+          "numerator": 1.0,
+          "denominator": 14,
+          "value": 0.07142857142857142
+        }
+      },
+      "packed": {
+        "recall_at_2": {
+          "numerator": 1,
+          "denominator": 14,
+          "value": 0.07142857142857142
+        },
+        "recall_at_5": {
+          "numerator": 1,
+          "denominator": 14,
+          "value": 0.07142857142857142
+        },
+        "mrr": {
+          "numerator": 1.0,
+          "denominator": 14,
+          "value": 0.07142857142857142
+        },
+        "recall": {
+          "numerator": 1,
+          "denominator": 14,
+          "value": 0.07142857142857142
+        }
+      }
+    },
+    "accepted": false
+  },
+  "missing_case_ids": [
+    "R1",
+    "R2",
+    "R3",
+    "R4",
+    "R7",
+    "R8",
+    "D1",
+    "D2",
+    "B1",
+    "B2",
+    "B3",
+    "L-invalid-selection",
+    "L-wrong-version",
+    "L-unselected-source",
+    "L-ambiguous-quote",
+    "L-missing-box",
+    "L-multipage",
+    "L-malformed-output",
+    "L-unsupported-action",
+    "L-transport-failure",
+    "L-interruption"
+  ],
+  "role_terminal_states": {
+    "R5": "RESEARCH_INSUFFICIENT_EVIDENCE",
+    "R6": "completed",
+    "E1": "EVIDENCE_UNRESOLVED",
+    "E2": "refused",
+    "E3": "EVIDENCE_UNRESOLVED"
+  },
+  "human_factual_output_ratings": "missing",
+  "real_google_journey": "not_observed",
+  "monetary_cost": null,
+  "monetary_cost_reason": "authoritative_account_model_tariff_mapping_unavailable"
+}

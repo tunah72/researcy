@@ -197,6 +197,31 @@ export type ReaderStreamEvent =
   | { event: 'answer.completed'; data: ReaderStreamCompletedData }
   | { event: 'answer.failed'; data: ReaderStreamFailedData };
 
+export interface ResearchDraft {
+  observed_gap: string;
+  proposed_direction: string;
+  possible_method: string;
+}
+export interface ResearchIdea extends ResearchDraft {
+  premise_citations: ResolvedCitation[];
+}
+export interface ResearchSnapshot {
+  run_id: string;
+  active_paper_id: string;
+  document_version: string;
+  sources: { paper_id: string; document_version: string }[];
+  state: 'running' | 'completed' | 'failed' | 'interrupted';
+  ideas: ResearchIdea[];
+  draft_ideas: ResearchDraft[];
+  error: { code: string; message: string } | null;
+  request_id: string;
+}
+export type ResearchEvent =
+  | { event: 'direction.delta'; data: { run_id: string; request_id: string; sequence: number; idea_index: number; idea: ResearchDraft } }
+  | { event: 'citation.resolved'; data: { run_id: string; request_id: string; idea_index: number; citation: ResolvedCitation } }
+  | { event: 'direction.completed'; data: { run_id: string; request_id: string; ideas: ResearchIdea[] } }
+  | { event: 'direction.failed'; data: { run_id: string; request_id: string; code: string; message: string } };
+
 export interface ApiErrorPayload {
   code: string;
   message: string;
@@ -276,6 +301,16 @@ const USER_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   DISCOVERY_RUN_ACTIVE: 'A related-paper search is already running. Please wait before trying again.',
   DISCOVERY_RATE_LIMITED: 'Please wait before searching for related papers again.',
   DISCOVERY_RUN_NOT_ACTIVE: 'This search is no longer running. Please search again.',
+  RESEARCH_SELECTION_NOT_READY: 'A selected paper is not ready. Check Library and refresh your selection.',
+  RESEARCH_SOURCE_CHANGED: 'The selected sources changed. Refresh your selection before requesting directions.',
+  RESEARCH_RUN_ACTIVE: 'Research directions are already running. Reload the saved run or wait before trying again.',
+  RESEARCH_RATE_LIMITED: 'Please wait before requesting more research directions.',
+  RESEARCH_INSUFFICIENT_EVIDENCE: 'The selected evidence does not support research directions. Try a different selection.',
+  RESEARCH_INTERRUPTED: 'Research directions were interrupted. Reload to see their saved state.',
+  RESEARCH_DEADLINE_EXCEEDED: 'Research directions exceeded the time limit. Submit a new request to retry.',
+  RESEARCH_FAILED: 'Research directions could not be completed. Submit a new request to retry.',
+  RESEARCH_RUN_NOT_ACTIVE: 'This research run is no longer active. Reload its saved state.',
+  RESEARCH_EVENT_TOO_LARGE: 'The research evidence exceeds the size limit. Try a smaller selection.',
   DISCOVERY_TIMEOUT: 'The related-paper search exceeded its time limit. Please search again.',
   GENERATION_UNCONFIGURED: 'Generation is not configured. Please try later.',
   GENERATION_UNAVAILABLE: 'Generation is unavailable. Please try later.',
@@ -982,4 +1017,214 @@ export async function streamMessage(
   }
 
   return null;
+}
+
+const RESEARCH_TEXT_FIELDS = ['observed_gap', 'proposed_direction', 'possible_method'];
+function researchRecord(raw: unknown, keys: string[]): Record<string, unknown> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw) ||
+      Object.keys(raw).length !== keys.length || keys.some(key => !Object.hasOwn(raw, key))) {
+    throw new Error('Invalid research payload.');
+  }
+  return raw as Record<string, unknown>;
+}
+function researchText(raw: unknown, max = 1200): string {
+  if (typeof raw !== 'string' || !raw.trim()) throw new Error('Invalid research text.');
+  let length = 0;
+  for (const char of raw) {
+    if (++length > max || (/[\p{Cc}\p{Cf}\p{Cs}]/u.test(char) && !'\n\r\t'.includes(char))) {
+      throw new Error('Invalid research text.');
+    }
+  }
+  return raw;
+}
+function researchDraft(raw: unknown): ResearchDraft {
+  const value = researchRecord(raw, RESEARCH_TEXT_FIELDS);
+  return { observed_gap: researchText(value.observed_gap), proposed_direction: researchText(value.proposed_direction),
+    possible_method: researchText(value.possible_method) };
+}
+function researchIdea(raw: unknown): ResearchIdea {
+  const value = researchRecord(raw, [...RESEARCH_TEXT_FIELDS, 'premise_citations']);
+  if (!Array.isArray(value.premise_citations) || value.premise_citations.length < 1 || value.premise_citations.length > 24) {
+    throw new Error('Invalid research citations.');
+  }
+  return { observed_gap: researchText(value.observed_gap), proposed_direction: researchText(value.proposed_direction),
+    possible_method: researchText(value.possible_method), premise_citations: value.premise_citations.map(validateResolvedCitation) };
+}
+function sameResearchDraft(a: ResearchDraft, b: ResearchDraft): boolean {
+  return a.observed_gap === b.observed_gap && a.proposed_direction === b.proposed_direction && a.possible_method === b.possible_method;
+}
+function sameCitation(a: ResolvedCitation, b: ResolvedCitation): boolean {
+  return a.citation_id === b.citation_id && a.paper_id === b.paper_id && a.document_version === b.document_version &&
+    a.source_ref === b.source_ref && a.evidence_quote === b.evidence_quote && a.page === b.page && a.section === b.section &&
+    a.boxes.length === b.boxes.length && a.boxes.every((box, index) => box.every((value, axis) => value === b.boxes[index][axis]));
+}
+function researchReferenceMatches(citation: ResolvedCitation, ordinal: number): boolean {
+  const match = /^P([0-3]):S[1-9]\d*$/.exec(citation.source_ref);
+  return match !== null && Number(match[1]) === ordinal;
+}
+export async function getResearchDirections(paperId: string, runId: string, signal?: AbortSignal): Promise<ResearchSnapshot> {
+  const response = await fetch(`/api/papers/${encodeURIComponent(paperId)}/research-directions/${encodeURIComponent(runId)}`,
+    { credentials: 'same-origin', cache: 'no-store', signal });
+  const raw = await parseResponse<unknown>(response);
+  try {
+    const value = researchRecord(raw, ['run_id', 'active_paper_id', 'document_version', 'sources', 'state',
+      'ideas', 'draft_ideas', 'error', 'request_id']);
+    if (value.run_id !== runId || value.active_paper_id !== paperId ||
+        typeof value.document_version !== 'string' || !UUID_REGEX.test(value.document_version) ||
+        typeof value.request_id !== 'string' || !UUID_REGEX.test(value.request_id) ||
+        !Array.isArray(value.sources) || value.sources.length < 2 || value.sources.length > 4 ||
+        !Array.isArray(value.ideas) || value.ideas.length > 3 || !Array.isArray(value.draft_ideas) || value.draft_ideas.length > 3 ||
+        !['running', 'completed', 'failed', 'interrupted'].includes(String(value.state))) throw new Error('Invalid research state.');
+    const versions = new Map<string, string>();
+    const sources = value.sources.map(rawSource => {
+      const source = researchRecord(rawSource, ['paper_id', 'document_version']);
+      if (typeof source.paper_id !== 'string' || !UUID_REGEX.test(source.paper_id) ||
+          typeof source.document_version !== 'string' || !UUID_REGEX.test(source.document_version) || versions.has(source.paper_id)) {
+        throw new Error('Invalid research source.');
+      }
+      versions.set(source.paper_id, source.document_version);
+      return { paper_id: source.paper_id, document_version: source.document_version };
+    });
+    if (sources[0].paper_id !== paperId || sources[0].document_version !== value.document_version) throw new Error('Invalid active source.');
+    for (let ordinal = 2; ordinal < sources.length; ordinal++) {
+      if (sources[ordinal - 1].paper_id >= sources[ordinal].paper_id) throw new Error('Invalid source order.');
+    }
+    const ideas = value.ideas.map(researchIdea);
+    const drafts = value.draft_ideas.map(researchDraft);
+    const ids = new Set<string>();
+    for (const idea of ideas) for (const citation of idea.premise_citations) {
+      if (versions.get(citation.paper_id) !== citation.document_version ||
+          !researchReferenceMatches(citation, sources.findIndex(source => source.paper_id === citation.paper_id)) ||
+          ids.has(citation.citation_id) || ids.size >= 24) {
+        throw new Error('Invalid accepted research source.');
+      }
+      ids.add(citation.citation_id);
+    }
+    let error: ResearchSnapshot['error'] = null;
+    if (value.error !== null) {
+      const safeError = researchRecord(value.error, ['code', 'message']);
+      error = { code: researchText(safeError.code, 64), message: researchText(safeError.message) };
+    }
+    if (value.state === 'completed' ? (!ideas.length || drafts.length || error !== null) :
+        ideas.length || (value.state === 'running' ? drafts.length || error !== null : error === null)) {
+      throw new Error('Invalid terminal research state.');
+    }
+    return { run_id: runId, active_paper_id: paperId, document_version: value.document_version, sources,
+      state: value.state as ResearchSnapshot['state'], ideas, draft_ideas: drafts, error, request_id: value.request_id };
+  } catch {
+    throw new ApiError(500, 'MALFORMED_RESPONSE', 'The saved research directions could not be verified.');
+  }
+}
+
+export async function streamResearchDirections(paperId: string, relatedIds: string[], onEvent: (event: ResearchEvent) => void,
+  onReserved: (runId: string) => void, signal: AbortSignal): Promise<void> {
+  signal.throwIfAborted();
+  const allowed = new Set([paperId, ...relatedIds]);
+  if (!UUID_REGEX.test(paperId) || relatedIds.length < 1 || relatedIds.length > 3 || allowed.size !== relatedIds.length + 1 ||
+      relatedIds.some(id => !UUID_REGEX.test(id))) throw new ApiError(422, 'INVALID_REQUEST', 'Select one to three distinct related papers.');
+  const sourceIds = [...relatedIds].sort();
+  sourceIds.unshift(paperId);
+  const response = await mutate(`/api/papers/${encodeURIComponent(paperId)}/research-directions:stream`,
+    JSON.stringify({ related_paper_ids: relatedIds }), undefined, signal);
+  if (!response.ok) { await parseResponse<unknown>(response); return; }
+  const runId = response.headers.get('x-research-run-id');
+  const requestId = response.headers.get('x-request-id');
+  const malformed = () => new ApiError(500, 'MALFORMED_STREAM', 'The research directions could not be verified.', requestId ?? undefined);
+  if (!runId || !UUID_REGEX.test(runId) || !requestId || !UUID_REGEX.test(requestId) ||
+      !response.headers.get('content-type')?.includes('text/event-stream') || !response.body) {
+    await response.body?.cancel();
+    throw malformed();
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8', { fatal: true });
+  const encoder = new TextEncoder();
+  const drafts: ResearchDraft[] = [];
+  const citations = new Map<string, { idea: number; citation: ResolvedCitation }>();
+  const versions = new Map<string, string>();
+  let buffer = '', terminal = false;
+  const consume = (frame: string) => {
+    if (encoder.encode(frame).length > MAX_EVENT_BYTES) throw malformed();
+    let name = '';
+    const dataLines: string[] = [];
+    for (const line of frame.split(/\r\n|\n|\r/)) {
+      if (line.startsWith('event:')) name = line.slice(6).trim();
+      else if (line.startsWith('data:')) dataLines.push(line.slice(5).replace(/^ /, ''));
+    }
+    if (!dataLines.length) return;
+    if (terminal) throw malformed();
+    const parsed: unknown = JSON.parse(dataLines.join('\n'));
+    const base = ['run_id', 'request_id'];
+    const fields = name === 'direction.delta' ? [...base, 'sequence', 'idea_index', 'idea'] :
+      name === 'citation.resolved' ? [...base, 'idea_index', 'citation'] :
+      name === 'direction.completed' ? [...base, 'ideas'] : name === 'direction.failed' ? [...base, 'code', 'message'] : [];
+    if (!fields.length) throw malformed();
+    const value = researchRecord(parsed, fields);
+    if (value.run_id !== runId || value.request_id !== requestId) throw malformed();
+    if (name === 'direction.delta') {
+      if (citations.size || drafts.length >= 3 || value.sequence !== drafts.length + 1 || value.idea_index !== drafts.length) throw malformed();
+      const idea = researchDraft(value.idea);
+      drafts.push(idea);
+      onEvent({ event: 'direction.delta', data: { run_id: runId, request_id: requestId, sequence: drafts.length,
+        idea_index: drafts.length - 1, idea } });
+    } else if (name === 'citation.resolved') {
+      const citation = validateResolvedCitation(value.citation);
+      if (!Number.isInteger(value.idea_index) || (value.idea_index as number) < 0 || (value.idea_index as number) >= drafts.length ||
+          !researchReferenceMatches(citation, sourceIds.indexOf(citation.paper_id)) ||
+          citations.has(citation.citation_id) || citations.size >= 24 ||
+          (versions.has(citation.paper_id) && versions.get(citation.paper_id) !== citation.document_version)) throw malformed();
+      versions.set(citation.paper_id, citation.document_version);
+      citations.set(citation.citation_id, { idea: value.idea_index as number, citation });
+      onEvent({ event: 'citation.resolved', data: { run_id: runId, request_id: requestId,
+        idea_index: value.idea_index as number, citation } });
+    } else if (name === 'direction.completed') {
+      if (!Array.isArray(value.ideas) || !value.ideas.length || value.ideas.length !== drafts.length) throw malformed();
+      const ideas = value.ideas.map(researchIdea);
+      const seen = new Set<string>();
+      ideas.forEach((idea, index) => {
+        if (!sameResearchDraft(idea, drafts[index])) throw malformed();
+        for (const citation of idea.premise_citations) {
+          const emitted = citations.get(citation.citation_id);
+          if (!emitted || emitted.idea !== index || !sameCitation(emitted.citation, citation) || seen.has(citation.citation_id)) throw malformed();
+          seen.add(citation.citation_id);
+        }
+      });
+      if (seen.size !== citations.size) throw malformed();
+      terminal = true;
+      onEvent({ event: 'direction.completed', data: { run_id: runId, request_id: requestId, ideas } });
+    } else {
+      if (citations.size) throw malformed();
+      terminal = true;
+      onEvent({ event: 'direction.failed', data: { run_id: runId, request_id: requestId,
+        code: researchText(value.code, 64), message: researchText(value.message) } });
+    }
+  };
+  const abort = () => { void reader.cancel().catch(() => {}); };
+  signal.addEventListener('abort', abort, { once: true });
+  try {
+    signal.throwIfAborted();
+    onReserved(runId);
+    signal.throwIfAborted();
+    while (!terminal) {
+      const result = await reader.read();
+      signal.throwIfAborted();
+      buffer += result.done ? decoder.decode() : decoder.decode(result.value, { stream: true });
+      let delimiter: RegExpExecArray | null;
+      while ((delimiter = /\r\n\r\n|\n\n|\r\r/.exec(buffer))) {
+        consume(buffer.slice(0, delimiter.index));
+        buffer = buffer.slice(delimiter.index + delimiter[0].length);
+        signal.throwIfAborted();
+      }
+      if (encoder.encode(buffer).length > MAX_EVENT_BYTES) throw malformed();
+      if (result.done) break;
+    }
+    if (!terminal) throw new ApiError(500, 'RESEARCH_INTERRUPTED', 'Research directions were interrupted before completion.', requestId);
+  } catch (error) {
+    if (signal.aborted) throw signal.reason ?? new DOMException('The operation was aborted.', 'AbortError');
+    if (error instanceof ApiError) throw error;
+    throw malformed();
+  } finally {
+    signal.removeEventListener('abort', abort);
+    await reader.cancel().catch(() => {});
+    reader.releaseLock();
+  }
 }

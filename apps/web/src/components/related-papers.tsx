@@ -11,11 +11,12 @@ interface RelatedPapersProps {
   documentVersion: string;
   onUnauthorized: () => void;
   disabledReason?: string;
+  onBusyChange?: (busy: boolean) => void;
 }
 type SearchState = 'idle' | 'loading' | 'results' | 'empty' | 'missing' | 'error' | 'cancelled';
 type AddState = { result?: IntakeResponse; error?: string };
 
-export function RelatedPapers({ paperId, documentVersion, onUnauthorized, disabledReason }: RelatedPapersProps) {
+export function RelatedPapers({ paperId, documentVersion, onUnauthorized, disabledReason, onBusyChange }: RelatedPapersProps) {
   const id = useId();
   const [state, setState] = useState<SearchState>('idle');
   const [papers, setPapers] = useState<RelatedPaper[]>([]);
@@ -40,6 +41,10 @@ export function RelatedPapers({ paperId, documentVersion, onUnauthorized, disabl
       request.current?.abort();
     };
   }, [paperId, documentVersion]);
+  useEffect(() => {
+    onBusyChange?.(state === 'loading');
+    return () => onBusyChange?.(false);
+  }, [state, onBusyChange]);
   useEffect(() => {
     if (state === 'cancelled' || ((state === 'error' || state === 'missing') && document.activeElement === document.body)) {
       searchButton.current?.focus();
