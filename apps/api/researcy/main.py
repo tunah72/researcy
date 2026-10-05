@@ -17,6 +17,8 @@ from .ingestion.routes import router as jobs_router
 from .conversations.routes import router as conversations_router
 from .citations.routes import router as citations_router
 from .discovery.routes import router as discovery_router
+from .research.routes import router as research_router
+from .readiness import router as readiness_router
 
 
 class UploadBodyTooLarge(Exception):
@@ -110,6 +112,8 @@ app.include_router(jobs_router)
 app.include_router(conversations_router)
 app.include_router(citations_router)
 app.include_router(discovery_router)
+app.include_router(research_router)
+app.include_router(readiness_router)
 
 
 

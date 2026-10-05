@@ -228,7 +228,7 @@ def private_bucket(monkeypatch):
 
 def _insert_owned_version(conn, owner_id, paper_id, version_id, object_key, digest, size):
     conn.execute(
-        "INSERT INTO users (id, issuer, sub) VALUES (%s, %s, %s)",
+        "INSERT INTO users (id, issuer, sub) VALUES (%s, %s, %s) ON CONFLICT (id) DO NOTHING",
         (owner_id, "https://accounts.google.com", f"pdf-test-{owner_id}"),
     )
     conn.execute(

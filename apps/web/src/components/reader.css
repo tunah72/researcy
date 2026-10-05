@@ -55,3 +55,24 @@
   .reader-header > a:last-child { margin-left: auto; }
   .reader-main { min-height: 60vh; }
 }
+
+.research-directions { padding: 1rem 1.5rem; border-top: 1px solid var(--color-border); min-width: 0; }
+.research-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; justify-content: space-between; }
+.research-heading h3 { margin: 0; font-family: var(--font-serif); font-size: 1.35rem; }
+.research-directions .btn, .research-citations button { min-height: 44px; white-space: normal; }
+.research-note, .research-status, .research-source-state { font-size: 0.8rem; line-height: 1.5; color: var(--color-ink-muted); }
+.research-note, .research-status { margin: 0.6rem 0; }
+.research-selection { display: flex; flex-direction: column; align-items: stretch; gap: 0.75rem; }
+.research-selection fieldset { min-width: 0; margin: 0; padding: 0.5rem 0.75rem; border: 1px solid var(--color-border); }
+.research-selection legend { padding: 0 0.25rem; font-size: 0.85rem; }
+.research-source { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.7rem 0; min-height: 44px; font-size: 0.85rem; overflow-wrap: anywhere; }
+.research-source input { flex-shrink: 0; width: 1.1rem; height: 1.1rem; margin-top: 0.15rem; accent-color: var(--color-ink); }
+.research-source-state { display: block; margin-top: 0.25rem; }
+.research-idea { padding: 1rem 0; border-top: 1px solid var(--color-border); overflow-wrap: anywhere; }
+.research-idea h4 { margin: 0 0 0.75rem; font-family: var(--font-serif); font-size: 1.2rem; }
+.research-draft { font-family: var(--font-sans); font-size: 0.75rem; color: var(--color-ink-muted); }
+.research-idea dl { margin: 0; }
+.research-idea dt { font-size: 0.75rem; font-weight: 700; margin-top: 0.75rem; }
+.research-idea dd { margin: 0.25rem 0 0; font-size: 0.9rem; line-height: 1.65; white-space: pre-wrap; }
+.research-citations { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+.research-notice { margin: 0.75rem 0; font-size: 0.85rem; line-height: 1.5; }

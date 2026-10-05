@@ -87,7 +87,8 @@ from test_screening import private_bucket
 
 
 @pytest.fixture
-def selected_index(pg_conn,job_connections,tmp_path,monkeypatch,private_bucket,request):
+def selected_index_factory(pg_conn,job_connections,tmp_path,monkeypatch,private_bucket):
+    """Build independent real immutable publications, optionally for one existing owner."""
     from array import array
     from dataclasses import replace
     from contextlib import contextmanager
@@ -96,7 +97,7 @@ def selected_index(pg_conn,job_connections,tmp_path,monkeypatch,private_bucket,r
     from researcy.documents.chunking import iter_sections,chunk_section
     from researcy.documents.repository import write_canonical_batch,write_chunk_batch,select_embedding_batch,seal_embedding_manifest
     from researcy.documents.artifacts import put_artifact
-    from researcy.ingestion.jobs import claim_due,seal_profile,commit_stage,short_transaction
+    from researcy.ingestion.jobs import claim_due,seal_profile,commit_stage
     from researcy.ingestion.models import ProcessingProfile,DocumentScope,StageManifest,ArtifactRef
     from researcy.retrieval import index
     from test_screening import _pdf,_insert_owned_version
@@ -108,42 +109,7 @@ def selected_index(pg_conn,job_connections,tmp_path,monkeypatch,private_bucket,r
     import hashlib
     import time
 
-    options=dict(getattr(request,'param',{}))
-    texts=options.pop('source_texts',('Owned exact source for indexed evidence.',))
-    conn,_=job_connections;profile=ProcessingProfile(**options)
-    scope=DocumentScope(uuid4(),uuid4(),uuid4())
-    original=_pdf(tmp_path/'original.pdf',texts=texts)
-    screen_pdf(original,'application/pdf');source_bytes=original.read_bytes();source_hash=hashlib.sha256(source_bytes).digest()
-    key=put_original(scope.owner_id,scope.document_version_id,original,source_hash.hex())
-    _insert_owned_version(conn,scope.owner_id,scope.paper_id,scope.document_version_id,key,source_hash.hex(),len(source_bytes))
-    job=insert_job(conn,scope.owner_id,scope.document_version_id);conn.commit()
-    assert b''.join(get_owned_original(conn,scope.owner_id,scope.paper_id,scope.document_version_id))==source_bytes
-    conn.commit()
-    lease=claim_due(conn,'index-test');seal_profile(conn,lease,profile)
-    original_ref=ArtifactRef(key,source_hash,len(source_bytes))
-    commit_stage(conn,lease,StageManifest('validating',profile.profile_hash,source_hash,1,(original_ref,)),'parsing')
-    lease=replace(lease,stage='parsing')
-    parsed=tmp_path/'parser.jsonl';limits=SandboxLimits.full_parser();parse_pdf(original,parsed,limits)
-    parser_records=list(read_parser_records(parsed,limits));parser_ref=put_artifact(scope,profile.profile_hash,'parsing',parsed)
-    commit_stage(conn,lease,StageManifest('parsing',profile.profile_hash,parser_ref.sha256,len(parser_records),(parser_ref,)),'normalizing')
-    lease=replace(lease,stage='normalizing')
-    records=list(normalize_records(parser_records,profile,scope=scope));write_canonical_batch(conn,lease,records)
-    canonical_hash=hashlib.sha256(b''.join(record.id.bytes for record in records)).digest()
-    commit_stage(conn,lease,StageManifest('normalizing',profile.profile_hash,canonical_hash,len(records),(parser_ref,)),'chunking')
-    lease=replace(lease,stage='chunking')
-    chunks=[]
-    for section in iter_sections(records):chunks.extend(chunk_section(section,profile,start_ordinal=len(chunks)))
-    write_chunk_batch(conn,lease,chunks)
-    chunk_hash=hashlib.sha256(b''.join(chunk.checksum for chunk in chunks)).digest()
-    commit_stage(conn,lease,StageManifest('chunking',profile.profile_hash,chunk_hash,len(chunks),()),'embedding')
-    lease=replace(lease,stage='embedding')
-    identity={'runtime':'ollama','version':'0.18.2','model_tag':profile.model_tag,'model_digest':profile.model_digest,'dimension':1024,'quantization':'F16'}
-    for ordinal,batch in enumerate(batched(chunks,4)):
-        vectors=array('f',([1.0]+[0.0]*1023)*len(batch)).tobytes()
-        path=tmp_path/f'selected-{ordinal}.bin';path.write_bytes(vectors)
-        artifact=put_artifact(scope,profile.profile_hash,'embedding',path)
-        select_embedding_batch(conn,lease,ordinal,artifact,tuple(chunk.id for chunk in batch),selected_bytes=vectors,runtime_identity=identity)
-    manifest=seal_embedding_manifest(conn,lease);commit_stage(conn,lease,manifest,'indexing');lease=replace(lease,stage='indexing')
+    conn,_=job_connections
     collection='m2_test_'+uuid4().hex
     monkeypatch.setattr(index,'collection_name',lambda profile:collection)
     @contextmanager
@@ -151,10 +117,100 @@ def selected_index(pg_conn,job_connections,tmp_path,monkeypatch,private_bucket,r
         with psycopg.connect(_database_url(conn.info.dbname)) as connection:yield connection
     monkeypatch.setattr(index,'get_conn',scoped_connection)
     client=index.QdrantClient(deadline=time.monotonic()+60)
-    try:
+    sequence=0
+    def build(*,owner_id=None,source_texts=('Owned exact source for indexed evidence.',),**options):
+        nonlocal sequence
+        sequence+=1
+        directory=tmp_path/str(sequence)
+        directory.mkdir()
+        profile=ProcessingProfile(**options)
+        scope=DocumentScope(owner_id or uuid4(),uuid4(),uuid4())
+        original=_pdf(directory/'original.pdf',texts=source_texts)
+        screen_pdf(original,'application/pdf');source_bytes=original.read_bytes();source_hash=hashlib.sha256(source_bytes).digest()
+        key=put_original(scope.owner_id,scope.document_version_id,original,source_hash.hex())
+        _insert_owned_version(conn,scope.owner_id,scope.paper_id,scope.document_version_id,key,source_hash.hex(),len(source_bytes))
+        job=insert_job(conn,scope.owner_id,scope.document_version_id);conn.commit()
+        assert b''.join(get_owned_original(conn,scope.owner_id,scope.paper_id,scope.document_version_id))==source_bytes
+        conn.commit()
+        lease=claim_due(conn,'index-test');seal_profile(conn,lease,profile)
+        original_ref=ArtifactRef(key,source_hash,len(source_bytes))
+        commit_stage(conn,lease,StageManifest('validating',profile.profile_hash,source_hash,1,(original_ref,)),'parsing')
+        lease=replace(lease,stage='parsing')
+        parsed=directory/'parser.jsonl';limits=SandboxLimits.full_parser();parse_pdf(original,parsed,limits)
+        parser_records=list(read_parser_records(parsed,limits));parser_ref=put_artifact(scope,profile.profile_hash,'parsing',parsed)
+        commit_stage(conn,lease,StageManifest('parsing',profile.profile_hash,parser_ref.sha256,len(parser_records),(parser_ref,)),'normalizing')
+        lease=replace(lease,stage='normalizing')
+        records=list(normalize_records(parser_records,profile,scope=scope));write_canonical_batch(conn,lease,records)
+        canonical_hash=hashlib.sha256(b''.join(record.id.bytes for record in records)).digest()
+        commit_stage(conn,lease,StageManifest('normalizing',profile.profile_hash,canonical_hash,len(records),(parser_ref,)),'chunking')
+        lease=replace(lease,stage='chunking')
+        chunks=[]
+        for section in iter_sections(records):chunks.extend(chunk_section(section,profile,start_ordinal=len(chunks)))
+        write_chunk_batch(conn,lease,chunks)
+        chunk_hash=hashlib.sha256(b''.join(chunk.checksum for chunk in chunks)).digest()
+        commit_stage(conn,lease,StageManifest('chunking',profile.profile_hash,chunk_hash,len(chunks),()),'embedding')
+        lease=replace(lease,stage='embedding')
+        identity={'runtime':'ollama','version':'0.18.2','model_tag':profile.model_tag,'model_digest':profile.model_digest,'dimension':1024,'quantization':'F16'}
+        for ordinal,batch in enumerate(batched(chunks,4)):
+            vectors=array('f',([1.0]+[0.0]*1023)*len(batch)).tobytes()
+            path=directory/f'selected-{ordinal}.bin';path.write_bytes(vectors)
+            artifact=put_artifact(scope,profile.profile_hash,'embedding',path)
+            select_embedding_batch(conn,lease,ordinal,artifact,tuple(chunk.id for chunk in batch),selected_bytes=vectors,runtime_identity=identity)
+        manifest=seal_embedding_manifest(conn,lease);commit_stage(conn,lease,manifest,'indexing');lease=replace(lease,stage='indexing')
+        client.deadline=time.monotonic()+60
         index.ensure_collection(profile,client=client)
-        yield {'scope':scope,'job':job,'lease':lease,'profile':profile,'chunks':chunks,'collection':collection,
-            'client':client,'conn':conn,'get_conn':scoped_connection,'manifest':manifest}
+        return {'scope':scope,'job':job,'lease':lease,'profile':profile,'chunks':chunks,'collection':collection,
+            'client':client,'conn':conn,'get_conn':scoped_connection,'manifest':manifest,'source_bytes':source_bytes}
+    try:
+        yield build
     finally:
         client.deadline=time.monotonic()+30
         client.request('DELETE','/collections/'+collection)
+
+
+@pytest.fixture
+def selected_index(selected_index_factory,request):
+    return selected_index_factory(**dict(getattr(request,'param',{})))
+
+
+@pytest.fixture
+def research_sources(selected_index_factory,monkeypatch):
+    from researcy.retrieval import index,hybrid,repository as retrieval_repository
+    from researcy.retrieval.repository import load_ready_document,hydrate_hits
+    from test_schema import insert_paper,insert_job
+    from researcy.citations.models import ProposedCitation,StoredCitation
+    from researcy.citations.resolver import make_evidence_catalog,resolve_proposal
+    import time
+    owner=uuid4()
+    publications=[]
+    for position in range(5):
+        source=selected_index_factory(owner_id=owner if position<4 else uuid4(),
+            source_texts=(f'Source {position} evaluates exact experimental evidence and limitations.',))
+        deadline=time.monotonic()+60
+        index.index_selected(source['lease'],deadline)
+        receipt=index.verify_index(source['lease'],deadline)
+        index.publish_ready(source['conn'],source['lease'],receipt)
+        source['document']=load_ready_document(source['conn'],source['scope'].owner_id,source['scope'].paper_id,None)
+        publications.append(source)
+    conn=publications[0]['conn']
+    queued,version=insert_paper(conn,owner,None)
+    insert_job(conn,owner,version);conn.commit()
+    by_paper={source['scope'].paper_id:source for source in publications}
+    monkeypatch.setenv('DATABASE_URL',_database_url(conn.info.dbname))
+    monkeypatch.setattr(retrieval_repository,'get_conn',publications[0]['get_conn'])
+    hits={paper:tuple(hydrate_hits(source['document'],[(chunk_id,1.) for chunk_id in sorted(source['document'].chunk_ids)]))
+        for paper,source in by_paper.items()}
+    monkeypatch.setattr(hybrid,'retrieve_same_paper',lambda document,query,**kwargs:hits[document.scope.paper_id])
+    def resolved_idea_for(paper):
+        from researcy.research.models import AcceptedIdea
+        source=by_paper[paper]
+        catalog=make_evidence_catalog(hits[paper][:1])
+        citations=resolve_proposal(conn,source['document'],catalog,
+            ProposedCitation(source_ref='S1',evidence_quote=catalog['S1'].raw_excerpt))
+        idea=AcceptedIdea(observed_gap='The source reports experimental limitations.',
+            proposed_direction='Hypothesis: compare another controlled experiment.',
+            possible_method='Hypothesis: measure a matched baseline.',premise_citations=citations)
+        return (idea,),tuple(StoredCitation(c,0,c.raw_fragments) for c in citations)
+    return {'conn':conn,'owner_id':owner,'paper_ids':tuple(by_paper),
+        'foreign_id':publications[-1]['scope'].paper_id,'queued_id':queued,
+        'publications':publications,'hits':hits,'resolved_idea_for':resolved_idea_for}

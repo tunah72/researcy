@@ -1,0 +1,1071 @@
+{
+  "schema_version": 1,
+  "research_cases": [
+    {
+      "id": "R1",
+      "active_source": "1706.03762",
+      "selected_sources": [
+        "2105.02358"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": true,
+      "premise_groups": [
+        "A-attention",
+        "B-linear"
+      ],
+      "role": "research",
+      "allocation": "research",
+      "max_attempts": 2
+    },
+    {
+      "id": "R2",
+      "active_source": "2105.02358",
+      "selected_sources": [
+        "1706.03762"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": false,
+      "premise_groups": [
+        "A-multihead"
+      ],
+      "selected_only_group": "A-multihead",
+      "role": "research",
+      "allocation": "research",
+      "max_attempts": 2
+    },
+    {
+      "id": "R3",
+      "active_source": "1706.03762",
+      "selected_sources": [
+        "2105.02358",
+        "2202.09741"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": false,
+      "premise_groups": [
+        "A-position"
+      ],
+      "active_only_group": "A-position",
+      "role": "research",
+      "allocation": "research",
+      "max_attempts": 2
+    },
+    {
+      "id": "R4",
+      "active_source": "1706.03762",
+      "selected_sources": [
+        "2105.02358",
+        "2202.09741",
+        "2005.11401"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": false,
+      "premise_groups": [
+        "A-attention",
+        "B-linear",
+        "C-challenges",
+        "D-memory"
+      ],
+      "role": "research",
+      "allocation": "research",
+      "max_attempts": 2
+    },
+    {
+      "id": "R5",
+      "active_source": "control-insufficient-a",
+      "selected_sources": [
+        "control-insufficient-b"
+      ],
+      "expectation": "insufficient",
+      "requires_cross_source": false,
+      "premise_groups": [
+        "N-insufficient-a",
+        "N-insufficient-b"
+      ],
+      "controlled": true,
+      "role": "research",
+      "allocation": "research",
+      "max_attempts": 2
+    },
+    {
+      "id": "R6",
+      "active_source": "control-limitation",
+      "selected_sources": [
+        "1706.03762"
+      ],
+      "expectation": "hypothesis",
+      "requires_cross_source": false,
+      "premise_groups": [
+        "L-limitation",
+        "A-attention"
+      ],
+      "controlled": true,
+      "role": "research",
+      "allocation": "research",
+      "max_attempts": 2
+    },
+    {
+      "id": "R7",
+      "active_source": "control-hostile",
+      "selected_sources": [
+        "2105.02358"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": false,
+      "premise_groups": [
+        "H-attention",
+        "B-linear"
+      ],
+      "controlled": true,
+      "hostile": true,
+      "role": "research",
+      "allocation": "research",
+      "max_attempts": 2
+    },
+    {
+      "id": "R8",
+      "active_source": "1706.03762",
+      "selected_sources": [
+        "2105.02358"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": true,
+      "premise_groups": [
+        "A-attention",
+        "B-linear"
+      ],
+      "subsequent_to": "R7",
+      "role": "research",
+      "allocation": "research",
+      "max_attempts": 2
+    }
+  ],
+  "retained_q0_cases": [
+    {
+      "id": "1706.03762-answer-1",
+      "source_id": "1706.03762",
+      "answerable": true,
+      "page_index": 3,
+      "historical": true
+    },
+    {
+      "id": "1706.03762-answer-2",
+      "source_id": "1706.03762",
+      "answerable": true,
+      "page_index": 4,
+      "historical": true
+    },
+    {
+      "id": "1706.03762-answer-3",
+      "source_id": "1706.03762",
+      "answerable": true,
+      "page_index": 5,
+      "historical": true
+    },
+    {
+      "id": "1706.03762-answer-4",
+      "source_id": "1706.03762",
+      "answerable": true,
+      "page_index": 2,
+      "historical": true
+    },
+    {
+      "id": "1706.03762-unanswerable",
+      "source_id": "1706.03762",
+      "answerable": false,
+      "page_index": null,
+      "historical": true
+    },
+    {
+      "id": "2005.11401-answer-1",
+      "source_id": "2005.11401",
+      "answerable": true,
+      "page_index": 1,
+      "historical": true
+    },
+    {
+      "id": "2005.11401-answer-2",
+      "source_id": "2005.11401",
+      "answerable": true,
+      "page_index": 2,
+      "historical": true
+    },
+    {
+      "id": "2005.11401-answer-3",
+      "source_id": "2005.11401",
+      "answerable": true,
+      "page_index": 1,
+      "historical": true
+    },
+    {
+      "id": "2005.11401-answer-4",
+      "source_id": "2005.11401",
+      "answerable": true,
+      "page_index": 5,
+      "historical": true
+    },
+    {
+      "id": "2005.11401-unanswerable",
+      "source_id": "2005.11401",
+      "answerable": false,
+      "page_index": null,
+      "historical": true
+    }
+  ],
+  "hosted_cases": [
+    {
+      "id": "R1",
+      "active_source": "1706.03762",
+      "selected_sources": [
+        "2105.02358"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": true,
+      "premise_groups": [
+        "A-attention",
+        "B-linear"
+      ],
+      "role": "research",
+      "allocation": "research",
+      "max_attempts": 2
+    },
+    {
+      "id": "R2",
+      "active_source": "2105.02358",
+      "selected_sources": [
+        "1706.03762"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": false,
+      "premise_groups": [
+        "A-multihead"
+      ],
+      "selected_only_group": "A-multihead",
+      "role": "research",
+      "allocation": "research",
+      "max_attempts": 2
+    },
+    {
+      "id": "R3",
+      "active_source": "1706.03762",
+      "selected_sources": [
+        "2105.02358",
+        "2202.09741"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": false,
+      "premise_groups": [
+        "A-position"
+      ],
+      "active_only_group": "A-position",
+      "role": "research",
+      "allocation": "research",
+      "max_attempts": 2
+    },
+    {
+      "id": "R4",
+      "active_source": "1706.03762",
+      "selected_sources": [
+        "2105.02358",
+        "2202.09741",
+        "2005.11401"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": false,
+      "premise_groups": [
+        "A-attention",
+        "B-linear",
+        "C-challenges",
+        "D-memory"
+      ],
+      "role": "research",
+      "allocation": "research",
+      "max_attempts": 2
+    },
+    {
+      "id": "R5",
+      "active_source": "control-insufficient-a",
+      "selected_sources": [
+        "control-insufficient-b"
+      ],
+      "expectation": "insufficient",
+      "requires_cross_source": false,
+      "premise_groups": [
+        "N-insufficient-a",
+        "N-insufficient-b"
+      ],
+      "controlled": true,
+      "role": "research",
+      "allocation": "research",
+      "max_attempts": 2
+    },
+    {
+      "id": "R6",
+      "active_source": "control-limitation",
+      "selected_sources": [
+        "1706.03762"
+      ],
+      "expectation": "hypothesis",
+      "requires_cross_source": false,
+      "premise_groups": [
+        "L-limitation",
+        "A-attention"
+      ],
+      "controlled": true,
+      "role": "research",
+      "allocation": "research",
+      "max_attempts": 2
+    },
+    {
+      "id": "R7",
+      "active_source": "control-hostile",
+      "selected_sources": [
+        "2105.02358"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": false,
+      "premise_groups": [
+        "H-attention",
+        "B-linear"
+      ],
+      "controlled": true,
+      "hostile": true,
+      "role": "research",
+      "allocation": "research",
+      "max_attempts": 2
+    },
+    {
+      "id": "R8",
+      "active_source": "1706.03762",
+      "selected_sources": [
+        "2105.02358"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": true,
+      "premise_groups": [
+        "A-attention",
+        "B-linear"
+      ],
+      "subsequent_to": "R7",
+      "role": "research",
+      "allocation": "research",
+      "max_attempts": 2
+    },
+    {
+      "id": "E1",
+      "role": "reader",
+      "allocation": "reader",
+      "active_source": "1706.03762",
+      "selected_sources": [],
+      "expectation": "supported",
+      "reference_case": "1706.03762-answer-1",
+      "max_attempts": 2
+    },
+    {
+      "id": "E2",
+      "role": "reader",
+      "allocation": "reader",
+      "active_source": "1706.03762",
+      "selected_sources": [],
+      "expectation": "insufficient",
+      "reference_case": "1706.03762-unanswerable",
+      "max_attempts": 2
+    },
+    {
+      "id": "E3",
+      "role": "reader",
+      "allocation": "reader",
+      "active_source": "2005.11401",
+      "selected_sources": [],
+      "expectation": "follow_up",
+      "reference_case": "2005.11401-answer-2",
+      "max_attempts": 2
+    },
+    {
+      "id": "D1",
+      "role": "discovery",
+      "allocation": "discovery",
+      "active_source": "2105.02358",
+      "selected_sources": [],
+      "expectation": "search",
+      "max_attempts": 2
+    },
+    {
+      "id": "D2",
+      "role": "discovery",
+      "allocation": "discovery",
+      "active_source": "2202.09741",
+      "selected_sources": [],
+      "expectation": "search",
+      "max_attempts": 2
+    },
+    {
+      "id": "B1",
+      "role": "reader",
+      "allocation": "demo",
+      "active_source": "1706.03762",
+      "selected_sources": [],
+      "expectation": "supported",
+      "reference_case": "1706.03762-answer-1",
+      "max_attempts": 2,
+      "product_journey": true
+    },
+    {
+      "id": "B2",
+      "role": "discovery",
+      "allocation": "demo",
+      "active_source": "2105.02358",
+      "selected_sources": [],
+      "expectation": "search",
+      "max_attempts": 2,
+      "product_journey": true
+    },
+    {
+      "id": "B3",
+      "role": "research",
+      "allocation": "demo",
+      "active_source": "1706.03762",
+      "selected_sources": [
+        "2105.02358"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": true,
+      "max_attempts": 2,
+      "product_journey": true
+    }
+  ],
+  "local_cases": [
+    {
+      "id": "L-PARSER",
+      "role": "parser",
+      "local_only": true
+    },
+    {
+      "id": "1706.03762-answer-1",
+      "role": "retrieval",
+      "active_source": "1706.03762",
+      "selected_sources": [],
+      "local_only": true
+    },
+    {
+      "id": "1706.03762-answer-2",
+      "role": "retrieval",
+      "active_source": "1706.03762",
+      "selected_sources": [],
+      "local_only": true
+    },
+    {
+      "id": "1706.03762-answer-3",
+      "role": "retrieval",
+      "active_source": "1706.03762",
+      "selected_sources": [],
+      "local_only": true
+    },
+    {
+      "id": "1706.03762-answer-4",
+      "role": "retrieval",
+      "active_source": "1706.03762",
+      "selected_sources": [],
+      "local_only": true
+    },
+    {
+      "id": "2005.11401-answer-1",
+      "role": "retrieval",
+      "active_source": "2005.11401",
+      "selected_sources": [],
+      "local_only": true
+    },
+    {
+      "id": "2005.11401-answer-2",
+      "role": "retrieval",
+      "active_source": "2005.11401",
+      "selected_sources": [],
+      "local_only": true
+    },
+    {
+      "id": "2005.11401-answer-3",
+      "role": "retrieval",
+      "active_source": "2005.11401",
+      "selected_sources": [],
+      "local_only": true
+    },
+    {
+      "id": "2005.11401-answer-4",
+      "role": "retrieval",
+      "active_source": "2005.11401",
+      "selected_sources": [],
+      "local_only": true
+    },
+    {
+      "id": "L-invalid-selection",
+      "role": "route",
+      "local_only": true,
+      "controlled": true,
+      "expectation": "rejected"
+    },
+    {
+      "id": "L-wrong-version",
+      "role": "route",
+      "local_only": true,
+      "controlled": true,
+      "expectation": "rejected"
+    },
+    {
+      "id": "L-unselected-source",
+      "role": "route",
+      "local_only": true,
+      "controlled": true,
+      "expectation": "rejected"
+    },
+    {
+      "id": "L-ambiguous-quote",
+      "role": "route",
+      "local_only": true,
+      "controlled": true,
+      "expectation": "rejected"
+    },
+    {
+      "id": "L-missing-box",
+      "role": "route",
+      "local_only": true,
+      "controlled": true,
+      "expectation": "rejected"
+    },
+    {
+      "id": "L-multipage",
+      "role": "route",
+      "local_only": true,
+      "controlled": true,
+      "expectation": "rejected"
+    },
+    {
+      "id": "L-malformed-output",
+      "role": "route",
+      "local_only": true,
+      "controlled": true,
+      "expectation": "rejected"
+    },
+    {
+      "id": "L-unsupported-action",
+      "role": "route",
+      "local_only": true,
+      "controlled": true,
+      "expectation": "rejected"
+    },
+    {
+      "id": "L-transport-failure",
+      "role": "route",
+      "local_only": true,
+      "controlled": true,
+      "expectation": "rejected"
+    },
+    {
+      "id": "L-interruption",
+      "role": "route",
+      "local_only": true,
+      "controlled": true,
+      "expectation": "rejected"
+    }
+  ],
+  "case_change_policy": "Freeze before generated output; changes create a separately named campaign. Diagnostics retain the original failed observation, never substitute a pass.",
+  "diagnostic_cases": [
+    {
+      "id": "X1-R1",
+      "active_source": "1706.03762",
+      "selected_sources": [
+        "2105.02358"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": true,
+      "premise_groups": [
+        "A-attention",
+        "B-linear"
+      ],
+      "role": "research",
+      "allocation": "diagnostic",
+      "max_attempts": 2,
+      "diagnostic_of": "R1",
+      "product_journey": false
+    },
+    {
+      "id": "X1-R2",
+      "active_source": "2105.02358",
+      "selected_sources": [
+        "1706.03762"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": false,
+      "premise_groups": [
+        "A-multihead"
+      ],
+      "selected_only_group": "A-multihead",
+      "role": "research",
+      "allocation": "diagnostic",
+      "max_attempts": 2,
+      "diagnostic_of": "R2",
+      "product_journey": false
+    },
+    {
+      "id": "X1-R3",
+      "active_source": "1706.03762",
+      "selected_sources": [
+        "2105.02358",
+        "2202.09741"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": false,
+      "premise_groups": [
+        "A-position"
+      ],
+      "active_only_group": "A-position",
+      "role": "research",
+      "allocation": "diagnostic",
+      "max_attempts": 2,
+      "diagnostic_of": "R3",
+      "product_journey": false
+    },
+    {
+      "id": "X1-R4",
+      "active_source": "1706.03762",
+      "selected_sources": [
+        "2105.02358",
+        "2202.09741",
+        "2005.11401"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": false,
+      "premise_groups": [
+        "A-attention",
+        "B-linear",
+        "C-challenges",
+        "D-memory"
+      ],
+      "role": "research",
+      "allocation": "diagnostic",
+      "max_attempts": 2,
+      "diagnostic_of": "R4",
+      "product_journey": false
+    },
+    {
+      "id": "X1-R5",
+      "active_source": "control-insufficient-a",
+      "selected_sources": [
+        "control-insufficient-b"
+      ],
+      "expectation": "insufficient",
+      "requires_cross_source": false,
+      "premise_groups": [
+        "N-insufficient-a",
+        "N-insufficient-b"
+      ],
+      "controlled": true,
+      "role": "research",
+      "allocation": "diagnostic",
+      "max_attempts": 2,
+      "diagnostic_of": "R5",
+      "product_journey": false
+    },
+    {
+      "id": "X1-R6",
+      "active_source": "control-limitation",
+      "selected_sources": [
+        "1706.03762"
+      ],
+      "expectation": "hypothesis",
+      "requires_cross_source": false,
+      "premise_groups": [
+        "L-limitation",
+        "A-attention"
+      ],
+      "controlled": true,
+      "role": "research",
+      "allocation": "diagnostic",
+      "max_attempts": 2,
+      "diagnostic_of": "R6",
+      "product_journey": false
+    },
+    {
+      "id": "X1-R7",
+      "active_source": "control-hostile",
+      "selected_sources": [
+        "2105.02358"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": false,
+      "premise_groups": [
+        "H-attention",
+        "B-linear"
+      ],
+      "controlled": true,
+      "hostile": true,
+      "role": "research",
+      "allocation": "diagnostic",
+      "max_attempts": 2,
+      "diagnostic_of": "R7",
+      "product_journey": false
+    },
+    {
+      "id": "X1-R8",
+      "active_source": "1706.03762",
+      "selected_sources": [
+        "2105.02358"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": true,
+      "premise_groups": [
+        "A-attention",
+        "B-linear"
+      ],
+      "subsequent_to": "R7",
+      "role": "research",
+      "allocation": "diagnostic",
+      "max_attempts": 2,
+      "diagnostic_of": "R8",
+      "product_journey": false
+    },
+    {
+      "id": "X1-E1",
+      "role": "reader",
+      "allocation": "diagnostic",
+      "active_source": "1706.03762",
+      "selected_sources": [],
+      "expectation": "supported",
+      "reference_case": "1706.03762-answer-1",
+      "max_attempts": 2,
+      "diagnostic_of": "E1",
+      "product_journey": false
+    },
+    {
+      "id": "X1-E2",
+      "role": "reader",
+      "allocation": "diagnostic",
+      "active_source": "1706.03762",
+      "selected_sources": [],
+      "expectation": "insufficient",
+      "reference_case": "1706.03762-unanswerable",
+      "max_attempts": 2,
+      "diagnostic_of": "E2",
+      "product_journey": false
+    },
+    {
+      "id": "X1-E3",
+      "role": "reader",
+      "allocation": "diagnostic",
+      "active_source": "2005.11401",
+      "selected_sources": [],
+      "expectation": "follow_up",
+      "reference_case": "2005.11401-answer-2",
+      "max_attempts": 2,
+      "diagnostic_of": "E3",
+      "product_journey": false
+    },
+    {
+      "id": "X1-D1",
+      "role": "discovery",
+      "allocation": "diagnostic",
+      "active_source": "2105.02358",
+      "selected_sources": [],
+      "expectation": "search",
+      "max_attempts": 2,
+      "diagnostic_of": "D1",
+      "product_journey": false
+    },
+    {
+      "id": "X1-D2",
+      "role": "discovery",
+      "allocation": "diagnostic",
+      "active_source": "2202.09741",
+      "selected_sources": [],
+      "expectation": "search",
+      "max_attempts": 2,
+      "diagnostic_of": "D2",
+      "product_journey": false
+    },
+    {
+      "id": "X1-B1",
+      "role": "reader",
+      "allocation": "diagnostic",
+      "active_source": "1706.03762",
+      "selected_sources": [],
+      "expectation": "supported",
+      "reference_case": "1706.03762-answer-1",
+      "max_attempts": 2,
+      "product_journey": false,
+      "diagnostic_of": "B1"
+    },
+    {
+      "id": "X1-B2",
+      "role": "discovery",
+      "allocation": "diagnostic",
+      "active_source": "2105.02358",
+      "selected_sources": [],
+      "expectation": "search",
+      "max_attempts": 2,
+      "product_journey": false,
+      "diagnostic_of": "B2"
+    },
+    {
+      "id": "X1-B3",
+      "role": "research",
+      "allocation": "diagnostic",
+      "active_source": "1706.03762",
+      "selected_sources": [
+        "2105.02358"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": true,
+      "max_attempts": 2,
+      "product_journey": false,
+      "diagnostic_of": "B3"
+    },
+    {
+      "id": "X2-R1",
+      "active_source": "1706.03762",
+      "selected_sources": [
+        "2105.02358"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": true,
+      "premise_groups": [
+        "A-attention",
+        "B-linear"
+      ],
+      "role": "research",
+      "allocation": "diagnostic",
+      "max_attempts": 2,
+      "diagnostic_of": "R1",
+      "product_journey": false
+    },
+    {
+      "id": "X2-R2",
+      "active_source": "2105.02358",
+      "selected_sources": [
+        "1706.03762"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": false,
+      "premise_groups": [
+        "A-multihead"
+      ],
+      "selected_only_group": "A-multihead",
+      "role": "research",
+      "allocation": "diagnostic",
+      "max_attempts": 2,
+      "diagnostic_of": "R2",
+      "product_journey": false
+    },
+    {
+      "id": "X2-R3",
+      "active_source": "1706.03762",
+      "selected_sources": [
+        "2105.02358",
+        "2202.09741"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": false,
+      "premise_groups": [
+        "A-position"
+      ],
+      "active_only_group": "A-position",
+      "role": "research",
+      "allocation": "diagnostic",
+      "max_attempts": 2,
+      "diagnostic_of": "R3",
+      "product_journey": false
+    },
+    {
+      "id": "X2-R4",
+      "active_source": "1706.03762",
+      "selected_sources": [
+        "2105.02358",
+        "2202.09741",
+        "2005.11401"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": false,
+      "premise_groups": [
+        "A-attention",
+        "B-linear",
+        "C-challenges",
+        "D-memory"
+      ],
+      "role": "research",
+      "allocation": "diagnostic",
+      "max_attempts": 2,
+      "diagnostic_of": "R4",
+      "product_journey": false
+    },
+    {
+      "id": "X2-R5",
+      "active_source": "control-insufficient-a",
+      "selected_sources": [
+        "control-insufficient-b"
+      ],
+      "expectation": "insufficient",
+      "requires_cross_source": false,
+      "premise_groups": [
+        "N-insufficient-a",
+        "N-insufficient-b"
+      ],
+      "controlled": true,
+      "role": "research",
+      "allocation": "diagnostic",
+      "max_attempts": 2,
+      "diagnostic_of": "R5",
+      "product_journey": false
+    },
+    {
+      "id": "X2-R6",
+      "active_source": "control-limitation",
+      "selected_sources": [
+        "1706.03762"
+      ],
+      "expectation": "hypothesis",
+      "requires_cross_source": false,
+      "premise_groups": [
+        "L-limitation",
+        "A-attention"
+      ],
+      "controlled": true,
+      "role": "research",
+      "allocation": "diagnostic",
+      "max_attempts": 2,
+      "diagnostic_of": "R6",
+      "product_journey": false
+    },
+    {
+      "id": "X2-R7",
+      "active_source": "control-hostile",
+      "selected_sources": [
+        "2105.02358"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": false,
+      "premise_groups": [
+        "H-attention",
+        "B-linear"
+      ],
+      "controlled": true,
+      "hostile": true,
+      "role": "research",
+      "allocation": "diagnostic",
+      "max_attempts": 2,
+      "diagnostic_of": "R7",
+      "product_journey": false
+    },
+    {
+      "id": "X2-R8",
+      "active_source": "1706.03762",
+      "selected_sources": [
+        "2105.02358"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": true,
+      "premise_groups": [
+        "A-attention",
+        "B-linear"
+      ],
+      "subsequent_to": "R7",
+      "role": "research",
+      "allocation": "diagnostic",
+      "max_attempts": 2,
+      "diagnostic_of": "R8",
+      "product_journey": false
+    },
+    {
+      "id": "X2-E1",
+      "role": "reader",
+      "allocation": "diagnostic",
+      "active_source": "1706.03762",
+      "selected_sources": [],
+      "expectation": "supported",
+      "reference_case": "1706.03762-answer-1",
+      "max_attempts": 2,
+      "diagnostic_of": "E1",
+      "product_journey": false
+    },
+    {
+      "id": "X2-E2",
+      "role": "reader",
+      "allocation": "diagnostic",
+      "active_source": "1706.03762",
+      "selected_sources": [],
+      "expectation": "insufficient",
+      "reference_case": "1706.03762-unanswerable",
+      "max_attempts": 2,
+      "diagnostic_of": "E2",
+      "product_journey": false
+    },
+    {
+      "id": "X2-E3",
+      "role": "reader",
+      "allocation": "diagnostic",
+      "active_source": "2005.11401",
+      "selected_sources": [],
+      "expectation": "follow_up",
+      "reference_case": "2005.11401-answer-2",
+      "max_attempts": 2,
+      "diagnostic_of": "E3",
+      "product_journey": false
+    },
+    {
+      "id": "X2-D1",
+      "role": "discovery",
+      "allocation": "diagnostic",
+      "active_source": "2105.02358",
+      "selected_sources": [],
+      "expectation": "search",
+      "max_attempts": 2,
+      "diagnostic_of": "D1",
+      "product_journey": false
+    },
+    {
+      "id": "X2-D2",
+      "role": "discovery",
+      "allocation": "diagnostic",
+      "active_source": "2202.09741",
+      "selected_sources": [],
+      "expectation": "search",
+      "max_attempts": 2,
+      "diagnostic_of": "D2",
+      "product_journey": false
+    },
+    {
+      "id": "X2-B1",
+      "role": "reader",
+      "allocation": "diagnostic",
+      "active_source": "1706.03762",
+      "selected_sources": [],
+      "expectation": "supported",
+      "reference_case": "1706.03762-answer-1",
+      "max_attempts": 2,
+      "product_journey": false,
+      "diagnostic_of": "B1"
+    },
+    {
+      "id": "X2-B2",
+      "role": "discovery",
+      "allocation": "diagnostic",
+      "active_source": "2105.02358",
+      "selected_sources": [],
+      "expectation": "search",
+      "max_attempts": 2,
+      "product_journey": false,
+      "diagnostic_of": "B2"
+    },
+    {
+      "id": "X2-B3",
+      "role": "research",
+      "allocation": "diagnostic",
+      "active_source": "1706.03762",
+      "selected_sources": [
+        "2105.02358"
+      ],
+      "expectation": "supported",
+      "requires_cross_source": true,
+      "max_attempts": 2,
+      "product_journey": false,
+      "diagnostic_of": "B3"
+    }
+  ]
+}

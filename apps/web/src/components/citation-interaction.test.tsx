@@ -124,3 +124,16 @@ it('accepted evidence from another owned conversation remains unavailable under 
   expect(await screen.findByRole('alert')).toHaveTextContent(/unavailable/i);
   expect(screen.queryByText(first.evidence_quote)).not.toBeInTheDocument();
 });
+
+it('requires current authenticated message membership again when activating a displayed citation', async () => {
+  const initial = await api.listMessages('conversation');
+  vi.mocked(api.listMessages).mockResolvedValueOnce(initial).mockResolvedValue({
+    messages: [{ ...initial.messages[0], citations: [] }], next_after: null, request_id: 'request',
+  });
+  const user = userEvent.setup();
+  render(<ReaderWorkspace paper={paper} source={source} />);
+  await user.click(await screen.findByRole('button', { name: 'Citation 1' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent(/unavailable/i);
+  expect(screen.queryByText(first.evidence_quote)).not.toBeInTheDocument();
+  expect(new URL(window.location.href).searchParams.has('citation')).toBe(false);
+});
