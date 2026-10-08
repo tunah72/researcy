@@ -17,6 +17,23 @@ An evidence-first, reader-centric research platform designed to eliminate LLM ha
 
 Researcy delivers the complete research engineering lifecycle: durable asynchronous PDF ingestion with Linux Bubblewrap sandboxing, dual-pass hybrid retrieval fusing dense vectors (**BGE-M3 567M**) and PostgreSQL lexical trigrams via Reciprocal Rank Fusion (**RRF**), bounded in-process multi-agent orchestration (**ReaderAgent**, **DiscoveryAgent**, **ResearchAgent**) using **LangGraph**, zero-trust private object storage, single-origin opaque cookie session authentication, and an editorial research UI built with **Next.js 16** and **React 19**.
 
+## Demo
+
+https://github.com/user-attachments/assets/4df66eae-164f-45f1-811b-f1dee443646b
+
+**1 minute 39 seconds · 5.1 MiB · Full-frame walkthrough with action highlights and original ambient music.**
+
+| Time | User journey |
+| :--- | :--- |
+| 00:00–00:09 | Browse the Library and search for papers. |
+| 00:09–00:23 | Import from arXiv or upload a PDF; distinguish saved papers from processing readiness. |
+| 00:23–00:43 | Read the original PDF, navigate its outline, and ask document-grounded questions. |
+| 00:43–00:53 | Open a citation, inspect its quote, and locate the highlighted source passage. |
+| 00:53–01:14 | Explore metadata-based Discovery recommendations, explicitly add a paper, and open it when ready. |
+| 01:14–01:39 | Select Research sources, generate proposed directions, inspect premise citations, and return to the active paper. |
+
+The video shows recorded UI behavior, not milestone acceptance evidence. Research directions and methods remain hypotheses.
+
 ---
 
 ## 🌐 Local Production Stack & Service Endpoints
